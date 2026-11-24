@@ -26,9 +26,13 @@ const texte = (statut: number, t: string): Reponse =>
 /** Une valeur dans un `<script>` : du JSON dont aucun `<` ne peut fermer la balise. PURE. */
 const enScript = (v: string): string => JSON.stringify(v).replace(/</g, '\\u003c');
 
-/** `index.html` avec l'environnement de l'app, posé avant tout script. PURE. */
+/**
+ * `index.html` avec l'environnement de l'app, posé avant tout script, et l'adresse où elle est servie (`<base>`). Un
+ * build se fait UNE fois, avec des chemins relatifs (`vite build --base ./`) : le même dist sert l'aperçu, le brouillon
+ * et le site public, chacun à son adresse ; c'est ce qui permet de publier sans reconstruire. PURE.
+ */
 export function poserLEnvironnement(html: string, env: EnvDeLApp): string {
-  const script = `<script>window.__SUPABASE_URL__=${enScript(env.supabaseUrl)};window.__SUPABASE_ANON_KEY__=${enScript(env.cleAnonyme)};`
+  const script = `<base href="${env.base.replace(/[^\w/.-]/g, '')}">` + `<script>window.__SUPABASE_URL__=${enScript(env.supabaseUrl)};window.__SUPABASE_ANON_KEY__=${enScript(env.cleAnonyme)};`
     + `window.__DATABASE_SCHEMA__=${enScript(env.schema)};window.__VAVI_BASENAME__=${enScript(env.base)};</script>`;
   const tete = /<head[^>]*>/i.exec(html);
   return tete ? html.replace(tete[0], `${tete[0]}${script}`) : `${script}${html}`;

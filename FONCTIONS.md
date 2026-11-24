@@ -18,21 +18,21 @@ dépendances déclarées.
 | gardes | Les gardes du dépôt (cette liste, la fermeture des imports) et l'écriture des migrations | scripts | test/fonctions.test.ts | relais, projets | neuve | 1 |
 | backend | Base par projet dérivée d'app.json : tables, RLS, cycles, journal, membres (SQL pur) | lib/backend | test/backend/ | — | reprise | 2 |
 | relais | Base de la plateforme : schéma par projet, pose de la base, relais navigateur → base sous la RLS (`voie_neuve_*`), agir pour un compte | lib/relais | test/relais/ | backend | reprise | 2 |
-| projets | Les projets d'un compte et les fichiers que Claude écrit, gardés tels quels (tables de la plateforme, écriture d'un lot en une transaction) | lib/projets | test/projets/ | — | neuve | 5 |
+| projets | Les projets d'un compte et les fichiers que Claude écrit, gardés tels quels (tables de la plateforme, écriture d'un lot en une transaction), l'arbre construit qu'ils donnent, le build désigné (aperçu, en ligne) | lib/projets | test/projets/ | backend, squelette | neuve | 5 |
 | squelette | Squelette d'app : le gabarit Vite/React et ses briques (`squelette/gabarit`, des données), les fichiers figés dérivés d'app.json, ce que l'app tire | squelette | test/squelette/ | backend, design | reprise | 3 |
 | design | Règles de design, peau (jetons, contraste construit), exemples de design | lib/design | test/design/ | backend | reprise | 3 |
 | atelier | Construire une app dans un atelier : ses paquets une fois par verrou, `tsc` puis `vite build`, le dist ou les erreurs (fichier, ligne) | lib/atelier | test/atelier/ | — | reprise | 4 |
 | publication | Publier un dist sur le magasin d'objets (S3), servir l'aperçu `/p/<id>/` avec l'environnement public de l'app | lib/publication | test/publication/ | — | reprise | 4 |
 | consignes | Ce que le serveur MCP dit à Claude : instructions, prompts, ressources, forme des refus, guide de la personne (multilingue) | lib/consignes | test/consignes.test.ts | — | neuve | 5 |
-| mcp | Serveur MCP constructeur : les 13 outils du cahier des garde-fous (refus de la liste fermée), prompts, ressources, et son OAuth (inscription dynamique, PKCE S256, jetons scellés à déchiffrement strict) | lib/mcp | test/mcp/ | socle, backend, relais, squelette, atelier, publication, projets, consignes | neuve | 5 |
+| mcp | Serveur MCP constructeur : les 13 outils du cahier des garde-fous (refus de la liste fermée), prompts, ressources, et son OAuth (inscription dynamique, PKCE S256, jetons scellés à déchiffrement strict) | lib/mcp | test/mcp/ | socle, backend, relais, squelette, atelier, publication, projets, versions, consignes | neuve | 5 |
 | seo | Référencement, pré-rendu des pages publiques, découverte (sitemap, robots, llms.txt) | lib/seo | test/seo.test.ts | publication | à reprendre | 6 |
 | vente | Vente Stripe : prix lu en base, webhook signé, commande, TVA, facture, accès payé | lib/vente | test/vente.test.ts | socle, backend | à reprendre | 6 |
 | domaines | Domaines personnalisés et leurs certificats | lib/domaines | test/domaines.test.ts | socle | à reprendre | 6 |
-| versions | Versions et « Revenir à cet état » | lib/versions | test/versions.test.ts | socle | à reprendre | 6 |
+| versions | Revenir à une version (outil `rollback`, « Revenir à cet état » de la console), en une version nouvelle, la base reposée si app.json change | lib/versions | test/versions/ | projets, relais | neuve | 6 |
 | contenus | Contenus modifiables sans modèle (`data-texte`) | lib/contenus | test/contenus.test.ts | publication | à reprendre | 6 |
 | formulaires | Formulaires jugés par la plateforme (anti-spam), mesure d'audience sans cookie | lib/formulaires | test/formulaires.test.ts | socle | à reprendre | 6 |
 | export | Export vers un hébergeur (OVH, Infomaniak, Netlify, Vercel) et GitHub | lib/export | test/export.test.ts | publication | à reprendre | 6 |
-| tableau-de-bord | Tableau de bord : projets, aperçu, panneaux (données, contenus, SEO, domaines…) | app/projets | test/tableau-de-bord.test.ts | socle, versions, contenus, domaines | à reprendre | 6 |
+| tableau-de-bord | La console : connexion par lien, projets, aperçu et site en ligne, bouton « Publier » (la personne seule met en ligne), versions et « Revenir à cet état », secrets (noms seulement) | app/projets | test/tableau-de-bord.test.ts | socle, projets, versions, mcp | neuve | 6 |
 | automatisations | Automatisations : moteur, registre, tic | lib/automatisations | test/automatisations.test.ts | socle, backend, capacites | à reprendre | 7 |
 | connecteurs | Connecteurs (Google Drive, OneDrive, clés API) | lib/connecteurs | test/connecteurs.test.ts | socle | à reprendre | 7 |
 | agents | Agents de l'app, qui proposent seulement | lib/agents | test/agents.test.ts | socle, backend, capacites | à reprendre | 7 |

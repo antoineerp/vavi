@@ -1,0 +1,24 @@
+:root { --fond: #fafaf9; --surface: #ffffff; --texte: #1c1917; --attenue: #57534e; --bord: #e7e5e4; --accent: #1f6f5c; --accent-texte: #ffffff; --alerte: #b42318; }
+@media (prefers-color-scheme: dark) { :root { --fond: #1c1917; --surface: #292524; --texte: #fafaf9; --attenue: #d6d3d1; --bord: #44403c; --accent: #5fb89f; --accent-texte: #0c0a09; --alerte: #f97066; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--fond); color: var(--texte); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; line-height: 1.5; }
+.console { max-width: 960px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+.console.etroite { max-width: 480px; }
+.console h1 { font-size: 1.75rem; margin: 0 0 1rem; }
+.console h2 { font-size: 1.15rem; margin: 2rem 0 0.75rem; }
+.attenue { color: var(--attenue); }
+.carte { background: var(--surface); border: 1px solid var(--bord); border-radius: 12px; padding: 1rem 1.25rem; margin: 0.75rem 0; }
+.carte label { display: block; font-weight: 600; margin-bottom: 0.35rem; }
+input { width: 100%; padding: 0.6rem 0.7rem; border: 1px solid var(--bord); border-radius: 8px; background: var(--fond); color: var(--texte); font-size: 1rem; margin-bottom: 0.75rem; }
+button, .bouton { display: inline-block; padding: 0.6rem 1.1rem; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-texte); font-size: 1rem; font-weight: 600; cursor: pointer; text-decoration: none; }
+button.discret, .bouton.discret { background: transparent; color: var(--texte); border-color: var(--bord); font-weight: 500; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+.liste { list-style: none; padding: 0; margin: 0; }
+.liste li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid var(--bord); flex-wrap: wrap; }
+.liste li:last-child { border-bottom: 0; }
+.etat { display: inline-block; font-size: 0.85rem; padding: 0.15rem 0.55rem; border-radius: 999px; border: 1px solid var(--bord); color: var(--attenue); }
+.etat.vert { border-color: var(--accent); color: var(--accent); }
+.etat.rouge { border-color: var(--alerte); color: var(--alerte); }
+.ligne { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+a { color: var(--accent); }
+.entete { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }

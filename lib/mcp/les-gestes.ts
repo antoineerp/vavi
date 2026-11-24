@@ -21,7 +21,8 @@ import type { Magasin } from '@/lib/publication/le-magasin';
 import { publierLeDist, racineDuBuild } from '@/lib/publication/publier';
 import { refuser, suiteDeRefus, paquetInconnu, type Refus } from '@/lib/consignes';
 import { estUnFichierDEnvironnement, unSecretDans } from './les-secrets';
-import { lArbreDUnProjet, lEcartVers } from './l-arbre-d-un-projet';
+import { lArbreDUnProjet } from '@/lib/projets/l-arbre-d-un-projet';
+import { revenirA } from '@/lib/versions/revenir';
 
 export interface Contexte {
   readonly compte: string;
@@ -197,28 +198,15 @@ export async function ouvrirUnChantier(c: Contexte, a: { project: string; intent
   return fait({ work_session: o.valeur.chantier, resumed: o.valeur.repris, version: p.valeur.version, ...(o.valeur.repris ? { notes: note } : {}) });
 }
 
-/** Ramène l'arbre stocké à `cible` en une version (rollback, abandon) ; la base suit app.json s'il change. */
+/** Ramène l'arbre stocké à `cible` en une version (rollback, abandon), par `lib/versions` ; traduit en refus de Claude. */
 async function ramener(c: Contexte, id: string, chantier: string, cible: ReadonlyMap<string, string>, pourquoi: string): Promise<Etape<{ version: number; base: string | null }>> {
-  const f = await lesFichiers(c, id);
-  if (!f.ok) return f;
-  const { ecrits, supprimes } = lEcartVers(f.valeur, cible);
-  if (ecrits.size === 0 && supprimes.length === 0) {
-    const p = await leProjet(c, id);
-    return p.ok ? passe({ version: p.valeur.version, base: null }) : p;
+  const r = await revenirA(c, id, chantier, cible, pourquoi);
+  if (!r.revenu) {
+    return bloque(r.pourquoi === 'panne' ? panne(r.detail) : r.pourquoi === 'conflit' ? refuser('conflit', 'The project changed while going back.', { fichiers: r.fichiers })
+      : refuser('chantier_requis', 'The work session was closed.'));
   }
-  let base: string | null = null;
-  if (ecrits.has('app.json')) {
-    const m = lArbreDUnProjet(cible);
-    if (m.lu) {
-      const pose = await poserLaBase(c.base, id, m.manifeste, c.compte);
-      base = pose.posee ? 'laid out again from the restored app.json; the data stays' : `not laid out again: ${pose.motif}`;
-    }
-  }
-  const attendus = Object.fromEntries([...ecrits.keys(), ...supprimes].map((x) => [x, f.valeur.has(x) ? empreinteDuFichier(f.valeur.get(x)!) : null]));
-  const r = await c.projets.appliquer(c.compte, id, { chantier, attendus, ecrits, supprimes, pourquoi });
-  if (!r.lu) return bloque(panne(r.pourquoi));
-  if (!r.valeur.applique) return bloque('conflit' in r.valeur ? refuser('conflit', 'The project changed while going back.', { fichiers: r.valeur.conflit }) : refuser('chantier_requis', 'The work session was closed.'));
-  return passe({ version: r.valeur.version, base });
+  const base = r.base === null ? null : r.base.posee ? 'laid out again from the restored app.json; the data stays' : `not laid out again: ${r.base.motif}`;
+  return passe({ version: r.version, base });
 }
 
 export async function abandonnerLeChantier(c: Contexte, a: { project: string; work_session: string }): Promise<Rendu> {
@@ -376,7 +364,8 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
     return fait({ green: true, draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, rebuilt: false,
       note: 'Nothing changed since the last green build.' });
   }
-  const b = await c.construire(arbre.construit, `/p/${a.project}/`);
+  // Des chemins relatifs : le même build sert l'aperçu, le brouillon et le site public (`poserLEnvironnement`).
+  const b = await c.construire(arbre.construit, './');
   if (!b.construite) {
     await c.projets.enregistrerUnBuild(c.compte, a.project, { empreinte: arbre.empreinte, vert: false, ecarts: b.ecarts });
     const premier = b.ecarts[0];
