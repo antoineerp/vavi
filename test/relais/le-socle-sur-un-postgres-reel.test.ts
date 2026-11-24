@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { lireLeManifeste } from '@/lib/backend/app/manifeste';
 import { laMigrationDuSocle } from '@/lib/relais/le-socle-de-la-base';
 import { poserLaBase, type AppelDeLaBase } from '@/lib/relais/poser-la-base';
+import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { demarrer, POSTGRES_PRESENT, type UnPostgres } from '../aides/un-postgres';
 
 const lu = lireLeManifeste({
@@ -71,6 +72,7 @@ describe.runIf(POSTGRES_PRESENT)('le socle et le relais, sur un PostgreSQL réel
   it('la pose rend le schéma du projet, et la reposer ne change rien', async () => {
     const encore = await poserLaBase(commeLaPlateforme(pg), PROJET, m, MOI);
     expect(encore).toMatchObject({ posee: true, schema: S });
+    expect(schemaDuProjet(PROJET)).toBe(S);
   });
 
   it('un visiteur lit le public par le relais, jamais une table privée', () => {

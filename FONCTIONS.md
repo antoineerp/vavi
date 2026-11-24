@@ -20,8 +20,8 @@ dépendances déclarées.
 | relais | Base de la plateforme : schéma par projet, pose de la base, relais navigateur → base sous la RLS (`voie_neuve_*`), agir pour un compte | lib/relais | test/relais/ | backend | reprise | 2 |
 | squelette | Squelette d'app : le gabarit Vite/React et ses briques (`squelette/gabarit`, des données), les fichiers figés dérivés d'app.json, ce que l'app tire | squelette | test/squelette/ | backend, design | reprise | 3 |
 | design | Règles de design, peau (jetons, contraste construit), exemples de design | lib/design | test/design/ | backend | reprise | 3 |
-| atelier | Build dans un atelier éphémère (tsc, vite build) | lib/atelier | test/atelier.test.ts | — | à reprendre | 4 |
-| publication | Publication et aperçu sur le magasin d'objets, `/p/<id>` | lib/publication | test/publication.test.ts | atelier | à reprendre | 4 |
+| atelier | Construire une app dans un atelier : ses paquets une fois par verrou, `tsc` puis `vite build`, le dist ou les erreurs (fichier, ligne) | lib/atelier | test/atelier/ | — | reprise | 4 |
+| publication | Publier un dist sur le magasin d'objets (S3), servir l'aperçu `/p/<id>/` avec l'environnement public de l'app | lib/publication | test/publication/ | — | reprise | 4 |
 | mcp | Serveur MCP constructeur et son OAuth (inscription dynamique, PKCE S256) | lib/mcp | test/mcp.test.ts | socle, backend, squelette, atelier, publication, design | à reprendre | 5 |
 | seo | Référencement, pré-rendu des pages publiques, découverte (sitemap, robots, llms.txt) | lib/seo | test/seo.test.ts | publication | à reprendre | 6 |
 | vente | Vente Stripe : prix lu en base, webhook signé, commande, TVA, facture, accès payé | lib/vente | test/vente.test.ts | socle, backend | à reprendre | 6 |
