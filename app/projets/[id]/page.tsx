@@ -30,6 +30,7 @@ const ERREURS: Record<string, { fr: string; en: string }> = {
   aucune_offre: { fr: 'l’essai gratuit n’a que l’aperçu : choisissez une offre pour publier.', en: 'the free trial has the preview only: choose an offer to publish.' },
   suspendu: { fr: 'un paiement de votre abonnement manque : réglez-le pour publier.', en: 'a payment of your subscription is missing: settle it to publish.' },
   nature: { fr: 'votre offre publie des sites vitrines ; une boutique ou une app demande l’offre Boutique ou app.', en: 'your offer publishes showcase sites; a shop or an app needs the Shop or app offer.' },
+  export_reserve: { fr: 'l’export est réservé aux offres payantes.', en: 'export is for paid offers only.' },
   quota: { fr: 'votre offre a déjà tous ses projets en ligne : ajoutez-lui un projet.', en: 'your offer already has all its projects online: add a project to it.' },
   secret_mal_forme: { fr: 'le nom s’écrit en MAJUSCULES_ET_SOULIGNÉS, et la valeur ne peut pas être vide.', en: 'the name is UPPER_CASE_WITH_UNDERSCORES and the value cannot be empty.' },
 };
@@ -62,7 +63,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     <main className="console">
       <div className="ligne" style={{ justifyContent: 'space-between' }}><Link href="/projets">{t.retour}</Link><form action={seDeconnecter}><button type="submit" className="discret">{t.deconnexion}</button></form></div>
       <div className="entete"><h1>{projet.nom}</h1><span className="attenue">{t.version} {projet.version}</span></div>
-      {message && <div className="carte" role="status">{message}{q.erreur && ['aucune_offre', 'suspendu', 'nature', 'quota'].includes(q.erreur) && <> <Link href="/abonnement">{t.abonnement.titre}</Link></>}</div>}
+      {message && <div className="carte" role="status">{message}{q.erreur && ['aucune_offre', 'suspendu', 'nature', 'quota', 'export_reserve'].includes(q.erreur) && <> <Link href="/abonnement">{t.abonnement.titre}</Link></>}</div>}
       {projet.chantier && <div className="carte"><strong>{t.travailEnCours}</strong> : {projet.chantier.intention} <span className="attenue">({t.depuis} {date(projet.chantier.ouvertLe)})</span></div>}
 
       <div className="carte">
@@ -77,6 +78,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <p className="attenue">{etat === 'en_ligne' ? t.dejaEnLigne : etat === 'rien_a_publier' ? t.pasDApercu : t.publierExplication}</p>
           <button type="submit" disabled={etat !== 'a_publier'}>{t.publier}</button>
         </form>
+        <p className="attenue" style={{ marginTop: '0.75rem' }}><a href={`/api/export/${id}`}>{t.exporter}</a> · {t.exporterExplication}</p>
       </div>
 
       {projet.apercuEmpreinte && <EditeurDeTextes id={id} t={{ textes: t.textes, textesExplication: t.textesExplication, textesActif: t.textesActif, textesChoisir: t.textesChoisir,

@@ -9,7 +9,8 @@
  */
 import { verifierLaSignature, type AppelStripe } from '@/lib/vente/stripe';
 import type { Manifeste } from '@/lib/backend/app/manifeste';
-import { lEtat, lePeutPublier, estUneOffre, PROJETS_EN_PLUS_AU_PLUS, type Abonnement, type DroitDePublier, type EtatDeLAbonnement } from './les-offres';
+import { lEtat, lEtatAvecLOffert, lePeutPublier, laReductionDuPaiement, estUneOffre, PROJETS_EN_PLUS_AU_PLUS, type Abonnement, type DroitDePublier, type EtatDeLAbonnement,
+  type Grille, type Offert, type Reduction } from './les-offres';
 import { lEvenement, ouvrirLePaiement, resilier, type MiseAJour } from './stripe-billing';
 
 type Issue<T> = { readonly lu: true; readonly valeur: T } | { readonly lu: false; readonly pourquoi: string };
@@ -21,6 +22,12 @@ export interface DependancesDesAbonnements {
   readonly stripe: AppelStripe;
   readonly maintenant: number;
   lAbonnement(compte: string): Promise<Issue<(Abonnement & { readonly client: string | null; readonly abonnement: string | null }) | null>>;
+  /** L'abonnement offert par l'administrateur ; `null` : aucun. */
+  lOffert(compte: string): Promise<Issue<Offert | null>>;
+  /** La grille en vigueur (`laGrille`). */
+  laGrille(): Promise<Issue<Grille>>;
+  /** Les réductions temporaires de ce compte et celles de tous. */
+  lesReductions(compte: string): Promise<Issue<readonly Reduction[]>>;
   appliquer(m: MiseAJour, le: number): Promise<Issue<{ readonly applique: boolean; readonly ancien: string | null }>>;
   /** Le compte qui porte ce client ou cet abonnement Stripe ; `null` : aucun. */
   leCompteDe(client: string | null, abonnement: string | null): Promise<string | null>;
@@ -34,9 +41,12 @@ export interface DependancesDesAbonnements {
 
 export type Reponse = { readonly statut: number; readonly corps: Record<string, unknown> };
 
-export async function lEtatDuCompte(d: Pick<DependancesDesAbonnements, 'lAbonnement' | 'maintenant'>, compte: string): Promise<Issue<EtatDeLAbonnement>> {
-  const a = await d.lAbonnement(compte);
-  return a.lu ? { lu: true, valeur: lEtat(a.valeur, d.maintenant) } : a;
+/** L'état du compte : son abonnement payé, ou l'offert de l'administrateur (`lEtatAvecLOffert`). */
+export async function lEtatDuCompte(d: Pick<DependancesDesAbonnements, 'lAbonnement' | 'lOffert' | 'maintenant'>, compte: string): Promise<Issue<EtatDeLAbonnement>> {
+  const [a, o] = await Promise.all([d.lAbonnement(compte), d.lOffert(compte)]);
+  if (!a.lu) return a;
+  if (!o.lu) return o;
+  return { lu: true, valeur: lEtatAvecLOffert(lEtat(a.valeur, d.maintenant), o.valeur, d.maintenant) };
 }
 
 /** POST /api/abonnements/webhook — 200 : fait ou sans objet ; 400 : signature fausse ; 500/503 : à rejouer. */
@@ -84,7 +94,7 @@ async function avertirDeLImpaye(d: DependancesDesAbonnements, compte: string): P
 }
 
 /** Le geste « Publier », vérifié par le serveur : l'offre, la nature du projet, la place qui reste. */
-export async function leDroitDePublier(d: Pick<DependancesDesAbonnements, 'lAbonnement' | 'maintenant' | 'autresEnLigne'>, compte: string, projet: string,
+export async function leDroitDePublier(d: Pick<DependancesDesAbonnements, 'lAbonnement' | 'lOffert' | 'maintenant' | 'autresEnLigne'>, compte: string, projet: string,
   manifeste: Manifeste | null): Promise<Issue<DroitDePublier>> {
   const e = await lEtatDuCompte(d, compte);
   if (!e.lu) return e;
@@ -99,11 +109,12 @@ export async function choisirUneOffre(d: DependancesDesAbonnements, compte: stri
   const enPlus = Number(enPlusBrut ?? 0);
   if (!estUneOffre(offre) || !Number.isInteger(enPlus) || enPlus < 0 || enPlus > PROJETS_EN_PLUS_AU_PLUS) return { refus: 'offre_inconnue' };
   if (!d.cle) return { refus: 'non_configure' };
-  const a = await d.lAbonnement(compte);
-  if (!a.lu) return { refus: 'panne' };
+  const [a, g, r] = await Promise.all([d.lAbonnement(compte), d.laGrille(), d.lesReductions(compte)]);
+  if (!a.lu || !g.lu || !r.lu) return { refus: 'panne' };
   const p = await d.laPersonne(compte);
   const s = await ouvrirLePaiement(d.stripe, d.cle, { compte, courriel: p?.courriel ?? null, client: a.valeur?.client ?? null, offre, projetsEnPlus: enPlus,
-    langue: p?.langue ?? 'fr', retourOk: `${d.adresseDeLaPage}?fait=abonne`, retourAnnule: d.adresseDeLaPage });
+    langue: p?.langue ?? 'fr', retourOk: `${d.adresseDeLaPage}?fait=abonne`, retourAnnule: d.adresseDeLaPage,
+    grille: g.valeur, coupon: laReductionDuPaiement(r.valeur, compte, d.maintenant)?.coupon ?? null });
   if (!s.ouvert) { d.journal(`[abonnements] ${compte.slice(0, 8)} — Stripe a refusé la session : ${s.pourquoi}`); return { refus: 'stripe' }; }
   return { url: s.url };
 }
@@ -123,6 +134,7 @@ export async function resilierLAbonnement(d: DependancesDesAbonnements, compte: 
 export function laVueDeLAbonnement(e: EtatDeLAbonnement, adresseDeLaPage: string): Record<string, unknown> {
   if (e.etat === 'aucun') return { plan: 'free trial', publishing: 'preview only: nothing goes online before the person chooses an offer', choose_an_offer: adresseDeLaPage };
   if (e.etat === 'suspendu') return { plan: e.offre, publishing: 'paused: a payment is missing, the published sites are paused (nothing erased)', settle_at: adresseDeLaPage };
+  if (e.etat === 'actif' && e.offert) return { plan: e.offre, projects_online_allowed: e.projets, publishing: `offered until ${e.jusquAu?.slice(0, 10)}: the person publishes with « Publier » in the console`, manage_at: adresseDeLaPage };
   if (e.etat === 'grace') return { plan: e.offre, projects_online_allowed: e.projets, publishing: `a payment is missing: sites pause on ${e.pauseLe.slice(0, 10)}`, settle_at: adresseDeLaPage };
   return { plan: e.offre, projects_online_allowed: e.projets, publishing: 'the person publishes with « Publier » in the console', manage_at: adresseDeLaPage };
 }

@@ -6,8 +6,8 @@ import { leCourrierDeLaPlateforme } from '@/lib/formulaires/sur-supabase';
 import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 import { abonnementsSurSupabase } from '@/lib/abonnements/sur-supabase';
 import { SECRET_DU_WEBHOOK_DES_ABONNEMENTS } from '@/lib/abonnements/stripe-billing';
-import { lEtat, leSiteEstServi } from '@/lib/abonnements/les-offres';
-import type { DependancesDesAbonnements } from '@/lib/abonnements/l-abonnement';
+import { leSiteEstServi } from '@/lib/abonnements/les-offres';
+import { lEtatDuCompte, type DependancesDesAbonnements } from '@/lib/abonnements/l-abonnement';
 
 export const PAGE_DE_L_ABONNEMENT = '/abonnement';
 
@@ -37,9 +37,9 @@ const SERVIS = new Map<string, { readonly servi: boolean; readonly le: number }>
 export async function leSiteDuProprietaireEstServi(proprietaire: string): Promise<boolean> {
   const connu = SERVIS.get(proprietaire);
   if (connu && Date.now() - connu.le < 60_000) return connu.servi;
-  const a = await abonnementsSurSupabase(clientDeService()).lAbonnement(proprietaire);
+  const a = await lEtatDuCompte({ ...abonnementsSurSupabase(clientDeService()), maintenant: Date.now() }, proprietaire);
   if (!a.lu) return connu?.servi ?? true;
-  const servi = leSiteEstServi(lEtat(a.valeur, Date.now()));
+  const servi = leSiteEstServi(a.valeur);
   if (SERVIS.size > 5000) SERVIS.clear();
   SERVIS.set(proprietaire, { servi, le: Date.now() });
   return servi;

@@ -50,7 +50,7 @@ export interface Abonnement {
 
 export type EtatDeLAbonnement =
   | { readonly etat: 'aucun' }
-  | { readonly etat: 'actif'; readonly offre: Offre; readonly projets: number; readonly jusquAu: string | null; readonly resilieALaFin: boolean }
+  | { readonly etat: 'actif'; readonly offre: Offre; readonly projets: number; readonly jusquAu: string | null; readonly resilieALaFin: boolean; readonly offert?: true }
   | { readonly etat: 'grace'; readonly offre: Offre; readonly projets: number; readonly pauseLe: string }
   | { readonly etat: 'suspendu'; readonly offre: Offre; readonly depuis: string };
 
@@ -98,5 +98,48 @@ export function lePeutPublier(e: EtatDeLAbonnement, nature: Manifeste['nature'] 
   return { permis: true };
 }
 
-/** Le montant mensuel d'une offre et de ses projets en plus, en centimes. */
-export const leMontant = (offre: Offre, projetsEnPlus: number): number => OFFRES[offre].centimes + CENTIMES_D_UN_PROJET_EN_PLUS * projetsEnPlus;
+/** La grille en vigueur, en centimes par mois : celle du code, sauf le prix que l'administrateur a changé (pour les abonnements à venir). */
+export interface Grille { readonly site: number; readonly boutique: number; readonly pro: number; readonly enPlus: number }
+export const GRILLE_DU_CODE: Grille = { site: OFFRES.site.centimes, boutique: OFFRES.boutique.centimes, pro: OFFRES.pro.centimes, enPlus: CENTIMES_D_UN_PROJET_EN_PLUS };
+export const CLES_DE_LA_GRILLE = ['site', 'boutique', 'pro', 'enPlus'] as const;
+export const PRIX_AU_PLUS_CENTIMES = 1_000_000;
+export const estUnPrix = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= PRIX_AU_PLUS_CENTIMES;
+
+/** PURE — la grille du code, chaque prix changé (et valide) par-dessus. */
+export function laGrille(changes: Readonly<Record<string, unknown>>): Grille {
+  const g: Record<string, number> = { ...GRILLE_DU_CODE };
+  for (const k of CLES_DE_LA_GRILLE) if (estUnPrix(changes[k])) g[k] = changes[k] as number;
+  return g as unknown as Grille;
+}
+
+/** Le montant mensuel d'une offre et de ses projets en plus, en centimes, à la grille donnée. */
+export const leMontant = (offre: Offre, projetsEnPlus: number, grille: Grille = GRILLE_DU_CODE): number => grille[offre] + grille.enPlus * projetsEnPlus;
+
+/** Un abonnement OFFERT par l'administrateur : sans Stripe, jusqu'à une date. */
+export interface Offert { readonly offre: Offre; readonly projetsEnPlus: number; readonly jusquAu: string }
+
+/**
+ * PURE — l'état du compte, l'offert compris : un abonnement payé et actif l'emporte ; sinon un offert encore valable
+ * vaut un abonnement actif (même sur un impayé : l'administrateur l'a voulu) ; sinon l'état payé, tel quel.
+ */
+export function lEtatAvecLOffert(paye: EtatDeLAbonnement, offert: Offert | null, maintenant: number): EtatDeLAbonnement {
+  if (paye.etat === 'actif' || !offert) return paye;
+  const fin = Date.parse(offert.jusquAu);
+  if (!Number.isFinite(fin) || fin <= maintenant) return paye;
+  return { etat: 'actif', offre: offert.offre, projets: OFFRES[offert.offre].projets + Math.max(0, Math.min(PROJETS_EN_PLUS_AU_PLUS, offert.projetsEnPlus)),
+    jusquAu: offert.jusquAu, resilieALaFin: true, offert: true };
+}
+
+/** Une réduction temporaire : un pourcentage pendant des mois, pour un compte ou pour tous (`compte: null`). */
+export interface Reduction {
+  readonly id: string; readonly compte: string | null; readonly pourcent: number; readonly mois: number;
+  readonly coupon: string; readonly valableJusquAu: string; readonly retireeLe: string | null;
+}
+export const estUnPourcent = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= 100;
+export const estUnNombreDeMois = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= 36;
+
+/** PURE — la réduction qu'un nouveau paiement de ce compte reçoit : la plus forte encore valable, la sienne ou celle de tous. */
+export function laReductionDuPaiement(reductions: readonly Reduction[], compte: string, maintenant: number): Reduction | null {
+  const valables = reductions.filter((r) => !r.retireeLe && (r.compte === null || r.compte === compte) && Date.parse(r.valableJusquAu) > maintenant);
+  return valables.reduce<Reduction | null>((m, r) => (!m || r.pourcent > m.pourcent ? r : m), null);
+}

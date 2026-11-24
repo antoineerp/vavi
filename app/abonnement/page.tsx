@@ -4,7 +4,7 @@ import { laConsole } from '@/app/_partage/la-console';
 import { TEXTES } from '@/app/_partage/textes';
 import { lesAbonnementsReels, PAGE_DE_L_ABONNEMENT } from '@/app/_partage/les-abonnements-reels';
 import { lEtatDuCompte } from '@/lib/abonnements/l-abonnement';
-import { CENTIMES_D_UN_PROJET_EN_PLUS, OFFRES, OFFRES_PAYANTES } from '@/lib/abonnements/les-offres';
+import { GRILLE_DU_CODE, OFFRES, OFFRES_PAYANTES } from '@/lib/abonnements/les-offres';
 import { choisir, resilierALaFin } from './gestes';
 
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const q = await searchParams;
   const c = await laConsole(PAGE_DE_L_ABONNEMENT);
   const t = TEXTES[c.langue].abonnement;
-  const e = await lEtatDuCompte(lesAbonnementsReels(), c.compte);
+  const d = lesAbonnementsReels();
+  const [e, g] = await Promise.all([lEtatDuCompte(d, c.compte), d.laGrille()]);
+  const grille = g.lu ? g.valeur : GRILLE_DU_CODE;
   const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(c.langue === 'fr' ? 'fr-FR' : 'en-GB', { dateStyle: 'long' }) : '—');
   const euros = (centimes: number) => `${centimes / 100} €`;
   const v = e.lu ? e.valeur : null;
@@ -31,10 +33,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       <ul className="liste carte">
         {OFFRES_PAYANTES.map((o) => (
           <li key={o}>
-            <div><strong>{OFFRES[o].nom[c.langue]}</strong> · {euros(OFFRES[o].centimes)} {t.parMois}<div className="attenue">{t.detail[o]}</div></div>
+            <div><strong>{OFFRES[o].nom[c.langue]}</strong> · {euros(grille[o])} {t.parMois}<div className="attenue">{t.detail[o]}</div></div>
             <form action={choisir} className="ligne">
               <input type="hidden" name="offre" value={o} />
-              <label className="attenue">{t.enPlus(euros(CENTIMES_D_UN_PROJET_EN_PLUS))} <input type="number" name="en_plus" min={0} max={50} defaultValue={0} style={{ width: '4rem' }} /></label>
+              <label className="attenue">{t.enPlus(euros(grille.enPlus))} <input type="number" name="en_plus" min={0} max={50} defaultValue={0} style={{ width: '4rem' }} /></label>
               <button type="submit">{v && v.etat !== 'aucun' && v.offre === o ? t.changer : t.choisir}</button>
             </form>
           </li>

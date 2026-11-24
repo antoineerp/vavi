@@ -10,7 +10,7 @@ const AUTRE = 'dddddddd-0000-4000-8000-00000000000d';
 describe.runIf(POSTGRES_PRESENT)('les abonnements, sur un PostgreSQL réel', () => {
   let pg: UnPostgres;
   const recu = (statut: string, abonnement: string, le: number, offre = 'site', enPlus = 0) =>
-    JSON.parse(pg.service(`select public.vavi_abonnement_recu('${MOI}', '${offre}', ${enPlus}, '${statut}', now() + interval '30 days', false, 'cus_ABCDEF1', '${abonnement}', ${le});`).sortie) as { applique: boolean; ancien: string | null };
+    JSON.parse(pg.service(`select public.vavi_abonnement_recu('${MOI}', '${offre}', ${enPlus}, '${statut}', now() + interval '30 days', false, 'cus_ABCDEF1', '${abonnement}', ${le}, 1900);`).sortie) as { applique: boolean; ancien: string | null };
   const ligne = () => pg.admin(`select offre || ':' || statut || ':' || (impaye_depuis is not null)::text || ':' || abonnement_stripe from public.vavi_abonnements where compte = '${MOI}';`);
 
   beforeAll(() => {
@@ -53,6 +53,6 @@ describe.runIf(POSTGRES_PRESENT)('les abonnements, sur un PostgreSQL réel', () 
     expect(pg.comme(AUTRE, `select count(*) from public.vavi_abonnements;`).sortie).toBe('0');
     expect(pg.comme(MOI, `select client_stripe from public.vavi_abonnements;`).ok).toBe(false);
     expect(pg.comme(MOI, `update public.vavi_abonnements set offre = 'pro', statut = 'active';`).ok).toBe(false);
-    expect(pg.comme(MOI, `select public.vavi_abonnement_recu('${MOI}', 'pro', 50, 'active', null, false, null, null, 999);`).ok).toBe(false);
+    expect(pg.comme(MOI, `select public.vavi_abonnement_recu('${MOI}', 'pro', 50, 'active', null, false, null, null, 999, 0);`).ok).toBe(false);
   });
 });

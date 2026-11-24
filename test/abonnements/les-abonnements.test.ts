@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHmac } from 'node:crypto';
-import { lEtat, lePeutPublier, leSiteEstServi, leMontant, type Abonnement } from '@/lib/abonnements/les-offres';
+import { lEtat, lEtatAvecLOffert, lePeutPublier, leSiteEstServi, leMontant, laGrille, laReductionDuPaiement, GRILLE_DU_CODE, type Abonnement, type Reduction } from '@/lib/abonnements/les-offres';
 import { lEvenement, ouvrirLePaiement } from '@/lib/abonnements/stripe-billing';
 import { choisirUneOffre, laVueDeLAbonnement, recevoirUnEvenement, type DependancesDesAbonnements } from '@/lib/abonnements/l-abonnement';
 import { CHEMIN_DE_LA_MIGRATION_DES_ABONNEMENTS, laMigrationDesAbonnements } from '@/lib/abonnements/le-sql-des-abonnements';
@@ -54,16 +54,36 @@ describe('ce que chaque offre publie', () => {
   });
 });
 
+describe('ce que l’administrateur décide', () => {
+  it('un abonnement offert vaut un actif jusqu’à sa date, même sur un impayé ; un payé actif l’emporte ; échu, il ne vaut plus rien', () => {
+    const offert = { offre: 'pro' as const, projetsEnPlus: 1, jusquAu: new Date(T + 10 * JOUR).toISOString() };
+    expect(lEtatAvecLOffert(lEtat(null, T), offert, T)).toMatchObject({ etat: 'actif', offre: 'pro', projets: 6, offert: true });
+    expect(lEtatAvecLOffert(lEtat(ab({ statut: 'past_due', impayeDepuis: new Date(T - 30 * JOUR).toISOString() }), T), offert, T)).toMatchObject({ etat: 'actif', offert: true });
+    expect(lEtatAvecLOffert(lEtat(ab(), T), offert, T)).toMatchObject({ etat: 'actif', offre: 'site' });
+    expect(lEtatAvecLOffert(lEtat(null, T), offert, T + 11 * JOUR)).toEqual({ etat: 'aucun' });
+    expect(laVueDeLAbonnement(lEtatAvecLOffert(lEtat(null, T), offert, T), 'https://v/abonnement').publishing).toMatch(/^offered until/);
+  });
+  it('la réduction d’un paiement : la plus forte encore valable, la sienne ou celle de tous ; retirée ou échue, aucune', () => {
+    const r = (x: Partial<Reduction>): Reduction => ({ id: 'r', compte: null, pourcent: 10, mois: 3, coupon: 'c1', valableJusquAu: new Date(T + JOUR).toISOString(), retireeLe: null, ...x });
+    expect(laReductionDuPaiement([r({ coupon: 'tous' }), r({ compte: COMPTE, pourcent: 30, coupon: 'le_sien' })], COMPTE, T)?.coupon).toBe('le_sien');
+    expect(laReductionDuPaiement([r({ compte: 'un-autre', pourcent: 50 })], COMPTE, T)).toBeNull();
+    expect(laReductionDuPaiement([r({ retireeLe: new Date(T).toISOString() }), r({ valableJusquAu: new Date(T - 1).toISOString() })], COMPTE, T)).toBeNull();
+  });
+});
+
 describe('Stripe Billing', () => {
   it('la page d’abonnement au prix de la grille, sur le compte de vavi, le compte et l’offre en métadonnées', async () => {
     let envoye: { url: string; headers: Record<string, string>; body?: string } | null = null;
     const r = await ouvrirLePaiement(async (url, init) => { envoye = { url, ...init }; return { ok: true, json: async () => ({ url: 'https://checkout.stripe.test/s' }) }; },
-      'sk_test_vavi', { compte: COMPTE, courriel: 'a@b.fr', client: null, offre: 'boutique', projetsEnPlus: 2, langue: 'fr', retourOk: 'https://v/ok', retourAnnule: 'https://v/non' });
+      'sk_test_vavi', { compte: COMPTE, courriel: 'a@b.fr', client: null, offre: 'boutique', projetsEnPlus: 2, langue: 'fr', retourOk: 'https://v/ok', retourAnnule: 'https://v/non',
+        grille: laGrille({ boutique: 3900, site: -5, pro: 'gratuit' }), coupon: 'vavi_noel' });
     expect(r).toEqual({ ouvert: true, url: 'https://checkout.stripe.test/s' });
     const c = new URLSearchParams(envoye!.body);
     expect(envoye!.headers['stripe-account']).toBeUndefined();
     expect(c.get('mode')).toBe('subscription');
-    expect(c.get('line_items[0][price_data][unit_amount]')).toBe('4900');
+    expect(c.get('line_items[0][price_data][unit_amount]')).toBe('3900'); // le prix changé par l'administrateur, jamais un prix invalide
+    expect(laGrille({ boutique: 3900, site: -5, pro: 'gratuit' })).toEqual({ ...GRILLE_DU_CODE, boutique: 3900 });
+    expect(c.get('discounts[0][coupon]')).toBe('vavi_noel');
     expect(c.get('line_items[1][price_data][unit_amount]')).toBe('1500');
     expect(c.get('line_items[1][quantity]')).toBe('2');
     expect(c.get('subscription_data[metadata][vavi_compte]')).toBe(COMPTE);
@@ -71,7 +91,9 @@ describe('Stripe Billing', () => {
   it('les évènements lus : la session payée, l’abonnement mis à jour (fin de période des deux formes), résilié, l’impayé ; une offre hors grille ignorée', () => {
     const meta = { vavi_compte: COMPTE, vavi_offre: 'pro', vavi_en_plus: '1' };
     expect(lEvenement('checkout.session.completed', { mode: 'subscription', payment_status: 'paid', metadata: meta, customer: 'cus_ABCDEF1', subscription: 'sub_ABCDEF1' }))
-      .toMatchObject({ forme: 'mise_a_jour', maj: { offre: 'pro', projetsEnPlus: 1, statut: 'active', client: 'cus_ABCDEF1', abonnement: 'sub_ABCDEF1' } });
+      .toMatchObject({ forme: 'mise_a_jour', maj: { offre: 'pro', projetsEnPlus: 1, statut: 'active', client: 'cus_ABCDEF1', abonnement: 'sub_ABCDEF1', montant: null } });
+    expect(lEvenement('customer.subscription.updated', { id: 'sub_ABCDEF1', status: 'active', metadata: meta,
+      items: { data: [{ price: { unit_amount: 12900 }, quantity: 1 }, { price: { unit_amount: 1500 }, quantity: 2 }] } })).toMatchObject({ maj: { montant: 15900 } });
     const fin = Math.floor(T / 1000);
     expect(lEvenement('customer.subscription.updated', { id: 'sub_ABCDEF1', status: 'past_due', metadata: meta, items: { data: [{ current_period_end: fin }] } }))
       .toMatchObject({ maj: { statut: 'past_due', finDePeriode: new Date(fin * 1000).toISOString() } });
@@ -89,6 +111,7 @@ describe('le webhook des abonnements', () => {
     return { appliques, resiliations, envois, cle: 'sk_test_vavi', secretDuWebhook: 'whsec_ab', maintenant: T, adresseDeLaPage: 'https://v/abonnement', journal: () => {},
       stripe: async (url) => { resiliations.push(url); return { ok: true, json: async () => ({}) }; },
       lAbonnement: async () => ({ lu: true, valeur: { ...ab(), client: 'cus_ABCDEF1', abonnement: 'sub_ABCDEF1' } }),
+      lOffert: async () => ({ lu: true, valeur: null }), laGrille: async () => ({ lu: true, valeur: GRILLE_DU_CODE }), lesReductions: async () => ({ lu: true, valeur: [] }),
       appliquer: async (m, le) => { appliques.push({ ...m, le }); return { lu: true, valeur: { applique: true, ancien: 'sub_ANCIEN1' } }; },
       leCompteDe: async () => COMPTE, autresEnLigne: async () => ({ lu: true, valeur: 0 }),
       laPersonne: async () => ({ courriel: 'a@b.fr', langue: 'fr' }), courrier: async (m) => { envois.push(m.texte); return true; }, ...x };
