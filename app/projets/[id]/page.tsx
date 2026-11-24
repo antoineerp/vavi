@@ -7,6 +7,10 @@ import { notFound } from 'next/navigation';
 import { laConsole } from '@/app/_partage/la-console';
 import { TEXTES } from '@/app/_partage/textes';
 import { lEtatDeLaMiseEnLigne } from '@/lib/projets/la-mise-en-ligne';
+import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
+import { laBoutique } from '@/lib/vente/la-boutique';
+import { CLE_STRIPE, SECRET_DU_WEBHOOK } from '@/lib/vente/la-vente';
+import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 import { publier, revenir, poserUnSecret } from './gestes';
 
 export const dynamic = 'force-dynamic';
@@ -28,7 +32,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   if (p.lu && !p.valeur) notFound();
   if (!p.lu) return <main className="console"><p role="alert">{t.erreur} {p.pourquoi}</p></main>;
   const projet = p.valeur!;
-  const [versions, secrets] = await Promise.all([c.projets.versions(c.compte, id, 30), c.projets.nomsDesSecrets(c.compte, id)]);
+  const [versions, secrets, fichiers] = await Promise.all([c.projets.versions(c.compte, id, 30), c.projets.nomsDesSecrets(c.compte, id), c.projets.fichiers(c.compte, id)]);
+  const manifeste = fichiers.lu ? leManifesteStocke(fichiers.valeur.get('app.json')) : null;
+  const vend = manifeste?.lu ? laBoutique(manifeste.manifeste) !== null : false;
+  const manquent = [CLE_STRIPE, SECRET_DU_WEBHOOK].filter((n) => !(secrets.lu && secrets.valeur.includes(n)));
   const etat = lEtatDeLaMiseEnLigne(projet);
   const date = (iso: string) => new Date(iso).toLocaleString(c.langue === 'fr' ? 'fr-FR' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' });
   const message = q.fait === 'publie' ? t.publie : q.fait === 'revenu' ? `${t.revenu(Number(q.version))}${q.construire ? ` ${t.aConstruire}` : ''}`
@@ -68,6 +75,19 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             </li>
           ))}
         </ul>
+      )}
+
+      {vend && (
+        <>
+          <h2>{t.encaisser}</h2>
+          <div className="carte">
+            <p>{t.encaisserExplication}</p>
+            <ul className="liste"><li><code>{CLE_STRIPE}</code> — {t.cleStripe}</li><li><code>{SECRET_DU_WEBHOOK}</code> — {t.secretWebhook}</li></ul>
+            <p>{t.webhook}</p>
+            <p><code>{`${adresseDeLaPlateforme()}/api/pay/${id}/webhook`}</code></p>
+            <p className={manquent.length ? undefined : 'attenue'}>{manquent.length ? `${t.manque} ${manquent.join(', ')}` : t.pret}</p>
+          </div>
+        </>
       )}
 
       <h2>{t.secrets}</h2>

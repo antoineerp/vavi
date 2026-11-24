@@ -41,7 +41,7 @@ describe.runIf(process.env.VAVI_BATIR === 'oui')('un projet construit par les ou
     const b = await jouer('build_preview', { project: p.project });
     expect(b.green).toBe(true);
     await jouer('publish', w);
-    const servi = await servirUnDist(magasin, racineDuBuild(String(p.project), String(b.fingerprint)), [], { supabaseUrl: 'https://x', cleAnonyme: 'k', schema: 's', base: `/p/${p.project}/` });
+    const servi = await servirUnDist(magasin, racineDuBuild(String(p.project), String(b.fingerprint)), [], { supabaseUrl: 'https://x', cleAnonyme: 'k', schema: 's', base: `/p/${p.project}/`, projet: String(p.project) });
     expect(servi.statut).toBe(200);
     expect(servi.corps.toString()).toContain(`<base href="/p/${p.project}/">`);
     expect(servi.corps.toString()).toMatch(/src="\.\/assets\/[^"]+\.js"/);

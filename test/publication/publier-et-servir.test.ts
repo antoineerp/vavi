@@ -11,7 +11,7 @@ import { unMagasinEnMemoire } from '../aides/un-magasin-en-memoire';
 const P = '0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e';
 const E = 'a'.repeat(64);
 const R = racineDuBuild(P, E);
-const ENV: EnvDeLApp = { supabaseUrl: 'https://x.supabase.co', cleAnonyme: 'cle-publique', schema: 'app_0f1e2d3c_4b5a_4968_8', base: `/p/${P}/` };
+const ENV: EnvDeLApp = { supabaseUrl: 'https://x.supabase.co', cleAnonyme: 'cle-publique', schema: 'app_0f1e2d3c_4b5a_4968_8', base: `/p/${P}/`, projet: P };
 const dist = (js = 'console.log(1)') => new Map([
   ['index.html', Buffer.from('<!doctype html><html><head><title>A</title></head><body><script type="module" src="/p/x/assets/a.js"></script></body></html>')],
   ['assets/a.js', Buffer.from(js)], ['faits.json', Buffer.from('{}')],
@@ -49,6 +49,11 @@ describe('servir l’aperçu', () => {
     expect(html.indexOf('__SUPABASE_URL__')).toBeLessThan(html.indexOf('a.js'));
     expect(html).not.toContain('</script><b>');
     expect(html).toContain('window.__DATABASE_SCHEMA__="app_0f1e2d3c_4b5a_4968_8"');
+  });
+  it('INCIDENT — l’app nomme son projet dans ses appels à la plateforme : sans lui, le panier appelait /api/pay//panier', () => {
+    const html = poserLEnvironnement('<html><head></head></html>', ENV);
+    expect(html).toContain(`window.__PROJECT_ID__="${P}"`);
+    expect(html).toContain('window.__CONSTRUCTOR_API_URL__=""');
   });
   it('une page de l’app sert l’entrée ; un fichier absent rend 404 ; un chemin qui sort du dist est refusé', async () => {
     const m = unMagasinEnMemoire();

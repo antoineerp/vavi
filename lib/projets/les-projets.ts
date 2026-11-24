@@ -221,3 +221,21 @@ export async function leBuildDesigne(base: SupabaseClient, id: string, lequel: '
   if (r.error) return pasLu(r.error.message);
   return lu(r.data ? r.data[colonne] ?? null : 'inconnu');
 }
+
+/**
+ * Ce que la vente d'une app lit de son projet, sans compte (le panier d'un visiteur, le webhook de Stripe) : son
+ * propriétaire et son app.json. `null` : ce projet n'existe pas.
+ */
+export async function leProjetServi(base: SupabaseClient, id: string): Promise<Issue<{ readonly proprietaire: string; readonly appJson: string | undefined } | null>> {
+  const p = await base.from('vavi_projets').select('proprietaire').eq('id', id).maybeSingle<{ proprietaire: string }>();
+  if (p.error) return pasLu(p.error.message);
+  if (!p.data) return lu(null);
+  const f = await base.from('vavi_fichiers').select('contenu').eq('projet', id).eq('chemin', 'app.json').maybeSingle<{ contenu: string }>();
+  return f.error ? pasLu(f.error.message) : lu({ proprietaire: p.data.proprietaire, appJson: f.data?.contenu });
+}
+
+/** La valeur SCELLÉE d'un secret du projet, que seul `ouvrirUnSecret` ouvre ; `null` : il n'est pas posé. */
+export async function leSecretScelle(base: SupabaseClient, id: string, nom: string): Promise<Issue<string | null>> {
+  const r = await base.from('vavi_secrets').select('valeur').eq('projet', id).eq('nom', nom).maybeSingle<{ valeur: string }>();
+  return r.error ? pasLu(r.error.message) : lu(r.data?.valeur ?? null);
+}
