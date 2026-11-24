@@ -29,6 +29,9 @@ export interface Projet {
   readonly version: number;
   /** L'empreinte de l'arbre dont le dist est servi à `/p/<id>/` ; `null` : jamais publié. */
   readonly apercuEmpreinte: string | null;
+  /** L'empreinte du build que le site public sert, choisi par la personne dans la console ; `null` : pas en ligne. */
+  readonly enLigneEmpreinte: string | null;
+  readonly enLigneLe: string | null;
   readonly basePoseeLe: string | null;
   readonly modifieLe: string;
   readonly chantier: Chantier | null;
@@ -64,17 +67,21 @@ export interface Projets {
   enregistrerUnBuild(compte: string, projet: string, b: { readonly empreinte: string; readonly vert: boolean; readonly ecarts: unknown }): Promise<Issue<true>>;
   leBuild(compte: string, projet: string, empreinte: string): Promise<Issue<Build | null>>;
   publierLApercu(compte: string, projet: string, empreinte: string): Promise<Issue<true>>;
+  /** Le site public sert ce build : la console seule l'appelle, sur le geste de la personne. */
+  mettreEnLigne(compte: string, projet: string, empreinte: string): Promise<Issue<true>>;
+  /** Les noms des secrets du projet, jamais leurs valeurs. */
+  nomsDesSecrets(compte: string, projet: string): Promise<Issue<readonly string[]>>;
   marquerLaBase(compte: string, projet: string, nom: string): Promise<Issue<true>>;
   poserUnSecret(compte: string, projet: string, nom: string, valeurChiffree: string): Promise<Issue<true>>;
 }
 
-interface LigneDeProjet { id: string; nom: string; version: number; apercu_empreinte: string | null; base_posee_le: string | null; modifie_le: string }
+interface LigneDeProjet { id: string; nom: string; version: number; apercu_empreinte: string | null; en_ligne_empreinte: string | null; en_ligne_le: string | null; base_posee_le: string | null; modifie_le: string }
 interface LigneDeChantier { id: string; projet: string; intention: string; version_de_depart: number; ouvert_le: string; dernier_geste_le: string; gestes: number; fait: string[]; reste: string | null }
-const COLONNES = 'id, nom, version, apercu_empreinte, base_posee_le, modifie_le';
+const COLONNES = 'id, nom, version, apercu_empreinte, en_ligne_empreinte, en_ligne_le, base_posee_le, modifie_le';
 const versChantier = (c: LigneDeChantier): Chantier => ({ id: c.id, intention: c.intention, versionDeDepart: c.version_de_depart,
   ouvertLe: c.ouvert_le, dernierGesteLe: c.dernier_geste_le, gestes: c.gestes, fait: c.fait, reste: c.reste });
 const versProjet = (l: LigneDeProjet, c: LigneDeChantier | undefined): Projet => ({ id: l.id, nom: l.nom, version: l.version,
-  apercuEmpreinte: l.apercu_empreinte, basePoseeLe: l.base_posee_le, modifieLe: l.modifie_le, chantier: c ? versChantier(c) : null });
+  apercuEmpreinte: l.apercu_empreinte, enLigneEmpreinte: l.en_ligne_empreinte, enLigneLe: l.en_ligne_le, basePoseeLe: l.base_posee_le, modifieLe: l.modifie_le, chantier: c ? versChantier(c) : null });
 
 export function projetsSurSupabase(base: SupabaseClient): Projets {
   const chantiersOuverts = async (ids: readonly string[]): Promise<Issue<Map<string, LigneDeChantier>>> => {
@@ -183,6 +190,15 @@ export function projetsSurSupabase(base: SupabaseClient): Projets {
     async publierLApercu(compte, id, empreinte) {
       return ok(await base.from('vavi_projets').update({ apercu_empreinte: empreinte, apercu_le: new Date().toISOString() }).eq('id', id).eq('proprietaire', compte));
     },
+    async mettreEnLigne(compte, id, empreinte) {
+      return ok(await base.from('vavi_projets').update({ en_ligne_empreinte: empreinte, en_ligne_le: new Date().toISOString() }).eq('id', id).eq('proprietaire', compte));
+    },
+    async nomsDesSecrets(compte, id) {
+      const refus = await aLui(compte, id);
+      if (refus) return pasLu(refus);
+      const r = await base.from('vavi_secrets').select('nom').eq('projet', id).order('nom').returns<{ nom: string }[]>();
+      return r.error ? pasLu(r.error.message) : lu(r.data.map((x) => x.nom));
+    },
     async marquerLaBase(compte, id, nom) {
       return ok(await base.from('vavi_projets').update({ base_posee_le: new Date().toISOString(), nom }).eq('id', id).eq('proprietaire', compte));
     },
@@ -195,11 +211,13 @@ export function projetsSurSupabase(base: SupabaseClient): Projets {
 }
 
 /**
- * L'empreinte du build que l'aperçu d'un projet DÉSIGNE, pour le servir à quiconque a son adresse (`/p/<id>/`) : la seule
- * lecture d'un projet sans compte. `inconnu` : ce projet n'existe pas.
+ * L'empreinte du build qu'un projet DÉSIGNE, pour le servir à quiconque a son adresse : l'aperçu (`/p/<id>/`, désigné
+ * par `publish`) ou le site public (`/s/<id>/`, désigné par le bouton « Publier » de la console). La seule lecture d'un
+ * projet sans compte. `inconnu` : ce projet n'existe pas.
  */
-export async function lApercuDesigne(base: SupabaseClient, id: string): Promise<Issue<string | null | 'inconnu'>> {
-  const r = await base.from('vavi_projets').select('apercu_empreinte').eq('id', id).maybeSingle<{ apercu_empreinte: string | null }>();
+export async function leBuildDesigne(base: SupabaseClient, id: string, lequel: 'apercu' | 'en_ligne'): Promise<Issue<string | null | 'inconnu'>> {
+  const colonne = lequel === 'apercu' ? 'apercu_empreinte' : 'en_ligne_empreinte';
+  const r = await base.from('vavi_projets').select(colonne).eq('id', id).maybeSingle<Record<string, string | null>>();
   if (r.error) return pasLu(r.error.message);
-  return lu(r.data ? r.data.apercu_empreinte : 'inconnu');
+  return lu(r.data ? r.data[colonne] ?? null : 'inconnu');
 }

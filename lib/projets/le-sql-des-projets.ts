@@ -195,3 +195,25 @@ export function laMigrationDesProjets(): string {
     '',
   ].join('\n');
 }
+
+/**
+ * LA MISE EN LIGNE (lot 6) — le build que le site PUBLIC sert, choisi par la personne seule, dans la console (bouton
+ * « Publier »). Jamais par Claude : aucun outil MCP n'écrit cette colonne. Elle désigne un build déjà construit et vert,
+ * celui de l'aperçu que la personne a regardé.
+ */
+export const CHEMIN_DE_LA_MIGRATION_DE_LA_MISE_EN_LIGNE = 'supabase/migrations/20261124120000_la_mise_en_ligne.sql';
+
+export const SQL_DE_LA_MISE_EN_LIGNE = `
+ALTER TABLE public.vavi_projets ADD COLUMN IF NOT EXISTS en_ligne_empreinte TEXT;
+ALTER TABLE public.vavi_projets ADD COLUMN IF NOT EXISTS en_ligne_le TIMESTAMPTZ;
+`;
+
+/** PURE — le texte de la migration de la mise en ligne. */
+export function laMigrationDeLaMiseEnLigne(): string {
+  return [
+    '-- LA MISE EN LIGNE — écrit par scripts/ecrire-la-migration-du-socle.ts depuis lib/projets/le-sql-des-projets.ts.',
+    '-- Ne pas modifier à la main : modifier la source, puis relancer le script.',
+    SQL_DE_LA_MISE_EN_LIGNE.trim(),
+    '',
+  ].join('\n');
+}

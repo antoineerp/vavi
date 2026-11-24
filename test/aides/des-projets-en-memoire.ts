@@ -8,14 +8,14 @@ import type { Build, Chantier, Projet, Projets, Version } from '@/lib/projets/le
 import { arbreRejoue, empreinteDuFichier } from '@/lib/projets/les-empreintes';
 
 interface Etat { proprietaire: string; nom: string; fichiers: Map<string, string>; versions: (Version & { ecritsTextes: Record<string, string> })[];
-  chantier: { -readonly [K in keyof Chantier]: Chantier[K] } | null; builds: Map<string, Build>; apercu: string | null; secrets: Map<string, string>; base: string | null }
+  chantier: { -readonly [K in keyof Chantier]: Chantier[K] } | null; builds: Map<string, Build>; apercu: string | null; enLigne: string | null; secrets: Map<string, string>; base: string | null }
 
 export function desProjetsEnMemoire(): Projets & { readonly etats: Map<string, Etat> } {
   const etats = new Map<string, Etat>();
   const lu = <T>(valeur: T) => ({ lu: true as const, valeur });
   const pasLu = (pourquoi: string) => ({ lu: false as const, pourquoi });
   const sien = (compte: string, id: string) => { const e = etats.get(id); return e && e.proprietaire === compte ? e : null; };
-  const vue = (id: string, e: Etat): Projet => ({ id, nom: e.nom, version: e.versions.length, apercuEmpreinte: e.apercu, basePoseeLe: e.base,
+  const vue = (id: string, e: Etat): Projet => ({ id, nom: e.nom, version: e.versions.length, apercuEmpreinte: e.apercu, enLigneEmpreinte: e.enLigne, enLigneLe: null, basePoseeLe: e.base,
     modifieLe: new Date().toISOString(), chantier: e.chantier ? { ...e.chantier } : null });
   const appliquer: Projets['appliquer'] = async (compte, id, o) => {
     const e = sien(compte, id);
@@ -35,7 +35,7 @@ export function desProjetsEnMemoire(): Projets & { readonly etats: Map<string, E
     async lister(compte) { return lu([...etats].filter(([, e]) => e.proprietaire === compte).map(([id, e]) => vue(id, e))); },
     async creer(compte, nom, appJson) {
       const id = randomUUID();
-      etats.set(id, { proprietaire: compte, nom, fichiers: new Map(), versions: [], chantier: null, builds: new Map(), apercu: null, secrets: new Map(), base: null });
+      etats.set(id, { proprietaire: compte, nom, fichiers: new Map(), versions: [], chantier: null, builds: new Map(), apercu: null, enLigne: null, secrets: new Map(), base: null });
       await appliquer(compte, id, { chantier: null, attendus: { 'app.json': null }, ecrits: new Map([['app.json', appJson]]), supprimes: [], pourquoi: 'création du projet' });
       return lu(vue(id, etats.get(id)!));
     },
@@ -63,6 +63,8 @@ export function desProjetsEnMemoire(): Projets & { readonly etats: Map<string, E
     async enregistrerUnBuild(compte, id, b) { sien(compte, id)?.builds.set(b.empreinte, { ...b, creeLe: new Date().toISOString() }); return lu(true as const); },
     async leBuild(compte, id, empreinte) { const e = sien(compte, id); return e ? lu(e.builds.get(empreinte) ?? null) : pasLu('projet inconnu'); },
     async publierLApercu(compte, id, empreinte) { const e = sien(compte, id); if (e) e.apercu = empreinte; return lu(true as const); },
+    async mettreEnLigne(compte, id, empreinte) { const e = sien(compte, id); if (e) e.enLigne = empreinte; return lu(true as const); },
+    async nomsDesSecrets(compte, id) { const e = sien(compte, id); return e ? lu([...e.secrets.keys()].sort()) : pasLu('projet inconnu'); },
     async marquerLaBase(compte, id, nom) { const e = sien(compte, id); if (e) { e.base = new Date().toISOString(); e.nom = nom; } return lu(true as const); },
     async poserUnSecret(compte, id, nom, valeur) { sien(compte, id)?.secrets.set(nom, valeur); return lu(true as const); },
   };
