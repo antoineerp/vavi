@@ -13,6 +13,7 @@ import { CLE_STRIPE, SECRET_DU_WEBHOOK } from '@/lib/vente/la-vente';
 import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 import { publier, revenir, poserUnSecret } from './gestes';
 import { EditeurDeTextes } from './editeur';
+import { seDeconnecter } from '@/app/_partage/se-deconnecter';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +45,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
   return (
     <main className="console">
-      <p><Link href="/projets">{t.retour}</Link></p>
+      <div className="ligne" style={{ justifyContent: 'space-between' }}><Link href="/projets">{t.retour}</Link><form action={seDeconnecter}><button type="submit" className="discret">{t.deconnexion}</button></form></div>
       <div className="entete"><h1>{projet.nom}</h1><span className="attenue">{t.version} {projet.version}</span></div>
       {message && <div className="carte" role="status">{message}</div>}
       {projet.chantier && <div className="carte"><strong>{t.travailEnCours}</strong> : {projet.chantier.intention} <span className="attenue">({t.depuis} {date(projet.chantier.ouvertLe)})</span></div>}
