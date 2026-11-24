@@ -24,6 +24,17 @@ export function configurationPublique(env: Env): Lecture<ConfigurationPublique> 
   return { lue: false, manque: [...new Set(manque)] };
 }
 
+/**
+ * PURE — le script que la page pose pour le navigateur : l'adresse et la clé anonyme (publiques), lues sur le SERVEUR au
+ * lancement (secrets de l'hébergeur), jamais figées au build. Un seul endroit à remplir. `null` : configuration incomplète.
+ * Du JSON dont aucun `<` ne peut fermer la balise.
+ */
+export const GLOBALE_DE_LA_CONFIGURATION = '__VAVI_SUPABASE__';
+export function leScriptDeLaConfiguration(env: Env): string | null {
+  const c = configurationPublique(env);
+  return c.lue ? `window.${GLOBALE_DE_LA_CONFIGURATION}=${JSON.stringify({ NEXT_PUBLIC_SUPABASE_URL: c.valeur.url, NEXT_PUBLIC_SUPABASE_ANON_KEY: c.valeur.cleAnonyme }).replace(/</g, '\\u003c')};` : null;
+}
+
 /** PURE — la clé de service, côté serveur seulement. */
 export function cleDeService(env: Env): Lecture<string> {
   const cle = env.SUPABASE_SERVICE_ROLE_KEY;
