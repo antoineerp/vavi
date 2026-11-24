@@ -37,7 +37,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
 
       <h2>Abonnements et revenus</h2>
       <div className="chiffres">
-        <div className="carte"><span className="attenue">Revenu mensuel</span><strong>{euros(t.revenus.mensuel)}</strong><span className="attenue">avant réductions{t.revenus.sansMontant ? `, ${t.revenus.sansMontant} sans montant connu` : ''}</span></div>
+        <div className="carte"><span className="attenue">Revenu mensuel TTC</span><strong>{euros(t.revenus.mensuel)}</strong><span className="attenue">avant réductions{t.revenus.sansMontant ? `, ${t.revenus.sansMontant} sans montant connu` : ''}</span></div>
         <div className="carte"><span className="attenue">Abonnés payants</span><strong>{t.revenus.abonnes}</strong></div>
         <div className="carte"><span className="attenue">Offerts</span><strong>{t.revenus.offerts}</strong></div>
         <div className="carte"><span className="attenue">Impayés (grâce · pause)</span><strong>{t.revenus.enGrace} · {t.revenus.suspendus}</strong></div>
@@ -82,7 +82,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
 
       <h2>Prix des abonnements</h2>
       <form action={changerLaGrille} className="carte formulaire-admin">
-        {(['site', 'boutique', 'pro', 'enPlus'] as const).map((k) => <label key={k}>{k === 'enPlus' ? 'Projet en plus' : OFFRES[k].nom.fr} (€ / mois)
+        {(['site', 'boutique', 'pro', 'enPlus'] as const).map((k) => <label key={k}>{k === 'enPlus' ? 'Projet en plus' : OFFRES[k].nom.fr} (€ TTC / mois)
           <input name={k} inputMode="decimal" placeholder={euros(t.grille[k]).replace(' €', '')} style={{ width: '7rem' }} /></label>)}
         <button type="submit">Changer les prix</button>
       </form>
