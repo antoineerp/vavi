@@ -34,7 +34,7 @@ describe('l’accès de Claude, de bout en bout', () => {
     const acces = echangerUnCode(code, client, RETOUR, VERIFICATEUR);
     if (!acces.lu) throw new Error(acces.pourquoi);
     const jetons = delivrer(acces.valeur);
-    expect(passerLaPorte(`Bearer ${jetons.access_token}`)).toEqual({ passe: true, compte: MOI });
+    expect(passerLaPorte(`Bearer ${jetons.access_token}`)).toMatchObject({ passe: true, compte: MOI, acces: { compte: MOI } });
     expect(renouveler(jetons.refresh_token, client)).toMatchObject({ lu: true });
   });
   it('sans session, vers une autre ressource, ou sans défi S256 : aucun code', async () => {

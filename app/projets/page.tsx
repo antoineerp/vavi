@@ -4,16 +4,20 @@ import { laConsole } from '@/app/_partage/la-console';
 import { TEXTES } from '@/app/_partage/textes';
 import { lEtatDeLaMiseEnLigne } from '@/lib/projets/la-mise-en-ligne';
 import { seDeconnecter } from '@/app/_partage/se-deconnecter';
+import { retirerClaude } from './retirer-claude';
 
 export const dynamic = 'force-dynamic';
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<{ claude?: string }> }) {
   const c = await laConsole('/projets');
+  const { claude } = await searchParams;
   const t = TEXTES[c.langue];
   const l = await c.projets.lister(c.compte);
   return (
     <main className="console">
       <div className="entete"><h1>{t.mesProjets}</h1><span className="ligne"><Link href="/abonnement">{t.abonnement.titre}</Link><span className="attenue">{c.courriel}</span><form action={seDeconnecter}><button type="submit" className="discret">{t.deconnexion}</button></form></span></div>
+      {claude === 'retire' && <p role="status">{t.claudeRetire}</p>}
+      {claude === 'echec' && <p role="alert">{t.claudeEchec}</p>}
       {!l.lu ? <p role="alert">{t.erreur} {l.pourquoi}</p> : l.valeur.length === 0 ? <div className="carte"><p>{t.aucun}</p><p><Link className="bouton" href="/commencer">{t.commencer.lien}</Link></p></div> : (
         <ul className="liste carte">
           {l.valeur.map((p) => {
@@ -33,6 +37,7 @@ export default async function Page() {
           })}
         </ul>
       )}
+      <form action={retirerClaude} className="carte"><p className="attenue">{t.retirerClaudeExplication}</p><button type="submit" className="discret">{t.retirerClaude}</button></form>
     </main>
   );
 }

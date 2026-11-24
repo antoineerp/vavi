@@ -4,7 +4,11 @@
  */
 import { passerLaPorte } from '@/lib/mcp/la-porte';
 import { servirLeMcp } from '@/lib/mcp/le-serveur';
-import { leContexteReel } from '@/lib/mcp/le-contexte-reel';
+import { etatDeLAccesReel, leContexteReel } from '@/lib/mcp/le-contexte-reel';
+import { estRevoque } from '@/lib/mcp/l-etat-de-l-acces';
+import { LIMITES, tropDAppels, uneFenetre } from '@/lib/mcp/les-limites';
+
+const FENETRE = uneFenetre(LIMITES.mcp);
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -16,6 +20,18 @@ export async function POST(requete: Request) {
   if (!p.passe) {
     return Response.json({ jsonrpc: '2.0', id: null, error: { code: -32001, message: p.message } }, { status: p.statut, headers: { 'WWW-Authenticate': p.entete } });
   }
+  // Claude déconnecté de ce compte par la personne : l'accès émis avant tombe, Claude.ai redemande l'autorisation.
+  const depuis = await etatDeLAccesReel().revoqueDepuis(p.compte);
+  if (typeof depuis === 'object' && depuis !== null) {
+    console.error(`[MCP] la révocation n'a pas pu être lue : ${depuis.panne}`);
+    return Response.json({ jsonrpc: '2.0', id: null, error: { code: -32603, message: 'vavi could not check this access; try again in a moment.' } }, { status: 503 });
+  }
+  if (estRevoque(p.acces, depuis)) {
+    return Response.json({ jsonrpc: '2.0', id: null, error: { code: -32001, message: 'accès retiré par la personne' } },
+      { status: 401, headers: { 'WWW-Authenticate': p.refuser('accès retiré par la personne') } });
+  }
+  const limite = FENETRE.passe(p.compte);
+  if (!limite.passe) return tropDAppels(limite.apres, { jsonrpc: '2.0', id: null, error: { code: -32000, message: `Too many calls: try again in ${limite.apres} s.` } });
   let corps: unknown;
   try { corps = await requete.json(); } catch { return Response.json({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }, { status: 400 }); }
   const r = await servirLeMcp(corps, await leContexteReel(p.compte));

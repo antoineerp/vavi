@@ -24,7 +24,8 @@ export const PORTEE = 'projets';
 
 export interface Client { readonly redirections: readonly string[]; readonly nom: string }
 export interface Code { readonly client: string; readonly redirection: string; readonly compte: string; readonly defi: string }
-export interface Acces { readonly compte: string; readonly client: string }
+/** `emis` : l'instant d'émission (ms), que la déconnexion de Claude compare ; absent sur un jeton d'avant le 24/11. */
+export interface Acces { readonly compte: string; readonly client: string; readonly emis?: number }
 
 type Piece = 'client' | 'code' | 'acces' | 'renouvellement' | `secret:${string}`;
 const PREFIXE = 'vavi.';
@@ -121,9 +122,9 @@ export interface JetonsDelivres { access_token: string; token_type: 'Bearer'; ex
 
 export function delivrer(a: Acces, maintenant = Date.now()): JetonsDelivres {
   return {
-    access_token: sceller('acces', a, maintenant + DUREE_DE_L_ACCES_MS),
+    access_token: sceller('acces', { compte: a.compte, client: a.client, emis: maintenant } satisfies Acces, maintenant + DUREE_DE_L_ACCES_MS),
     token_type: 'Bearer', expires_in: DUREE_DE_L_ACCES_MS / 1000,
-    refresh_token: sceller('renouvellement', a, maintenant + DUREE_DU_RENOUVELLEMENT_MS),
+    refresh_token: sceller('renouvellement', { compte: a.compte, client: a.client, emis: maintenant } satisfies Acces, maintenant + DUREE_DU_RENOUVELLEMENT_MS),
     scope: PORTEE,
   };
 }
