@@ -103,7 +103,7 @@ export const LES_SERVICES: readonly { readonly service: string; readonly secrets
   { service: 'Stockage des sites (S3)', secrets: ['S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY', 'S3_SECRET_KEY'] },
   { service: 'Stripe (ventes des apps)', secrets: ['VAVI_STRIPE_SECRET_KEY', 'VAVI_STRIPE_WEBHOOK_SECRET'] },
   { service: 'Stripe (abonnements à vavi)', secrets: ['VAVI_STRIPE_SECRET_KEY', 'VAVI_STRIPE_WEBHOOK_ABONNEMENTS'] },
-  { service: 'Courriel (Resend)', secrets: ['RESEND_API_KEY'] },
+  { service: 'Courriel (Resend)', secrets: ['RESEND_API_KEY', 'VAVI_EXPEDITEUR'] },
   { service: 'Connecteur Claude (jetons)', secrets: ['VAVI_CLE_DES_JETONS'] },
   { service: 'Administration', secrets: [VARIABLE_DES_ADMINISTRATEURS] },
 ];
