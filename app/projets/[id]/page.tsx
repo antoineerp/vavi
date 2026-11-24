@@ -9,8 +9,8 @@ import { TEXTES } from '@/app/_partage/textes';
 import { lEtatDeLaMiseEnLigne } from '@/lib/projets/la-mise-en-ligne';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 import { laBoutique } from '@/lib/vente/la-boutique';
-import { CLE_STRIPE, SECRET_DU_WEBHOOK } from '@/lib/vente/la-vente';
-import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
+import { CLE_DE_VAVI, lEtatDuCompte } from '@/lib/stripe-connect/le-compte';
+import { comptesSurSupabase } from '@/lib/stripe-connect/sur-supabase';
 import { publier, revenir, poserUnSecret } from './gestes';
 import { EditeurDeTextes } from './editeur';
 import { seDeconnecter } from '@/app/_partage/se-deconnecter';
@@ -23,6 +23,9 @@ const ERREURS: Record<string, { fr: string; en: string }> = {
   rien_a_publier: { fr: 'il n’y a pas encore d’aperçu.', en: 'there is no preview yet.' },
   build_rouge: { fr: 'l’aperçu n’est pas un build réussi.', en: 'the preview is not a successful build.' },
   conflit: { fr: 'le projet a changé pendant le retour ; réessayez.', en: 'the project changed meanwhile; try again.' },
+  stripe_non_relie: { fr: 'vavi n’est pas encore relié à Stripe.', en: 'vavi is not connected to Stripe yet.' },
+  stripe_refuse: { fr: 'Stripe a refusé d’ouvrir le compte ; réessayez, ou écrivez-nous.', en: 'Stripe refused to open the account; try again, or write to us.' },
+  panne: { fr: 'vavi n’a pas répondu ; réessayez.', en: 'vavi did not answer; try again.' },
   secret_mal_forme: { fr: 'le nom s’écrit en MAJUSCULES_ET_SOULIGNÉS, et la valeur ne peut pas être vide.', en: 'the name is UPPER_CASE_WITH_UNDERSCORES and the value cannot be empty.' },
 };
 
@@ -41,7 +44,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const audience = visites.lu ? resumerLAudience(visites.valeur) : null;
   const manifeste = fichiers.lu ? leManifesteStocke(fichiers.valeur.get('app.json')) : null;
   const vend = manifeste?.lu ? laBoutique(manifeste.manifeste) !== null : false;
-  const manquent = [CLE_STRIPE, SECRET_DU_WEBHOOK].filter((n) => !(secrets.lu && secrets.valeur.includes(n)));
+  const cleStripe = process.env[CLE_DE_VAVI]?.trim();
+  const relie = vend && cleStripe ? await comptesSurSupabase(c.base).lire(id) : null;
+  const stripe = relie?.lu && relie.valeur && cleStripe ? await lEtatDuCompte({ appel: (u, i) => fetch(u, i), cle: cleStripe }, relie.valeur) : null;
   const etat = lEtatDeLaMiseEnLigne(projet);
   const date = (iso: string) => new Date(iso).toLocaleString(c.langue === 'fr' ? 'fr-FR' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' });
   const message = q.fait === 'publie' ? t.publie : q.fait === 'revenu' ? `${t.revenu(Number(q.version))}${q.construire ? ` ${t.aConstruire}` : ''}`
@@ -115,10 +120,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <h2>{t.encaisser}</h2>
           <div className="carte">
             <p>{t.encaisserExplication}</p>
-            <ul className="liste"><li><code>{CLE_STRIPE}</code> — {t.cleStripe}</li><li><code>{SECRET_DU_WEBHOOK}</code> — {t.secretWebhook}</li></ul>
-            <p>{t.webhook}</p>
-            <p><code>{`${adresseDeLaPlateforme()}/api/pay/${id}/webhook`}</code></p>
-            <p className={manquent.length ? undefined : 'attenue'}>{manquent.length ? `${t.manque} ${manquent.join(', ')}` : t.pret}</p>
+            {!cleStripe ? <p className="attenue">{t.stripeNonRelie}</p>
+              : !relie?.lu ? <p role="alert">{t.erreur} {relie && !relie.lu ? relie.pourquoi : ''}</p>
+              : !relie.valeur ? <><p>{t.stripeOuvrir}</p><a className="bouton" href={`/projets/${id}/stripe`}>{t.stripeOuvrirBouton}</a></>
+              : stripe?.lu && stripe.valeur.encaisse ? <p>{t.stripePret}{stripe.valeur.aFournir > 0 ? ` ${t.stripeAFournir(stripe.valeur.aFournir)}` : ''} <a href="https://dashboard.stripe.com/" target="_blank" rel="noreferrer">{t.stripeTableau}</a></p>
+              : <><p>{stripe?.lu ? t.stripeEnCours(stripe.valeur.aFournir) : t.stripeIllisible}</p><a className="bouton" href={`/projets/${id}/stripe`}>{t.stripeContinuer}</a></>}
+            <p className="attenue">{t.stripeCeQueStripeDemande}</p>
           </div>
         </>
       )}

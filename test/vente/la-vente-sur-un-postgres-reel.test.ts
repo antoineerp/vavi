@@ -59,16 +59,16 @@ describe.runIf(POSTGRES_PRESENT)('la vente, sur un PostgreSQL réel', () => {
   const sessions: string[] = [];
   const d = (): DependancesDeLaVente => ({
     rpc, leProjet: async () => ({ lu: true, valeur: { proprietaire: PROPRIO, appJson: JSON.stringify(M) } }),
-    leSecret: async (_id, nom) => (nom === 'STRIPE_SECRET_KEY' ? 'sk_test_x' : 'whsec_x'),
-    stripe: async (_u, init) => { sessions.push(init.body); return { ok: true, json: async () => ({ id: `cs_${sessions.length}`, url: 'https://checkout.stripe.test/' }) }; },
+    leCompte: async () => ({ cle: 'sk_test_x', compte: 'acct_proprio1' }), secretDuWebhook: 'whsec_x',
+    stripe: async (_u, init) => { sessions.push(init.body ?? ''); return { ok: true, json: async () => ({ id: `cs_${sessions.length}`, url: 'https://checkout.stripe.test/' }) }; },
     journal: () => {},
   });
   const ACHETEUR = { nom: 'Ada Lovelace', courriel: 'ada@exemple.fr', adresse: { line1: '1 rue', postal_code: '75001', city: 'Paris', country: 'FR' } };
   const payer = async (session: string, commande: string, montant: number) => {
-    const corps = JSON.stringify({ type: 'checkout.session.completed', data: { object: { id: session, payment_status: 'paid', amount_total: montant, currency: 'eur',
+    const corps = JSON.stringify({ type: 'checkout.session.completed', account: 'acct_proprio1', data: { object: { id: session, payment_status: 'paid', amount_total: montant, currency: 'eur',
       customer_details: { email: 'ada@exemple.fr', name: 'Ada' }, metadata: { vavi_projet: P, vavi_commande: commande, vavi_montant: String(montant), vavi_devise: 'EUR' } } } });
     const t = Math.floor(Date.now() / 1000);
-    return confirmerLaVente(d(), P, corps, `t=${t},v1=${createHmac('sha256', 'whsec_x').update(`${t}.${corps}`).digest('hex')}`);
+    return confirmerLaVente(d(), corps, `t=${t},v1=${createHmac('sha256', 'whsec_x').update(`${t}.${corps}`).digest('hex')}`);
   };
   const commandeDe = (n: number) => String(new URLSearchParams(sessions[n]).get('metadata[vavi_commande]'));
 

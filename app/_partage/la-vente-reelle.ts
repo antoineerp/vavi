@@ -1,11 +1,13 @@
 /**
- * La vente branchée sur le réel : la base de la plateforme (clé de service), les projets, les secrets du projet ouverts
- * par leur sceau, Stripe par `fetch`. Les routes `/api/pay/<projet>/…` la reçoivent ; `lib/vente` n'en sait rien.
+ * La vente branchée sur le réel : la base de la plateforme (clé de service), les projets, le compte Stripe relié de chaque
+ * projet (`lib/stripe-connect`) sous la clé de vavi, Stripe par `fetch`. Les routes `/api/pay/…` la reçoivent ; `lib/vente`
+ * n'en sait rien.
  */
 import 'server-only';
 import { clientDeService } from '@/lib/supabase/service';
-import { leProjetServi, leSecretScelle } from '@/lib/projets/les-projets';
-import { ouvrirUnSecret } from '@/lib/mcp/les-jetons';
+import { leProjetServi } from '@/lib/projets/les-projets';
+import { comptesSurSupabase } from '@/lib/stripe-connect/sur-supabase';
+import { CLE_DE_VAVI, SECRET_DU_WEBHOOK_DE_VAVI } from '@/lib/stripe-connect/le-compte';
 import type { DependancesDeLaVente } from '@/lib/vente/la-vente';
 
 export function laVenteReelle(): DependancesDeLaVente {
@@ -13,12 +15,13 @@ export function laVenteReelle(): DependancesDeLaVente {
   return {
     rpc: (fonction, args) => base.rpc(fonction, args),
     leProjet: (id) => leProjetServi(base, id),
-    async leSecret(id, nom) {
-      const s = await leSecretScelle(base, id, nom);
-      if (!s.lu || s.valeur === null) return null;
-      const o = ouvrirUnSecret(id, nom, s.valeur);
-      return o.lu ? o.valeur : null;
+    async leCompte(id) {
+      const cle = process.env[CLE_DE_VAVI]?.trim();
+      if (!cle) return null;
+      const c = await comptesSurSupabase(base).lire(id);
+      return c.lu && c.valeur ? { cle, compte: c.valeur } : null;
     },
+    secretDuWebhook: process.env[SECRET_DU_WEBHOOK_DE_VAVI]?.trim() || null,
     stripe: (url, init) => fetch(url, init),
     journal: (ligne) => { console.error(ligne); },
   };

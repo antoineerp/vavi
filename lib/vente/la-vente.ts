@@ -3,8 +3,10 @@
  * LA VENTE D'UNE APP — le prix lu en base, la commande payée par la confirmation signée, une fois par paiement.
  *   · `chiffrerLePanier` — le panier de l'app envoie des lignes ; la plateforme les chiffre en base et rend le récapitulatif ;
  *   · `ouvrirLaVente` — la commande naît au prix lu, à son acheteur (ou au propriétaire, pour un achat sans compte), puis
- *     la page de paiement de Stripe s'ouvre, par la clé du propriétaire ;
- *   · `confirmerLaVente` — le webhook SIGNÉ : le montant encaissé est relu contre celui de la commande, et la BASE la fait
+ *     la page de paiement de Stripe s'ouvre, SUR LE COMPTE STRIPE DU PROPRIÉTAIRE, que vavi lui a ouvert (Stripe Connect,
+ *     `lib/stripe-connect`) : l'argent va chez lui, jamais chez vavi ;
+ *   · `confirmerLaVente` — le webhook SIGNÉ de vavi (un seul, pour tous les comptes reliés), venu du compte du projet : le
+ *     montant encaissé est relu contre celui de la commande, et la BASE la fait
  *     payée (`commande_par_paiement`, que seule la plateforme exécute) ; rejoué, il ne refait rien ;
  *   · `lireLaFacture` — la facture, à qui porte le jeton de la commande.
  * Ce module ne lit ni le réseau ni les secrets lui-même : ses dépendances le font (`DependancesDeLaVente`), la route les
@@ -19,15 +21,17 @@ import { chiffrer, laDestination, lePanierMontre, lesArticlesAPayer, lireLeCode,
 import { lePaiementDeLEvenement, ouvrirUneSessionStripe, verifierLaSignature, type AppelStripe } from './stripe';
 import { laFacture, type CommandeFacturee } from './la-facture';
 
-export const CLE_STRIPE = 'STRIPE_SECRET_KEY';
-export const SECRET_DU_WEBHOOK = 'STRIPE_WEBHOOK_SECRET';
-
 export interface DependancesDeLaVente {
   readonly rpc: AppelDeLaBase['rpc'];
   /** app.json du projet et son propriétaire ; `null` : ce projet n'existe pas. */
   leProjet(id: string): Promise<{ readonly lu: true; readonly valeur: { readonly proprietaire: string; readonly appJson: string | undefined } | null } | { readonly lu: false; readonly pourquoi: string }>;
-  /** Un secret du projet, ouvert ; `null` : il n'est pas posé (ou ne s'ouvre pas). */
-  leSecret(id: string, nom: string): Promise<string | null>;
+  /**
+   * Comment ce projet encaisse : la clé de vavi et le compte Stripe relié du propriétaire (`acct_…`), qui peut payer.
+   * `null` : aucun compte relié qui encaisse (ou vavi n'est pas relié à Stripe).
+   */
+  leCompte(id: string): Promise<{ readonly cle: string; readonly compte: string } | null>;
+  /** Le secret du webhook Connect de vavi ; `null` : pas posé chez l'hébergeur. */
+  readonly secretDuWebhook: string | null;
   readonly stripe: AppelStripe;
   /** Ce que la vente dit au journal : l'étape et la cause, jamais une donnée de l'acheteur. */
   journal(ligne: string): void;
@@ -115,8 +119,8 @@ export async function ouvrirLaVente(d: DependancesDeLaVente, id: string, corps: 
   const acheteur = lireLesCoordonnees(corps.acheteur, o.boutique.livraison);
   if (typeof acheteur === 'string') return { statut: 400, corps: { error: fr ? 'Vos coordonnées sont incomplètes.' : 'Your details are incomplete.', detail: acheteur, code: 'coordonnees' } };
   const destination = acheteur.retrait ? { pays: null, retrait: true } : { pays: acheteur.adresse?.country ?? null, retrait: false };
-  const cle = await d.leSecret(id, CLE_STRIPE);
-  if (!cle) return { statut: 503, corps: { error: fr ? 'Le paiement n’est pas encore configuré pour cette boutique.' : 'Payment is not set up for this shop yet.', code: 'paiement-non-configure' } };
+  const encaisse = await d.leCompte(id);
+  if (!encaisse) return { statut: 503, corps: { error: fr ? 'Le paiement n’est pas encore configuré pour cette boutique.' : 'Payment is not set up for this shop yet.', code: 'paiement-non-configure' } };
   const a = lesArticlesAPayer(o.boutique, p, destination);
   const r = await d.rpc('app_ouvrir_une_commande', { p_schema: o.schema, p_compte: compte ?? o.proprietaire, p_lignes: a.lignes, p_montant: a.montant,
     p_livraison: a.frais, p_devise: o.boutique.devise, p_courriel: acheteur.courriel, p_nom: acheteur.nom, p_adresse: acheteur.adresse, p_tva: a.tva,
@@ -127,7 +131,7 @@ export async function ouvrirLaVente(d: DependancesDeLaVente, id: string, corps: 
     d.journal(`[vente] ${o.schema} — commande non ouverte : ${r.error?.message ?? 'aucun identifiant rendu'}`);
     return non(refus(503, fr ? 'La commande n’a pas pu être enregistrée ; rien n’a été encaissé, réessayez.' : 'The order could not be saved; nothing was charged, try again.'));
   }
-  const s = await ouvrirUneSessionStripe(d.stripe, cle, {
+  const s = await ouvrirUneSessionStripe(d.stripe, encaisse.cle, encaisse.compte, {
     devise: o.boutique.devise, articles: a.items, courriel: acheteur.courriel,
     metadonnees: { vavi_projet: id, vavi_commande: r.data, vavi_montant: String(a.montant), vavi_devise: o.boutique.devise },
     retourOk: leRetour(corps.successUrl, adresse, id, true), retourAnnule: leRetour(corps.cancelUrl, adresse, id, false),
@@ -137,24 +141,30 @@ export async function ouvrirLaVente(d: DependancesDeLaVente, id: string, corps: 
 }
 
 /**
- * POST /api/pay/<projet>/webhook — les octets reçus et l'en-tête `stripe-signature`. 200 : fait, déjà fait, ou sans objet
- * (Stripe ne rejoue pas) ; 400 : signature fausse ; 500/503 : à rejouer (Stripe rejoue).
+ * POST /api/pay/webhook — le webhook Connect de vavi : les octets reçus et l'en-tête `stripe-signature`. Le projet est dans
+ * les métadonnées que vavi a posées, et l'évènement doit venir du compte relié à CE projet (un autre compte ne paie pas
+ * la commande d'un autre). 200 : fait, déjà fait, ou sans objet (Stripe ne rejoue pas) ; 400 : signature fausse ;
+ * 500/503 : à rejouer (Stripe rejoue).
  */
-export async function confirmerLaVente(d: DependancesDeLaVente, id: string, corps: string, signature: string | null): Promise<Reponse> {
-  const schema = schemaDuProjet(id);
-  if (!schema) return { statut: 404, corps: { error: 'unknown project' } };
-  const secret = await d.leSecret(id, SECRET_DU_WEBHOOK);
-  if (!secret) return { statut: 503, corps: { error: `${SECRET_DU_WEBHOOK} is not set for this project` } };
-  const v = verifierLaSignature(corps, signature, secret);
-  if (!v.valide) { d.journal(`[vente] ${schema} — webhook refusé : ${v.motif}`); return { statut: 400, corps: { error: 'invalid signature' } }; }
-  let e: { type?: unknown; data?: { object?: Record<string, unknown> } };
+export async function confirmerLaVente(d: DependancesDeLaVente, corps: string, signature: string | null): Promise<Reponse> {
+  if (!d.secretDuWebhook) return { statut: 503, corps: { error: 'the Stripe webhook secret of vavi is not set' } };
+  const v = verifierLaSignature(corps, signature, d.secretDuWebhook);
+  if (!v.valide) { d.journal(`[vente] webhook refusé : ${v.motif}`); return { statut: 400, corps: { error: 'invalid signature' } }; }
+  let e: { type?: unknown; account?: unknown; data?: { object?: Record<string, unknown> } };
   try { e = JSON.parse(corps) as typeof e; } catch { return { statut: 400, corps: { error: 'invalid body' } }; }
   const objet = e.data?.object ?? {};
   if (lePaiementDeLEvenement(String(e.type ?? ''), objet) !== 'paye') return { statut: 200, corps: { recu: true } };
   const meta = (objet.metadata ?? {}) as Record<string, unknown>;
+  const id = typeof meta.vavi_projet === 'string' ? meta.vavi_projet.toLowerCase() : '';
+  const schema = schemaDuProjet(id);
   const commande = typeof meta.vavi_commande === 'string' ? meta.vavi_commande : null;
   const attendu = Number(meta.vavi_montant);
-  if (meta.vavi_projet !== id || !commande || !Number.isInteger(attendu)) return { statut: 200, corps: { recu: true, sansObjet: true } };
+  if (!schema || !commande || !Number.isInteger(attendu)) return { statut: 200, corps: { recu: true, sansObjet: true } };
+  const compte = await d.leCompte(id);
+  if (!compte || e.account !== compte.compte) {
+    d.journal(`[vente] ${schema} — webhook d'un autre compte que celui du projet (${String(e.account ?? 'aucun')})`);
+    return { statut: 200, corps: { recu: true, refusee: 'compte' } };
+  }
   const paye = typeof objet.amount_total === 'number' ? objet.amount_total : null;
   const devise = String(objet.currency ?? '').toUpperCase();
   if (paye === null || paye < attendu || devise !== meta.vavi_devise) {
