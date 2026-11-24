@@ -41,7 +41,8 @@ beforeEach(() => {
     base: { rpc: async (f: string, a: Record<string, unknown>) => (f === 'create_app_schema' ? { data: schemaDuProjet(String(a.project_id)), error: null } : { data: null, error: null }) },
     construire: async () => ({ construite: true, duree: 5, faits: null, dist: new Map([['index.html', Buffer.from('<html><head></head><body></body></html>')]]) }),
     preRendre: async () => null,
-    vue: { messages: async () => 3, visites: async () => null, droitDePublier: async () => (permis ? { permis: true } : { permis: false, pourquoi: 'the free trial has the preview only' }) },
+    vue: { messages: async () => 3, visites: async () => null, droitDePublier: async () => (permis ? { permis: true } : { permis: false, pourquoi: 'the free trial has the preview only' }),
+      pageDeLApercu: async (_p: string, e: string, a: string) => `<html data-e="${e}" data-a="${a}"></html>` },
   };
 });
 
@@ -85,7 +86,7 @@ describe('la vue dans Claude', () => {
     const id = await unApercu();
     const f = await appel('vavi_fiche_du_projet', { project: id, geste: ecrireUnJetonDeVue(MOI) });
     expect(f).toMatchObject({ ok: true, id, state: 'a_publier', can_publish: true, messages: 3, visits: null, online_url: null,
-      console_url: `https://vavi.test/projets/${id}` });
+      console_url: `https://vavi.test/projets/${id}`, app_html: expect.stringContaining(`data-a="https://apercu-${id}.apps.test/"`) });
     expect((f.versions as unknown[]).length).toBeGreaterThan(0);
   });
 });

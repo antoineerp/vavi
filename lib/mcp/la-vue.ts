@@ -24,11 +24,11 @@ const enScript = (v: unknown): string => JSON.stringify(v).replace(/</g, '\\u003
  * PURE — le contenu de `resources/read` : la page, et les domaines que son cadre peut ouvrir (l'aperçu de l'app, à son
  * hôte ou sous la console). Rien d'autre n'est permis : ni script, ni connexion hors de l'hôte.
  */
-export function laRessourceDeLaVue(o: { readonly jeton: string; readonly cadres: readonly string[] }) {
+export function laRessourceDeLaVue(o: { readonly jeton: string; readonly cadres: readonly string[]; readonly ressources?: readonly string[]; readonly connexions?: readonly string[] }) {
   return {
     contents: [{
       uri: RESSOURCE_DE_LA_VUE, mimeType: TYPE_DE_LA_VUE, text: laPage(o.jeton),
-      _meta: { ui: { csp: { frameDomains: [...o.cadres], resourceDomains: [], connectDomains: [] }, prefersBorder: true } },
+      _meta: { ui: { csp: { frameDomains: [...o.cadres], resourceDomains: [...(o.ressources ?? [])], connectDomains: [...(o.connexions ?? [])] }, prefersBorder: true } },
     }],
   };
 }
@@ -63,11 +63,11 @@ button.principal{background:var(--accent);border-color:var(--accent);color:#fff}
   var T=fr?{attente:'Chargement du projet…',enLigne:'En ligne',aPublier:'Changements à publier',rien:'Pas encore d’aperçu',grand:'Voir l’aperçu',
     site:'Voir le site en ligne',publier:'Publier',publierQ:'Confirmer : mettre en ligne cet aperçu',publie:'C’est en ligne.',console:'Console vavi',
     versions:'Dernières versions',messages:'Messages reçus',visites:'Visites (30 jours)',aucun:'Aucun',offre:'Choisir une offre',
-    travail:'Travail en cours avec Claude',erreur:'Cela n’a pas marché :',sansApercu:'Demandez à Claude de construire l’aperçu.'}
+    travail:'Travail en cours avec Claude',ici:'Essayer l’app ici',erreur:'Cela n’a pas marché :',sansApercu:'Demandez à Claude de construire l’aperçu.'}
   :{attente:'Loading the project…',enLigne:'Online',aPublier:'Changes to publish',rien:'No preview yet',grand:'See the preview',
     site:'See the live site',publier:'Publish',publierQ:'Confirm: put this preview online',publie:'It is online.',console:'vavi console',
     versions:'Latest versions',messages:'Messages received',visites:'Visits (30 days)',aucun:'None',offre:'Choose a plan',
-    travail:'Work in progress with Claude',erreur:'That did not work:',sansApercu:'Ask Claude to build the preview.'};
+    travail:'Work in progress with Claude',ici:'Try the app here',erreur:'That did not work:',sansApercu:'Ask Claude to build the preview.'};
   document.getElementById('attente').textContent=T.attente;
   var n=0,attendus={};
   function envoyer(methode,params,notif){var m={jsonrpc:'2.0',method:methode,params:params||{}};if(!notif){m.id=++n;}
@@ -89,6 +89,9 @@ button.principal{background:var(--accent);border-color:var(--accent);color:#fff}
     if(!f.preview_url)v.appendChild(el('p',{class:'doux',texte:T.sansApercu}));
     var b=el('div',{class:'boutons'});
     if(f.preview_url)b.appendChild(el('button',{texte:T.grand,onclick:function(){lien(f.preview_url);}}));
+    // ESSAI du 24/11 : la vue devient l'app (son code chargé de vavi, sa base jointe), sans cadre extérieur.
+    if(f.app_html)b.appendChild(el('button',{texte:T.ici,onclick:function(){envoyer('ui/notifications/size-changed',{width:document.body.scrollWidth,height:720},true);
+      document.open();document.write(f.app_html);document.close();}}));
     // Deux clics, dans la vue : le cadre de l'hôte peut interdire window.confirm (bac à sable sans « allow-modals »).
     if(f.state==='a_publier')b.appendChild(el('button',{class:'principal',texte:T.publier,onclick:function(e){var x=e.target;
       if(!x.dataset.sur){x.dataset.sur='1';x.textContent=T.publierQ;return;}
