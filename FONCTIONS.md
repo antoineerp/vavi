@@ -14,9 +14,9 @@ dépendances déclarées.
 | Clé | Fonction | Module | Test | Dépend de | État | Lot |
 | --- | --- | --- | --- | --- | --- | --- |
 | socle | Configuration et auth Supabase (navigateur, serveur, service, session) | lib/supabase | test/supabase-configuration.test.ts | — | neuve | 1 |
-| gardes | Les gardes du dépôt (cette liste, la fermeture des imports) | scripts | test/fonctions.test.ts | — | neuve | 1 |
-| backend | Base par projet dérivée d'app.json : tables, RLS, cycles, journal, membres | lib/backend | test/backend.test.ts | — | à reprendre | 2 |
-| relais | Relais navigateur → base, sous la RLS (`voie_neuve_*`) | lib/relais | test/relais.test.ts | socle, backend | à reprendre | 2 |
+| gardes | Les gardes du dépôt (cette liste, la fermeture des imports) et l'écriture des migrations | scripts | test/fonctions.test.ts | relais | neuve | 1 |
+| backend | Base par projet dérivée d'app.json : tables, RLS, cycles, journal, membres (SQL pur) | lib/backend | test/backend/ | — | reprise | 2 |
+| relais | Base de la plateforme : schéma par projet, pose de la base, relais navigateur → base sous la RLS (`voie_neuve_*`), agir pour un compte | lib/relais | test/relais/ | backend | reprise | 2 |
 | squelette | Squelette d'app (gabarit Vite/React) et ses briques | squelette | test/squelette.test.ts | — | à reprendre | 3 |
 | design | Règles de design, peau (jetons, contraste construit), polices, exemples | lib/design | test/design.test.ts | backend | à reprendre | 3 |
 | atelier | Build dans un atelier éphémère (tsc, vite build) | lib/atelier | test/atelier.test.ts | — | à reprendre | 4 |

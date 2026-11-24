@@ -25,6 +25,8 @@ jobs:
         run: pnpm typecheck
       - name: Tests
         run: pnpm test
+      - name: Tests sur PostgreSQL réel (en root, comme l'exige le banc)
+        run: sudo -E env "PATH=$PATH" VAVI_EXIGER_POSTGRES=oui pnpm exec vitest run test/backend test/relais
       - name: Fermeture des imports
         run: pnpm fermeture
       - name: Build

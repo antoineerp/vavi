@@ -36,7 +36,7 @@ export function lireLesFonctions(md: string): LectureDesFonctions {
     if (!/^[a-z][a-z0-9-]*$/.test(cle)) erreurs.push(`clé invalide : « ${cle} »`);
     if (!(ETATS as readonly string[]).includes(etat)) erreurs.push(`${cle} : état « ${etat} » hors de ${ETATS.join(', ')}`);
     if (!/^\d+$/.test(lot)) erreurs.push(`${cle} : lot « ${lot} » n'est pas un nombre`);
-    if (!/^test\/.+\.test\.ts$/.test(test)) erreurs.push(`${cle} : le test doit être un fichier test/*.test.ts`);
+    if (!/^test\/(.+\.test\.ts|[a-z0-9-]+\/)$/.test(test)) erreurs.push(`${cle} : le test est un fichier test/*.test.ts ou un dossier test/<nom>/`);
     fonctions.push({
       cle, nom, module: sansCode(module).replace(/\/$/, ''), test,
       dependDe: dep === '—' ? [] : dep.split(',').map((d) => d.trim()).filter(Boolean),
