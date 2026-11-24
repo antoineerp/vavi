@@ -89,7 +89,7 @@ async function lesFichiers(c: Contexte, id: string): Promise<Etape<ReadonlyMap<s
 }
 
 /** Un chemin que Claude peut écrire : relatif, dans le projet, hors du cadre ; sinon le refus qui le dit. */
-export function cheminRefuse(chemin: string): Refus | null {
+export function cheminRefuse(chemin: string, pourSupprimer = false): Refus | null {
   const parts = chemin.split('/');
   if (chemin.startsWith('/') || chemin.includes('\\') || chemin.includes('\0') || parts.some((p) => p === '' || p === '.' || p === '..')
     || chemin.length > 300 || parts[0] === 'node_modules' || parts[0] === 'dist') {
@@ -99,8 +99,16 @@ export function cheminRefuse(chemin: string): Refus | null {
   if ((POSES_PAR_UN_OUTIL as readonly string[]).includes(chemin)) return refuser('fichier_du_cadre', `${chemin} is written by the vavi console (images, search settings), not by you.`, { fichier: chemin });
   if (estFige(chemin)) return refuser('fichier_du_cadre', `${chemin} belongs to the platform: it comes from the template or from app.json. Read it with \`read_files\`; write your own file next to it. To change the data, use \`configure_backend\`.`, { fichier: chemin });
   if (estUnFichierDEnvironnement(chemin)) return refuser('secret_dans_le_code', `${chemin} is an environment file: secrets are stored with \`set_secret\`, never in a file.`, { fichier: chemin });
+  if (!pourSupprimer && !dansLePerimetre(chemin)) {
+    return refuser('chemin_refuse', `"${chemin}" is outside src/ and public/: the build only takes your screens, code and assets from there (a configuration file at the root would run on the build server).`, { fichier: chemin, geste: 'Write this file under src/ (code, styles) or public/ (images, fonts, static files).' });
+  }
   return null;
 }
+
+/** Ce que Claude écrit vit sous `src/` ou `public/` : la racine (configurations que Vite, PostCSS, Babel chargent et
+ * exécutent d'eux-mêmes) appartient au gabarit. Vague 0, audit du 24/11 : un `postcss.config.cjs` posé à la racine
+ * s'exécutait au build. */
+export const dansLePerimetre = (chemin: string): boolean => /^(src|public)\/./.test(chemin);
 
 /** Ce qu'un texte ne doit pas porter : une clé secrète, un paquet hors du gabarit. */
 function texteRefuse(c: Contexte, chemin: string, texte: string): Refus | null {
@@ -282,7 +290,7 @@ export async function appliquerDesChangements(c: Contexte, a: { project: string;
     const formes = [ch.content !== undefined, (ch.replace?.length ?? 0) > 0, ch.delete === true].filter(Boolean).length;
     if (formes !== 1) return refuser('chemin_refuse', `${ch.path}: give exactly one of \`content\`, \`replace\` or \`delete\`.`, { fichier: ch.path, geste: 'Send each change with exactly one of `content`, `replace` or `delete`.' });
     if (ecrits.has(ch.path) || supprimes.includes(ch.path)) return refuser('chemin_refuse', `${ch.path} appears twice in this call.`, { fichier: ch.path, geste: 'Send one change per file.' });
-    const refus = cheminRefuse(ch.path);
+    const refus = cheminRefuse(ch.path, ch.delete === true);
     if (refus) return refus;
     const actuel = f.valeur.get(ch.path);
     if (actuel !== undefined && ch.read_fingerprint !== empreinteDuFichier(actuel)) {
@@ -368,6 +376,12 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   if (!f.ok) return f.refus;
   const arbre = lArbreDUnProjet(f.valeur);
   if (!arbre.lu) return refuser('app_json_refuse', `app.json does not hold: ${arbre.erreurs.join(' | ')}`, { fichier: 'app.json' });
+  // Un fichier hors de src/ et public/, écrit avant la vague 0, n'entre jamais dans un build : Claude le retire.
+  const dehors = [...f.valeur.keys()].filter((ch) => ch !== 'app.json' && !estFige(ch) && !dansLePerimetre(ch));
+  if (dehors.length) {
+    return refuser('chemin_refuse', `These files are outside src/ and public/ and cannot be built: ${dehors.slice(0, 20).join(', ')}.`,
+      { fichier: dehors[0]!, fichiers: dehors.slice(0, 20), geste: 'Move their content under src/ or public/ if you need it, then delete them with `apply_changes` (`delete: true`).' });
+  }
   const deja = await c.projets.leBuild(c.compte, a.project, arbre.empreinte);
   if (deja.lu && deja.valeur?.vert) {
     return fait({ green: true, draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, rebuilt: false,
@@ -375,6 +389,10 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   }
   // Des chemins relatifs : le même build sert l'aperçu, le brouillon et le site public (`poserLEnvironnement`).
   const b = await c.construire(arbre.construit, './');
+  if (!b.construite && b.etape === 'bac_a_sable') {
+    console.error(`[build] bac à sable fermé : ${b.ecarts[0]?.fait ?? ''}`);
+    return refuser('plateforme_en_panne', 'The isolated build environment could not start on this vavi server; nothing was built. This is not caused by your files.');
+  }
   if (!b.construite) {
     await c.projets.enregistrerUnBuild(c.compte, a.project, { empreinte: arbre.empreinte, vert: false, ecarts: b.ecarts });
     const premier = b.ecarts[0];

@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, symlinkSync, wr
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { promisify } from 'node:util';
+import { argumentsDuBacASable, BWRAP, racineDeNode } from './le-bac-a-sable';
 
 const executer = promisify(execFile);
 /** Où les dépendances s'installent : l'image de production les y pose d'avance (`lib/atelier/prechauffer.ts`). */
@@ -16,10 +17,24 @@ const MAGASIN = process.env.VAVI_DEPENDANCES_DES_APPS || join(tmpdir(), 'vavi-de
 
 export interface Sortie { readonly ok: boolean; readonly sortie: string }
 
+/** Le début de la sortie quand le bac à sable ne s'ouvre pas : le build est refusé, jamais lancé à découvert. */
+export const BAC_A_SABLE_FERME = 'The build sandbox could not start on this vavi server.';
+
+/**
+ * L'environnement d'une commande de la plateforme (l'installation des dépendances) : jamais celui du serveur, qui porte
+ * ses secrets ; le strict nécessaire à npm.
+ */
+const ENV_DE_L_INSTALLATION = (): NodeJS.ProcessEnv => ({
+  PATH: process.env.PATH, HOME: tmpdir(), CI: '1', NODE_ENV: process.env.NODE_ENV ?? 'production',
+  ...(process.env.npm_config_cache ? { npm_config_cache: process.env.npm_config_cache } : {}),
+  ...(process.env.HTTPS_PROXY ? { HTTPS_PROXY: process.env.HTTPS_PROXY, https_proxy: process.env.HTTPS_PROXY } : {}),
+  ...(process.env.NODE_EXTRA_CA_CERTS ? { NODE_EXTRA_CA_CERTS: process.env.NODE_EXTRA_CA_CERTS } : {}),
+});
+
 /** Lance une commande dans un dossier ; rend sa sortie, jamais une exception. */
 export async function lancer(commande: string, args: readonly string[], dossier: string, delaiMs = 180_000): Promise<Sortie> {
   try {
-    const r = await executer(commande, [...args], { cwd: dossier, timeout: delaiMs, maxBuffer: 20 * 1024 * 1024, env: { ...process.env, CI: '1' } });
+    const r = await executer(commande, [...args], { cwd: dossier, timeout: delaiMs, maxBuffer: 20 * 1024 * 1024, env: ENV_DE_L_INSTALLATION() });
     return { ok: true, sortie: `${r.stdout}${r.stderr}` };
   } catch (e) {
     const x = e as { stdout?: string; stderr?: string; message: string };
@@ -80,15 +95,28 @@ async function installer(lock: string, paquet: string): Promise<string> {
 }
 
 export class Atelier {
-  private constructor(readonly dossier: string) {}
+  private constructor(readonly dossier: string, private readonly dependances: string) {}
+
+  /**
+   * Lance un script de node (un chemin relatif à l'atelier, ex. `node_modules/vite/bin/vite.js`) DANS LE BAC À SABLE :
+   * ni réseau, ni environnement du serveur, ni autre disque que l'atelier (`le-bac-a-sable.ts`).
+   */
+  async lancerIsole(script: string, args: readonly string[], delaiMs = 180_000): Promise<Sortie> {
+    const node = racineDeNode();
+    const sonde = await lancer(BWRAP, argumentsDuBacASable({ atelier: this.dossier, lecture: [this.dependances], node, commande: [join(node, 'bin', 'node'), '-e', ''] }), this.dossier, 30_000);
+    if (!sonde.ok) return { ok: false, sortie: `${BAC_A_SABLE_FERME} ${sonde.sortie.slice(-500)}` };
+    const commande = [join(node, 'bin', 'node'), script, ...args];
+    return lancer(BWRAP, argumentsDuBacASable({ atelier: this.dossier, lecture: [this.dependances], node, commande }), this.dossier, delaiMs);
+  }
 
   static async ouvrir(arbre: ReadonlyMap<string, string>): Promise<Atelier> {
     const lock = arbre.get('package-lock.json');
     const paquet = arbre.get('package.json');
     if (!lock || !paquet) throw new Error('package.json et package-lock.json sont figés : ils manquent à l’arbre');
-    const atelier = new Atelier(mkdtempSync(join(tmpdir(), 'vavi-atelier-')));
+    const deps = await dependances(lock, paquet);
+    const atelier = new Atelier(mkdtempSync(join(tmpdir(), 'vavi-atelier-')), dirname(deps));
     atelier.ecrire(arbre);
-    symlinkSync(await dependances(lock, paquet), join(atelier.dossier, 'node_modules'), 'dir');
+    symlinkSync(deps, join(atelier.dossier, 'node_modules'), 'dir');
     return atelier;
   }
 

@@ -10,13 +10,13 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { Atelier, lancer } from './l-atelier';
+import { Atelier, BAC_A_SABLE_FERME } from './l-atelier';
 
 export interface Ecart { readonly fichier: string | null; readonly fait: string }
 
 export type Construction =
   | { readonly construite: true; readonly dist: ReadonlyMap<string, Buffer>; readonly faits: unknown; readonly duree: number }
-  | { readonly construite: false; readonly etape: 'dependances' | 'types' | 'build'; readonly ecarts: readonly Ecart[]; readonly duree: number };
+  | { readonly construite: false; readonly etape: 'dependances' | 'bac_a_sable' | 'types' | 'build'; readonly ecarts: readonly Ecart[]; readonly duree: number };
 
 const ERREUR_TSC = /^(src\/[^\s(]+)\((\d+),(\d+)\): error (TS\d+): (.+)$/;
 
@@ -57,12 +57,14 @@ export async function construireLApp(arbre: ReadonlyMap<string, string>, base?: 
     return { construite: false, etape: 'dependances', ecarts: [{ fichier: null, fait: (e as Error).message }], duree: duree() };
   }
   try {
-    const tsc = await lancer('node', ['node_modules/typescript/bin/tsc', '--noEmit', '-p', '.'], atelier.dossier);
+    const tsc = await atelier.lancerIsole('node_modules/typescript/bin/tsc', ['--noEmit', '-p', '.']);
+    if (!tsc.ok && tsc.sortie.startsWith(BAC_A_SABLE_FERME)) return { construite: false, etape: 'bac_a_sable', ecarts: [{ fichier: null, fait: tsc.sortie }], duree: duree() };
     if (!tsc.ok) {
       const ecarts = ecartsDuTypage(tsc.sortie);
       return { construite: false, etape: 'types', ecarts: ecarts.length ? ecarts : [{ fichier: null, fait: tsc.sortie.slice(-1500) }], duree: duree() };
     }
-    const build = await lancer('node', ['node_modules/vite/bin/vite.js', 'build', '--logLevel', 'error', ...(base ? ['--base', base] : [])], atelier.dossier);
+    // `--configLoader runner` : la configuration se charge sans fichier temporaire dans node_modules, lu seul au bac à sable.
+    const build = await atelier.lancerIsole('node_modules/vite/bin/vite.js', ['build', '--configLoader', 'runner', '--logLevel', 'error', ...(base ? ['--base', base] : [])]);
     if (!build.ok) return { construite: false, etape: 'build', ecarts: ecartsDuBuild(build.sortie), duree: duree() };
     const dist = lireLeDist(join(atelier.dossier, 'dist'));
     const faits = dist.get('faits.json');

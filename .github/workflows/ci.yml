@@ -22,6 +22,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Bac à sable du build (bubblewrap ; Ubuntu 24 restreint les espaces de noms sans privilège)
+        run: |
+          sudo apt-get install -y -q bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
       - name: Types
         run: pnpm typecheck
       - name: Tests, dont le build d'une app posée (VAVI_BATIR)
