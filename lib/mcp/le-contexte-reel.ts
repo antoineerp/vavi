@@ -59,7 +59,7 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
       async preRendre(projet, dist, m) {
         const publique = configurationPublique(process.env);
         const schema = schemaDuProjet(projet);
-        const navigateur = publique.lue && schema ? await leNavigateurDuServeur() : null;
+        const navigateur = publique.lue && schema ? await leNavigateurDuServeur([publique.valeur.url]) : null;
         if (!navigateur || !publique.lue || !schema) return null;
         return preRendre(navigateur, dist, { env: { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet },
           app: { nom: m.nom, description: m.description, langue: m.langues.principale, autres: m.langues.autres, editeur: m.editeur ?? null } });

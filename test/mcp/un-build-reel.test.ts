@@ -32,7 +32,7 @@ describe.runIf(process.env.VAVI_BATIR === 'oui')('un projet construit par les ou
       permis: lesPaquetsDuGabarit(readFileSync(join(__dirname, '../../squelette/gabarit/package.json'), 'utf8')), refusPrecedents: new Map<string, Refus>(),
       scellerUnSecret: () => 's', construire: construireLApp,
       async preRendre(projet, dist, m) {
-        const n = await leNavigateurDuServeur();
+        const n = await leNavigateurDuServeur(['https://x.supabase.co']);
         return n ? preRendre(n, dist, { env: { supabaseUrl: 'https://x.supabase.co', cleAnonyme: 'k'.repeat(30), schema: 's', projet },
           app: { nom: m.nom, description: m.description, langue: m.langues.principale, autres: m.langues.autres, editeur: null } }) : null;
       },
