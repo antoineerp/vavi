@@ -27,6 +27,15 @@ export async function lancer(commande: string, args: readonly string[], dossier:
   }
 }
 
+/**
+ * `--include=dev` : le build d'une app a besoin de ses outils (typescript, vite), déclarés en devDependencies du gabarit ;
+ * sans lui, `npm ci` les saute dès que `NODE_ENV=production`, ce que pose l'image du serveur (incident du 24/11 sur
+ * vavi-essai : « Cannot find module 'typescript/bin/tsc' »).
+ */
+export const ARGUMENTS_DE_L_INSTALLATION = ['ci', '--include=dev', '--no-audit', '--no-fund', '--ignore-scripts'] as const;
+/** Change quand la manière d'installer change : une installation d'avant, incomplète, n'est jamais reprise. */
+const FACON = 'avec-les-outils-de-build';
+
 const enCours = new Map<string, Promise<string>>();
 
 /**
@@ -50,7 +59,7 @@ export function dependances(lock: string, paquet: string): Promise<string> {
  * dossier, `ENOENT mkdir node_modules/zod`.)
  */
 async function installer(lock: string, paquet: string): Promise<string> {
-  const empreinte = createHash('sha256').update(lock).digest('hex').slice(0, 16);
+  const empreinte = createHash('sha256').update(lock).update(FACON).digest('hex').slice(0, 16);
   const dossier = join(MAGASIN, empreinte);
   const pret = () => existsSync(join(dossier, 'node_modules', '.installe'));
   if (pret()) return join(dossier, 'node_modules');
@@ -59,7 +68,7 @@ async function installer(lock: string, paquet: string): Promise<string> {
   try {
     writeFileSync(join(prive, 'package-lock.json'), lock);
     writeFileSync(join(prive, 'package.json'), paquet);
-    const r = await lancer('npm', ['ci', '--no-audit', '--no-fund', '--ignore-scripts'], prive, 600_000);
+    const r = await lancer('npm', [...ARGUMENTS_DE_L_INSTALLATION], prive, 600_000);
     if (!r.ok) throw new Error(`les dépendances de l'app ne s'installent pas : ${r.sortie.slice(-2000)}`);
     writeFileSync(join(prive, 'node_modules', '.installe'), empreinte);
     if (pret()) return join(dossier, 'node_modules');
