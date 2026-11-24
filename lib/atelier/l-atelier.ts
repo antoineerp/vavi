@@ -5,7 +5,7 @@
  */
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync, readdirSync, statSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, symlinkSync, writeFileSync, readdirSync, statSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { promisify } from 'node:util';
@@ -43,17 +43,31 @@ export function dependances(lock: string, paquet: string): Promise<string> {
   return p;
 }
 
+/**
+ * L'installation se fait dans un dossier PRIVÉ, puis prend sa place d'un seul renommage : deux PROCESSUS qui installent
+ * le même verrou (deux serveurs, deux essais en parallèle) ne partagent jamais un `node_modules` à moitié écrit. Le
+ * premier renommage gagne ; l'autre jette le sien. (Incident CI du 24/11 sur la PR #5 : deux `npm ci` dans le même
+ * dossier, `ENOENT mkdir node_modules/zod`.)
+ */
 async function installer(lock: string, paquet: string): Promise<string> {
   const empreinte = createHash('sha256').update(lock).digest('hex').slice(0, 16);
   const dossier = join(MAGASIN, empreinte);
-  if (existsSync(join(dossier, 'node_modules', '.installe'))) return join(dossier, 'node_modules');
-  mkdirSync(dossier, { recursive: true });
-  writeFileSync(join(dossier, 'package-lock.json'), lock);
-  writeFileSync(join(dossier, 'package.json'), paquet);
-  const r = await lancer('npm', ['ci', '--no-audit', '--no-fund', '--ignore-scripts'], dossier, 600_000);
-  if (!r.ok) throw new Error(`les dépendances de l'app ne s'installent pas : ${r.sortie.slice(-2000)}`);
-  writeFileSync(join(dossier, 'node_modules', '.installe'), empreinte);
-  return join(dossier, 'node_modules');
+  const pret = () => existsSync(join(dossier, 'node_modules', '.installe'));
+  if (pret()) return join(dossier, 'node_modules');
+  mkdirSync(MAGASIN, { recursive: true });
+  const prive = mkdtempSync(join(MAGASIN, `${empreinte}-`));
+  try {
+    writeFileSync(join(prive, 'package-lock.json'), lock);
+    writeFileSync(join(prive, 'package.json'), paquet);
+    const r = await lancer('npm', ['ci', '--no-audit', '--no-fund', '--ignore-scripts'], prive, 600_000);
+    if (!r.ok) throw new Error(`les dépendances de l'app ne s'installent pas : ${r.sortie.slice(-2000)}`);
+    writeFileSync(join(prive, 'node_modules', '.installe'), empreinte);
+    if (pret()) return join(dossier, 'node_modules');
+    try { renameSync(prive, dossier); } catch (e) { if (!pret()) throw e; }
+    return join(dossier, 'node_modules');
+  } finally {
+    if (existsSync(prive)) rmSync(prive, { recursive: true, force: true });
+  }
 }
 
 export class Atelier {

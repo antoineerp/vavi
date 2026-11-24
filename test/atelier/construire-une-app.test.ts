@@ -5,8 +5,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import { construireLApp } from '@/lib/atelier/construire';
-import { publierLeDist } from '@/lib/publication/publier';
-import { servirLApercu } from '@/lib/publication/servir';
+import { publierLeDist, racineDuBuild } from '@/lib/publication/publier';
+import { servirUnDist } from '@/lib/publication/servir';
 import { poserLeFige } from '@/squelette/poser';
 import { unManifeste } from '../aides/un-manifeste';
 import { unMagasinEnMemoire } from '../aides/un-magasin-en-memoire';
@@ -29,8 +29,8 @@ describe.runIf(process.env.VAVI_BATIR === 'oui')('construire une app', () => {
     const js = /src="\/p\/[^"]+\/(assets\/[^"]+\.js)"/.exec(index)?.[1];
     expect(js).toBeDefined();
     const m = unMagasinEnMemoire();
-    await publierLeDist(m, P, c.dist);
-    const servi = await servirLApercu(m, P, js!.split('/'), { supabaseUrl: 'https://x', cleAnonyme: 'k', schema: 's', base: `/p/${P}/` });
+    await publierLeDist(m, racineDuBuild(P, 'c'.repeat(64)), c.dist);
+    const servi = await servirUnDist(m, racineDuBuild(P, 'c'.repeat(64)), js!.split('/'), { supabaseUrl: 'https://x', cleAnonyme: 'k', schema: 's', base: `/p/${P}/` });
     expect(servi.statut).toBe(200);
     expect(servi.corps.equals(c.dist.get(js!)!)).toBe(true);
   }, 600_000);
