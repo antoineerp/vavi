@@ -29,7 +29,7 @@ jobs:
         env:
           VAVI_BATIR: 'oui'
       - name: Tests sur PostgreSQL réel (en root, comme l'exige le banc)
-        run: sudo -E env "PATH=$PATH" VAVI_EXIGER_POSTGRES=oui pnpm exec vitest run test/backend test/relais test/projets test/vente test/formulaires test/stripe-connect test/conformite test/capacites
+        run: sudo -E env "PATH=$PATH" VAVI_EXIGER_POSTGRES=oui pnpm exec vitest run test/backend test/relais test/projets test/vente test/formulaires test/stripe-connect test/conformite test/capacites test/abonnements test/administration test/export.test.ts
       - name: Fermeture des imports
         run: pnpm fermeture
       - name: Build

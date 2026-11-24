@@ -13,7 +13,7 @@ export default async function Page() {
   const l = await c.projets.lister(c.compte);
   return (
     <main className="console">
-      <div className="entete"><h1>{t.mesProjets}</h1><span className="ligne"><span className="attenue">{c.courriel}</span><form action={seDeconnecter}><button type="submit" className="discret">{t.deconnexion}</button></form></span></div>
+      <div className="entete"><h1>{t.mesProjets}</h1><span className="ligne"><Link href="/abonnement">{t.abonnement.titre}</Link><span className="attenue">{c.courriel}</span><form action={seDeconnecter}><button type="submit" className="discret">{t.deconnexion}</button></form></span></div>
       {!l.lu ? <p role="alert">{t.erreur} {l.pourquoi}</p> : l.valeur.length === 0 ? <div className="carte"><p>{t.aucun}</p></div> : (
         <ul className="liste carte">
           {l.valeur.map((p) => {
