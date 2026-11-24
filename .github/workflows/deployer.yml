@@ -1,8 +1,12 @@
 name: Déployer l'essai sur Fly
 
-# À la main seulement (onglet Actions, « Run workflow ») : rien ne part en ligne sans qu'Antoine le lance.
+# Après chaque CI verte sur main (décision d'Antoine du 24/11 au soir), ou à la main (onglet Actions, « Run workflow »).
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
 
 concurrency:
   group: deployer
@@ -10,16 +14,21 @@ concurrency:
 
 jobs:
   deployer:
+    # Un push sur main dont la CI est verte ; jamais une CI rouge, jamais une branche de PR.
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Le commit que la CI a validé, pas un main plus récent.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - run: >
           flyctl deploy --remote-only
           --build-arg NEXT_PUBLIC_SUPABASE_URL="${{ vars.NEXT_PUBLIC_SUPABASE_URL }}"
           --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}"
           --build-arg NEXT_PUBLIC_APP_URL="${{ vars.NEXT_PUBLIC_APP_URL }}"
-          --build-arg VAVI_VERSION="${{ github.sha }}"
+          --build-arg VAVI_VERSION="${{ github.event.workflow_run.head_sha || github.sha }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
