@@ -15,7 +15,7 @@ dépendances déclarées.
 | Clé | Fonction | Module | Test | Dépend de | État | Lot |
 | --- | --- | --- | --- | --- | --- | --- |
 | socle | Configuration et auth Supabase (navigateur, serveur, service, session) | lib/supabase | test/supabase-configuration.test.ts | — | neuve | 1 |
-| gardes | Les gardes du dépôt (cette liste, la fermeture des imports) et l'écriture des migrations | scripts | test/fonctions.test.ts | relais, projets, vente, formulaires, stripe-connect, conformite | neuve | 1 |
+| gardes | Les gardes du dépôt (cette liste, la fermeture des imports) et l'écriture des migrations | scripts | test/fonctions.test.ts | relais, projets, vente, formulaires, stripe-connect, conformite, capacites | neuve | 1 |
 | backend | Base par projet dérivée d'app.json : tables, RLS, cycles, journal, membres (SQL pur) | lib/backend | test/backend/ | — | reprise | 2 |
 | relais | Base de la plateforme : schéma par projet, pose de la base, relais navigateur → base sous la RLS (`voie_neuve_*`), agir pour un compte | lib/relais | test/relais/ | backend | reprise | 2 |
 | projets | Les projets d'un compte et les fichiers que Claude écrit, gardés tels quels (tables de la plateforme, écriture d'un lot en une transaction), l'arbre construit qu'ils donnent, le build désigné (aperçu, en ligne) | lib/projets | test/projets/ | backend, squelette | neuve | 5 |
@@ -38,5 +38,5 @@ dépendances déclarées.
 | automatisations | Automatisations : moteur, registre, tic | lib/automatisations | test/automatisations.test.ts | socle, backend, capacites | à reprendre | 7 |
 | connecteurs | Connecteurs (Google Drive, OneDrive, clés API) | lib/connecteurs | test/connecteurs.test.ts | socle | à reprendre | 7 |
 | agents | Agents de l'app, qui proposent seulement | lib/agents | test/agents.test.ts | socle, backend, capacites | à reprendre | 7 |
-| capacites | Capacités des apps (courriel, SMS, PDF, agenda, vision…), une par une | lib/capacites | test/capacites.test.ts | socle | à reprendre | 7 |
+| capacites | Capacités des apps : la porte (fonction déclarée, membre de l'app, plafond tenu en base), courriel par le fournisseur du propriétaire, lieux (Nominatim, fuseau), prospects (registre public) ; les autres (SMS, PDF, agenda, lecture, recherche, connecteur…) entrent une par une | lib/capacites | test/capacites/ | backend, relais | reprise | 7 |
 | abonnements | Abonnements de la plateforme et quotas : l'offre gratuite n'a que l'aperçu, « Publier » exige une offre payante (décision du 24/11) | lib/abonnements | test/abonnements.test.ts | socle | à reprendre | 8 |

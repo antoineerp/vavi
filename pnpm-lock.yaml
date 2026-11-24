@@ -29,6 +29,9 @@ importers:
       server-only:
         specifier: 0.0.1
         version: 0.0.1
+      tz-lookup:
+        specifier: 6.1.25
+        version: 6.1.25
       zod:
         specifier: 3.23.8
         version: 3.23.8
@@ -1395,6 +1398,9 @@ packages:
     resolution: {integrity: sha512-hjcS1mhfuyi4WW8IWtjP7brDrG2cuDZukyrYrSauoXGNgx0S7zceP07adYkJycEr56BOUTNPzbInooiN3fn1qw==}
     engines: {node: '>=14.17'}
     hasBin: true
+
+  tz-lookup@6.1.25:
+    resolution: {integrity: sha512-fFewT9o1uDzsW1QnUU1ValqaihFnwiUiiHr1S79/fxOzKXYYvX+EHeRnpvQJ9B3Qg67wPXT6QF2Esc4pFOrvLg==}
 
   ufo@1.6.4:
     resolution: {integrity: sha512-JFNbkD1Svwe0KvGi8GOeLcP4kAWQ609twvCdcHxq1oSL8svv39ZuSvajcD8B+5D0eL4+s1Is2D/O6KN3qcTeRA==}
@@ -3018,6 +3024,8 @@ snapshots:
   type-detect@4.1.0: {}
 
   typescript@5.6.3: {}
+
+  tz-lookup@6.1.25: {}
 
   ufo@1.6.4: {}
 
