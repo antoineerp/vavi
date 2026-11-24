@@ -21,7 +21,8 @@ export const CODES_DE_REFUS = {
   fichier_du_cadre: 'This file belongs to the platform. Use the tool named in `fait` instead of writing it.',
   secret_dans_le_code: 'Remove the secret from the code. Store it with `set_secret`; the code calls the capability instead.',
   paquet_inconnu: 'Use only the packages listed in the `vavi://capacites` resource, or tell the person what is missing.',
-  build_rouge: 'Fix the errors one by one at the file and line given, then run `build_preview` again.',
+  erreur_masquee: 'Remove the directive and fix the error it hides. The type check is the judge: it is never switched off, in any file.',
+  build_rouge: 'Fix the errors one by one at the file and line given, then run `build_preview` again. Never silence a type error with `any` or `@ts-ignore`; if your change made things worse, propose `rollback`.',
   build_perime: 'The project changed since the last build. Run `build_preview` again before publishing.',
   app_json_refuse: 'Fix app.json at the place given in `fait`, then send it again with `configure_backend`.',
   projet_inconnu: 'Call `list_projects` and use one of the project ids it returns.',
@@ -50,6 +51,11 @@ export interface Refus {
 
 export const ARRETER =
   'This is the second time in a row you get this same refusal. Stop, and explain the blockage to the person in plain words before trying anything else.';
+
+/** Après autant de builds rouges d'affilée dans un chantier, Claude s'arrête, même si l'erreur change à chaque tour. */
+export const ROUGES_D_AFFILEE = 3;
+export const laBoucle = (n: number): string =>
+  `${n} red builds in a row. Stop fixing: you may be piling fixes on fixes. Sum up for the person, in plain words, what fails and what you tried. Then propose to go back to the last green version with \`history\` and \`rollback\`, and to continue in a new conversation with the "Resume" prompt.`;
 
 export function refuser(
   code: CodeDeRefus,

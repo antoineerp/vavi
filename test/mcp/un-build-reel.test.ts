@@ -29,7 +29,7 @@ describe.runIf(process.env.VAVI_BATIR === 'oui')('un projet construit par les ou
     const magasin = unMagasinEnMemoire();
     const c: Contexte = {
       compte: 'aaaaaaaa-0000-4000-8000-00000000000a', projets: desProjetsEnMemoire(), magasin, adresse: 'https://vavi.test',
-      permis: lesPaquetsDuGabarit(readFileSync(join(__dirname, '../../squelette/gabarit/package.json'), 'utf8')), refusPrecedents: new Map<string, Refus>(),
+      permis: lesPaquetsDuGabarit(readFileSync(join(__dirname, '../../squelette/gabarit/package.json'), 'utf8')), refusPrecedents: new Map<string, Refus>(), suivis: new Map(),
       scellerUnSecret: () => 's', construire: construireLApp,
       async preRendre(projet, dist, m) {
         const n = await leNavigateurDuServeur();

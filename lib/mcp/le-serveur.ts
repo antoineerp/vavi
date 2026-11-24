@@ -53,7 +53,8 @@ async function repondre(r: Requete, ctx: ContexteDuServeur): Promise<ReponseRpc 
       if (!a.connu) return erreur(id, -32602, `Unknown tool "${nom}".`);
       if ('invalide' in a) return erreur(id, -32602, `Invalid arguments for ${nom}: ${a.invalide}`);
       const refus = estUnRefus(a.rendu);
-      return resultat(id, { content: [{ type: 'text', text: JSON.stringify(a.rendu, null, 2) }], structuredContent: a.rendu, isError: refus });
+      // JSON compact : chaque réponse reste dans l'historique de la conversation, l'indentation y coûte 15 à 20 % de jetons.
+      return resultat(id, { content: [{ type: 'text', text: JSON.stringify(a.rendu) }], structuredContent: a.rendu, isError: refus });
     }
     case 'prompts/list': return resultat(id, { prompts: lesPrompts(ctx.langue) });
     case 'prompts/get': {

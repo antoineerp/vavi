@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { poserLEnvironnement, type EnvDeLApp } from '@/lib/publication/servir';
 import { typeDe } from '@/lib/publication/publier';
+import { LARGEURS, mesurerLaPage, type EcartALEcran } from './les-mesures-a-l-ecran';
 import { DOSSIER_DU_PRE_RENDU, FICHIER_DE_DECOUVERTE, MARQUE_DU_PRE_RENDU, TEXTE_D_UNE_PAGE, type Editeur } from './la-decouverte';
 
 export const BASE_DU_PRE_RENDU = '/__vavi_base__/';
@@ -26,6 +27,7 @@ interface PageDuNavigateur {
   waitForFunction(f: () => boolean, a: null, o: { timeout: number }): Promise<unknown>;
   evaluate<R, A>(f: (a: A) => R, a: A): Promise<R>;
   content(): Promise<string>;
+  setViewportSize(t: { width: number; height: number }): Promise<void>;
   close(): Promise<void>;
 }
 /** Ce que le pré-rendu emploie d'un navigateur (Chromium par Playwright) ; `null` : aucun sur ce serveur. */
@@ -52,6 +54,8 @@ export interface PreRendu {
   readonly fichiers: ReadonlyMap<string, Buffer>;
   readonly gardees: readonly string[];
   readonly ecartees: readonly { readonly adresse: string; readonly pourquoi: string }[];
+  /** Ce que chaque page gardée montre au bureau et au téléphone (`les-mesures-a-l-ecran.ts`) : des avertissements. */
+  readonly mesures: readonly { readonly adresse: string; readonly ecran: string; readonly ecarts: readonly EcartALEcran[] }[];
 }
 interface Faits { readonly pages: ReadonlyArray<{ readonly chemin: string; readonly acces: { readonly nature: string } }> }
 
@@ -88,6 +92,7 @@ export async function preRendre(navigateur: UnNavigateur, dist: ReadonlyMap<stri
   const { adresse: site, serveur } = await servir(dist, o.env);
   const gardees: { adresse: string; html: string; titre: string; description: string; texte: string }[] = [];
   const ecartees: { adresse: string; pourquoi: string }[] = [];
+  const mesures: { adresse: string; ecran: string; ecarts: EcartALEcran[] }[] = [];
   try {
     for (const adresse of adresses) {
       // Mouvement réduit : une page gardée en pleine entrée garderait ses blocs à opacité nulle.
@@ -108,7 +113,15 @@ export async function preRendre(navigateur: UnNavigateur, dist: ReadonlyMap<stri
         const arrivee = `/${vu.chemin.slice(BASE_DU_PRE_RENDU.length)}`.replace(/\/+$/, '') || '/';
         const pourquoi = vu.etat ? `it shows « ${vu.etat} »` : arrivee !== (adresse.replace(/\/+$/, '') || '/') ? `it leads to ${arrivee}` : vu.texte === '' ? 'it shows no text' : null;
         if (pourquoi) ecartees.push({ adresse, pourquoi });
-        else gardees.push({ adresse, html: sansLEnvironnement(await page.content()), titre: vu.titre, description: vu.description, texte: vu.texte.slice(0, TEXTE_D_UNE_PAGE) });
+        else {
+          gardees.push({ adresse, html: sansLEnvironnement(await page.content()), titre: vu.titre, description: vu.description, texte: vu.texte.slice(0, TEXTE_D_UNE_PAGE) });
+          // Après la page gardée : la mesurer à chaque largeur ne change pas ce qui est servi.
+          for (const l of LARGEURS) {
+            await page.setViewportSize({ width: l.largeur, height: l.hauteur });
+            const ecarts = await page.evaluate(mesurerLaPage, null).catch(() => [] as EcartALEcran[]);
+            if (ecarts.length) mesures.push({ adresse, ecran: l.nom, ecarts });
+          }
+        }
       } catch (e) {
         ecartees.push({ adresse, pourquoi: `not rendered: ${String((e as Error)?.message ?? e).slice(0, 160)}` });
       } finally {
@@ -123,5 +136,5 @@ export async function preRendre(navigateur: UnNavigateur, dist: ReadonlyMap<stri
   fichiers.set(FICHIER_DE_DECOUVERTE, Buffer.from(`${JSON.stringify({ version: 1, nom: o.app.nom, description: o.app.description, langue: o.app.langue,
     pages: gardees.map((g) => ({ adresse: g.adresse, titre: g.titre, description: g.description, ...(g.texte ? { texte: g.texte } : {}) })),
     routes: [...new Set(routes)], ...(o.app.editeur ? { editeur: o.app.editeur } : {}) }, null, 2)}\n`, 'utf8'));
-  return { fichiers, gardees: gardees.map((g) => g.adresse), ecartees };
+  return { fichiers, gardees: gardees.map((g) => g.adresse), ecartees, mesures };
 }

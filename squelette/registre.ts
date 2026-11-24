@@ -8,7 +8,7 @@
  * `outil` : la plateforme l'écrit (un outil pendant la construction, ou « Gérer le contenu ») ; le gabarit n'en donne que
  * l'état vide, posé seulement quand l'app ne l'a pas encore.
  */
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 /** Le gabarit, lu au disque : depuis la racine du dépôt (le serveur, empaqueté, n'a pas de `__dirname` fiable), sinon à côté. */
@@ -32,6 +32,15 @@ const MONTRES = [
 ] as const;
 
 const DERIVES = ['app.json', 'src/donnees/types.ts', 'src/styles/tokens.css', 'index.html', 'package.json'] as const;
+
+/** Les fichiers montrés que Claude reçoit en fiche (`la-fiche.ts`) : ceux du gabarit, pas les dérivés d'app.json. */
+export const CHEMINS_EN_FICHE: readonly string[] = MONTRES.filter((c) => !(DERIVES as readonly string[]).includes(c));
+/** Les fichiers montrés à lire entiers : ceux qui changent d'une app à l'autre. */
+export const CHEMINS_A_LIRE_ENTIERS: readonly string[] = MONTRES.filter((c) => (DERIVES as readonly string[]).includes(c));
+export const CHEMIN_DE_LA_FICHE = join(DOSSIER_DU_GABARIT, '..', 'la-fiche.md');
+let fiche: string | null = null;
+/** La fiche du gabarit, générée par `scripts/la-fiche.ts` ; lue une fois. */
+export const laFiche = (): string => (fiche ??= readFileSync(CHEMIN_DE_LA_FICHE, 'utf8'));
 
 export const POSES_PAR_UN_OUTIL = ['src/images.json', 'src/referencement.json'] as const;
 
