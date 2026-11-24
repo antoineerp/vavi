@@ -11,6 +11,7 @@ import { racineDuBuild } from '@/lib/publication/publier';
 import { cheminDansLeDist, COOKIE_DU_BROUILLON, leBuildAServir } from '@/lib/publication/servir';
 import { servirLeSite } from '@/lib/seo/servir-le-site';
 import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
+import { lAppDeLHote, leDomaineDesApps } from '@/lib/publication/les-adresses-des-apps';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { leBuildDesigne } from '@/lib/projets/les-projets';
 import { CHEMIN_DE_LA_PREUVE, DUREE_DE_LA_PREUVE_S, emettreLaPreuve, nomDeLaPreuve } from '@/lib/formulaires/le-jugement';
@@ -38,12 +39,17 @@ export async function servirUnProjet(requete: Request, brut: string, chemin: rea
     const p = await clientDeService().from('vavi_projets').select('proprietaire').eq('id', id).maybeSingle<{ proprietaire: string }>();
     if (p.data && !(await leSiteDuProprietaireEstServi(p.data.proprietaire))) return enPause();
   }
-  const base = `/${lequel === 'apercu' ? 'p' : 's'}/${id}/`;
+  // À son hôte (vague 0), l'app est servie à la racine ; sans domaine des apps, sous `/p/` ou `/s/` de la console.
+  const hote = requete.headers.get('host');
+  const ici = lAppDeLHote(hote, leDomaineDesApps(process.env));
+  const asonHote = ici?.projet === id && ici.lequel === lequel;
+  const base = asonHote ? '/' : `/${lequel === 'apercu' ? 'p' : 's'}/${id}/`;
+  const racinePublique = asonHote ? `https://${hote!.toLowerCase().split(':')[0]}` : `${adresseDeLaPlateforme()}${base.replace(/\/$/, '')}`;
   const choix = lequel === 'apercu'
     ? leBuildAServir({ page: cheminDansLeDist(chemin) === 'index.html', demande: new URL(requete.url).searchParams.get('brouillon'), cookie: leCookie(requete), designe: designe.valeur })
     : { empreinte: designe.valeur, cookie: 'garder' as const };
   const r = await servirLeSite(magasin.magasin, choix.empreinte ? racineDuBuild(id, choix.empreinte) : null, chemin,
-    { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, base, projet: id }, lequel, `${adresseDeLaPlateforme()}${base.replace(/\/$/, '')}`);
+    { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, base, projet: id, console: adresseDeLaPlateforme() }, lequel, racinePublique);
   const entetes = new Headers({ 'content-type': r.type, 'cache-control': r.cache, 'x-content-type-options': 'nosniff', vary: 'cookie', ...r.entetes });
   if (choix.cookie === 'poser') entetes.append('set-cookie', `${COOKIE_DU_BROUILLON}=${choix.empreinte}; Path=${base}; HttpOnly; Secure; SameSite=Lax`);
   if (choix.cookie === 'effacer') entetes.append('set-cookie', `${COOKIE_DU_BROUILLON}=; Path=${base}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);

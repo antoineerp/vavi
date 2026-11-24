@@ -9,7 +9,7 @@ import { libellesPour } from './libelles';
 import type { Resultat } from './resultat';
 
 declare global {
-  interface Window { __PROJECT_ID__?: string; __CONSTRUCTOR_API_URL__?: string; __PROJECT_TOKEN__?: string }
+  interface Window { __PROJECT_ID__?: string; __CONSTRUCTOR_API_URL__?: string; __PROJECT_TOKEN__?: string; __VAVI_CONSOLE__?: string }
 }
 
 /** Le projet que la plateforme sert ici ; vide hors de la plateforme (développement local). */

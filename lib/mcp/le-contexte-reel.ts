@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { clientDeService } from '@/lib/supabase/service';
 import { projetsSurSupabase } from '@/lib/projets/les-projets';
 import { magasinS3 } from '@/lib/publication/le-magasin';
+import { leDomaineDesApps } from '@/lib/publication/les-adresses-des-apps';
 import { construireLApp } from '@/lib/atelier/construire';
 import { DOSSIER_DU_GABARIT } from '@/squelette/registre';
 import { lesPaquetsDuGabarit, type Refus } from '@/lib/consignes';
@@ -63,6 +64,7 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
       },
       permis: lesPaquetsDuGabarit(leGabarit()),
       adresse: adresseDeLaPlateforme(),
+      domaineDesApps: leDomaineDesApps(process.env),
       scellerUnSecret,
       refusPrecedents: REFUS_PRECEDENTS,
       async abonnement() {

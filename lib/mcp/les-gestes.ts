@@ -10,6 +10,7 @@
  *   - on ne publie que le build vert de l'arbre courant.
  * Les dépendances (base, magasin, build) sont passées : les essais jouent les gestes sans réseau.
  */
+import { lAdresseDeLApp } from '@/lib/publication/les-adresses-des-apps';
 import { derive } from '@/squelette/poser';
 import { estFige, CHEMINS_MONTRES, POSES_PAR_UN_OUTIL } from '@/squelette/registre';
 import { lireLeManifeste, type Manifeste } from '@/lib/backend/app/manifeste';
@@ -39,6 +40,8 @@ export interface Contexte {
   readonly permis: readonly string[];
   /** L'adresse publique de la plateforme, sans barre finale. */
   readonly adresse: string;
+  /** Le domaine des apps (`VAVI_DOMAINE_DES_APPS`) : l'aperçu y a son hôte ; absent, il est servi sous `/p/` de la console. */
+  readonly domaineDesApps?: string | null;
   readonly scellerUnSecret: (projet: string, nom: string, valeur: string) => string;
   /** Le dernier refus rendu, par compte et projet : le même deux fois de suite dit d'arrêter. */
   readonly refusPrecedents: Map<string, Refus>;
@@ -56,7 +59,7 @@ const LONGUE = 'This work session is getting long. Propose to the person to cont
 const MAX_ECRIT = 2_000_000;
 const MAX_LU = 400_000;
 
-const urlDeLApercu = (c: Contexte, id: string): string => `${c.adresse}/p/${id}/`;
+const urlDeLApercu = (c: Contexte, id: string): string => lAdresseDeLApp(id, 'apercu', { console: c.adresse, domaine: c.domaineDesApps ?? null });
 const urlDuBrouillon = (c: Contexte, id: string, e: string): string => `${urlDeLApercu(c, id)}?brouillon=${e}`;
 
 /* ── Ce que chaque geste vérifie d'abord ───────────────────────────────── */

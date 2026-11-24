@@ -2,6 +2,7 @@
  * /projets/<id> — un projet : son aperçu (ses textes réécrits par la personne) et son site en ligne, le bouton « Publier » (la personne seule met en ligne),
  * ses versions et « Revenir à cet état », ses secrets (noms seulement).
  */
+import { adresseDeLApp } from '@/app/_partage/l-adresse-des-apps';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { laConsole } from '@/app/_partage/la-console';
@@ -69,10 +70,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       <div className="carte">
         <div className="ligne">
           <strong>{t.apercu}</strong>
-          {projet.apercuEmpreinte ? <a href={`/p/${id}/`} target="_blank" rel="noreferrer">{t.voirLApercu}</a> : <span className="attenue">{t.rienAPublier}</span>}
+          {projet.apercuEmpreinte ? <a href={adresseDeLApp(id, 'apercu')} target="_blank" rel="noreferrer">{t.voirLApercu}</a> : <span className="attenue">{t.rienAPublier}</span>}
           <span className="attenue">·</span>
           <strong>{t.siteEnLigne}</strong>
-          {projet.enLigneEmpreinte ? <a href={`/s/${id}/`} target="_blank" rel="noreferrer">{t.voirLeSite}</a> : <span className="attenue">—</span>}
+          {projet.enLigneEmpreinte ? <a href={adresseDeLApp(id, 'en_ligne')} target="_blank" rel="noreferrer">{t.voirLeSite}</a> : <span className="attenue">—</span>}
         </div>
         <form action={publier.bind(null, id)} style={{ marginTop: '0.75rem' }}>
           <p className="attenue">{etat === 'en_ligne' ? t.dejaEnLigne : etat === 'rien_a_publier' ? t.pasDApercu : t.publierExplication}</p>
@@ -81,7 +82,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <p className="attenue" style={{ marginTop: '0.75rem' }}><a href={`/api/export/${id}`}>{t.exporter}</a> · {t.exporterExplication}</p>
       </div>
 
-      {projet.apercuEmpreinte && <EditeurDeTextes id={id} t={{ textes: t.textes, textesExplication: t.textesExplication, textesActif: t.textesActif, textesChoisir: t.textesChoisir,
+      {projet.apercuEmpreinte && <EditeurDeTextes id={id} apercu={adresseDeLApp(id, 'apercu')} t={{ textes: t.textes, textesExplication: t.textesExplication, textesActif: t.textesActif, textesChoisir: t.textesChoisir,
         textesPasIci: t.textesPasIci, enregistrer: t.enregistrer, annuler: t.annuler, enCours: t.enCours, textesFait: t.textesFait, textesRouge: t.textesRouge, textesRefus: t.textesRefus }} />}
 
       <h2>{t.messages}</h2>
