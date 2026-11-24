@@ -24,7 +24,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Types
         run: pnpm typecheck
-      - name: Tests (une app posée se construit : VAVI_BATIR)
+      - name: Tests, dont le build d'une app posée (VAVI_BATIR)
         run: pnpm test
         env:
           VAVI_BATIR: 'oui'
