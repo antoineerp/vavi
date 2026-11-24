@@ -100,7 +100,8 @@ export function leTableau(b: LeTableauBrut, comptes: readonly UnCompte[], mainte
 /** Les secrets dont vavi a besoin, par service : leur NOM seul, jamais leur valeur. */
 export const LES_SERVICES: readonly { readonly service: string; readonly secrets: readonly string[] }[] = [
   { service: 'Supabase', secrets: ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY'] },
-  { service: 'Stockage des sites (S3)', secrets: ['S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY', 'S3_SECRET_KEY'] },
+  // « A|B » : l'un ou l'autre ; le second est le nom que Fly pose en attachant un stockage Tigris.
+  { service: 'Stockage des sites (S3)', secrets: ['S3_ENDPOINT|AWS_ENDPOINT_URL_S3', 'S3_BUCKET|BUCKET_NAME', 'S3_ACCESS_KEY|AWS_ACCESS_KEY_ID', 'S3_SECRET_KEY|AWS_SECRET_ACCESS_KEY'] },
   { service: 'Stripe (ventes des apps)', secrets: ['VAVI_STRIPE_SECRET_KEY', 'VAVI_STRIPE_WEBHOOK_SECRET'] },
   { service: 'Stripe (abonnements à vavi)', secrets: ['VAVI_STRIPE_SECRET_KEY', 'VAVI_STRIPE_WEBHOOK_ABONNEMENTS'] },
   { service: 'Courriel (Resend)', secrets: ['RESEND_API_KEY', 'VAVI_EXPEDITEUR'] },
@@ -110,4 +111,4 @@ export const LES_SERVICES: readonly { readonly service: string; readonly secrets
 
 /** PURE — chaque service et les secrets qui lui manquent. */
 export const lEtatDesServices = (env: Readonly<Record<string, string | undefined>>) =>
-  LES_SERVICES.map((s) => ({ service: s.service, manquent: s.secrets.filter((n) => !env[n]?.trim()) }));
+  LES_SERVICES.map((s) => ({ service: s.service, manquent: s.secrets.filter((n) => !n.split('|').some((u) => env[u]?.trim())).map((n) => n.split('|')[0]!) }));

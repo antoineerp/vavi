@@ -62,6 +62,11 @@ describe('le tableau', () => {
     expect(s.find((x) => x.service === 'Administration')?.manquent).toEqual(['VAVI_ADMINS']);
     expect(JSON.stringify(s)).not.toContain('re_secret');
   });
+  it('le stockage posé par Fly (noms AWS_*) compte comme posé', () => {
+    const tigris = { AWS_ENDPOINT_URL_S3: 'https://fly.storage.tigris.dev', AWS_ACCESS_KEY_ID: 'tid', AWS_SECRET_ACCESS_KEY: 'tsec', BUCKET_NAME: 'b' };
+    expect(lEtatDesServices(tigris).find((x) => x.service === 'Stockage des sites (S3)')?.manquent).toEqual([]);
+    expect(lEtatDesServices({}).find((x) => x.service === 'Stockage des sites (S3)')?.manquent).toEqual(['S3_ENDPOINT', 'S3_BUCKET', 'S3_ACCESS_KEY', 'S3_SECRET_KEY']);
+  });
 });
 
 describe('les gestes', () => {
