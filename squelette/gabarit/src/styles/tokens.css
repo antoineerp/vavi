@@ -1,0 +1,53 @@
+/* La direction artistique de l'app, posée depuis app.json. Les pages consomment ces jetons, jamais une couleur en dur. */
+@import 'tailwindcss';
+/*__POLICES__*/
+
+:root {
+  --fond: __FOND__;
+  --sur-fond: __TEXTE__;
+  --sur-fond-attenue: __TEXTE_ATTENUE__;
+  --surface: __SURFACE__;
+  --bordure: __BORDURE__;
+  --accent: __ACCENT__;
+  --sur-accent: __SUR_ACCENT__;
+  --accent-texte: __ACCENT_TEXTE__;
+  --danger: __DANGER__;
+  --police-titre: __POLICE_TITRES__;
+  --police-texte: __POLICE_TEXTE__;
+  --rayon: __RAYON__;
+  --duree: 180ms;
+}
+
+@theme inline {
+  --color-background: var(--fond);
+  --color-foreground: var(--sur-fond);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--sur-fond);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--sur-fond);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--sur-accent);
+  --color-secondary: color-mix(in oklab, var(--accent) 12%, var(--surface));
+  --color-secondary-foreground: var(--sur-fond);
+  --color-muted: color-mix(in oklab, var(--sur-fond) 6%, var(--fond));
+  --color-muted-foreground: var(--sur-fond-attenue);
+  --color-accent: color-mix(in oklab, var(--accent) 10%, var(--fond));
+  --color-accent-foreground: var(--sur-fond);
+  --color-destructive: var(--danger);
+  --color-border: var(--bordure);
+  --color-input: var(--bordure);
+  --color-ring: var(--accent);
+  --color-fond: var(--fond);
+  --color-sur-fond: var(--sur-fond);
+  --color-sur-fond-attenue: var(--sur-fond-attenue);
+  --color-surface: var(--surface);
+  --color-bordure: var(--bordure);
+  --color-accent-texte: var(--accent-texte);
+  --font-titre: var(--police-titre);
+  --font-texte: var(--police-texte);
+  --radius-lg: var(--rayon);
+  --radius-md: calc(var(--rayon) * 0.75);
+  --radius-sm: calc(var(--rayon) * 0.5);
+  --radius-xl: calc(var(--rayon) * 1.25);
+  --radius-bouton: var(--rayon);
+}

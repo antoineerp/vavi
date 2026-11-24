@@ -15,6 +15,8 @@ import { join, relative, dirname, normalize } from 'node:path';
 import { lireLesFonctions, proprietaire, type Fonction } from './les-fonctions';
 
 const IGNORES = new Set(['node_modules', '.next', '.git', 'coverage', 'test']);
+/** Des données, pas du code de vavi : l'app posée, qui a son propre build et ses propres imports (`@/` y désigne son `src/`). */
+const DONNEES = new Set(['squelette/gabarit']);
 const SDK_DE_MODELE = /^(@anthropic-ai\/|openai$|openai\/)/;
 const PEUVENT_APPELER_UN_MODELE = new Set(['capacites', 'agents']);
 const IMPORT = /(?:^|[^\w.])(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)|^\s*import\s*['"]([^'"]+)['"]/gm;
@@ -22,8 +24,8 @@ const IMPORT = /(?:^|[^\w.])(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|im
 function fichiersSources(racine: string, dossier = racine): string[] {
   const sortie: string[] = [];
   for (const nom of readdirSync(dossier)) {
-    if (IGNORES.has(nom)) continue;
     const chemin = join(dossier, nom);
+    if (IGNORES.has(nom) || DONNEES.has(relative(racine, chemin))) continue;
     if (statSync(chemin).isDirectory()) sortie.push(...fichiersSources(racine, chemin));
     else if (/\.(ts|tsx|mts)$/.test(nom) && !nom.endsWith('.d.ts')) sortie.push(relative(racine, chemin));
   }

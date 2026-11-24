@@ -1,0 +1,17 @@
+/* Le sol de l'app, dans la couche `base` : la moindre classe d'une page gagne sur lui. */
+@layer base {
+  html { color-scheme: light; overflow-x: clip; }
+  body {
+    margin: 0;
+    background: var(--fond);
+    color: var(--sur-fond);
+    font-family: var(--police-texte);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, h4 { font-family: var(--police-titre); text-wrap: balance; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  img, svg, video { max-width: 100%; height: auto; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+}
