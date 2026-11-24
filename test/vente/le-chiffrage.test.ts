@@ -117,6 +117,7 @@ describe('la signature du webhook', () => {
 function unMonde(o: { secret?: boolean } = {}) {
   const appels: { fonction: string; args: Record<string, unknown> }[] = [];
   const sessions: string[] = [];
+  const comptes: string[] = [];
   const commandes = new Map<string, Record<string, unknown>>();
   const confirmees = new Set<string>();
   const d: DependancesDeLaVente = {
@@ -134,14 +135,15 @@ function unMonde(o: { secret?: boolean } = {}) {
       return { data: null, error: null };
     },
     leProjet: async () => ({ lu: true, valeur: { proprietaire: 'proprio', appJson: JSON.stringify(unManifeste(MANIFESTE)) } }),
-    leSecret: async (_id, nom) => (o.secret === false ? null : nom === 'STRIPE_SECRET_KEY' ? 'sk_test_x' : 'whsec_x'),
-    stripe: async (_url, init) => { sessions.push(init.body); return { ok: true, json: async () => ({ id: 'cs_1', url: 'https://checkout.stripe.test/cs_1' }) }; },
+    leCompte: async () => (o.secret === false ? null : { cle: 'sk_test_x', compte: 'acct_proprio1' }),
+    secretDuWebhook: 'whsec_x',
+    stripe: async (_url, init) => { sessions.push(init.body ?? ''); comptes.push(init.headers['stripe-account'] ?? ''); return { ok: true, json: async () => ({ id: 'cs_1', url: 'https://checkout.stripe.test/cs_1' }) }; },
     journal: () => {},
   };
-  return { d, appels, sessions, commandes };
+  return { d, appels, sessions, commandes, comptes };
 }
 const ACHETEUR = { nom: 'Ada Lovelace', courriel: 'ada@exemple.fr', adresse: { line1: '1 rue', postal_code: '75001', city: 'Paris', country: 'FR' } };
-const evenement = (montant: number, devise = 'eur') => JSON.stringify({ type: 'checkout.session.completed', data: { object: {
+const evenement = (montant: number, devise = 'eur', compte = 'acct_proprio1') => JSON.stringify({ type: 'checkout.session.completed', account: compte, data: { object: {
   id: 'cs_1', payment_status: 'paid', amount_total: montant, currency: devise, metadata: { vavi_projet: P, vavi_commande: 'c1', vavi_montant: '3500', vavi_devise: 'EUR' } } } });
 
 describe('la vente de bout en bout, contre une base et un Stripe joués', () => {
@@ -158,7 +160,7 @@ describe('la vente de bout en bout, contre une base et un Stripe joués', () => 
     expect(corps.get('metadata[vavi_montant]')).toBe('3500');
     expect(corps.get('success_url')).toBe(`https://vavi.test/s/${P}/panier?payment=success`);
   });
-  it('sans clé Stripe posée, rien ne s’ouvre et c’est dit ; aucune commande n’est créée', async () => {
+  it('sans compte Stripe relié, rien ne s’ouvre et c’est dit ; aucune commande n’est créée', async () => {
     const m = unMonde({ secret: false });
     const o = await ouvrirLaVente(m.d, P, { lignes: [{ table: 'the', id: 'a', quantite: 1 }], acheteur: ACHETEUR }, null, 'https://vavi.test');
     expect(o).toMatchObject({ statut: 503, corps: { code: 'paiement-non-configure' } });
@@ -167,13 +169,21 @@ describe('la vente de bout en bout, contre une base et un Stripe joués', () => 
   it('le webhook signé fait la commande payée une fois ; rejoué, rien ne se refait ; non signé ou sous le montant, rien', async () => {
     const m = unMonde();
     await ouvrirLaVente(m.d, P, { lignes: [{ table: 'the', id: 'a', quantite: 1 }], acheteur: ACHETEUR }, null, 'https://vavi.test');
-    expect((await confirmerLaVente(m.d, P, evenement(3500), 't=1,v1=00')).statut).toBe(400);
-    expect((await confirmerLaVente(m.d, P, evenement(100), signer(evenement(100), 'whsec_x'))).corps).toMatchObject({ refusee: 'montant' });
+    expect((await confirmerLaVente(m.d, evenement(3500), 't=1,v1=00')).statut).toBe(400);
+    expect((await confirmerLaVente(m.d, evenement(100), signer(evenement(100), 'whsec_x'))).corps).toMatchObject({ refusee: 'montant' });
     expect(m.commandes.get('c1')!.etat).toBe('a_payer');
-    expect((await confirmerLaVente(m.d, P, evenement(3500), signer(evenement(3500), 'whsec_x'))).corps).toEqual({ recu: true, deja: false });
+    expect((await confirmerLaVente(m.d, evenement(3500), signer(evenement(3500), 'whsec_x'))).corps).toEqual({ recu: true, deja: false });
     expect(m.commandes.get('c1')!.etat).toBe('payee');
-    expect((await confirmerLaVente(m.d, P, evenement(3500), signer(evenement(3500), 'whsec_x'))).corps).toEqual({ recu: true, deja: true });
+    expect((await confirmerLaVente(m.d, evenement(3500), signer(evenement(3500), 'whsec_x'))).corps).toEqual({ recu: true, deja: true });
     expect(m.appels.filter((a) => a.fonction === 'app_facturer_une_commande')).toHaveLength(1);
+  });
+  it('la session s’ouvre SUR le compte relié du propriétaire ; un évènement d’un autre compte ne paie rien', async () => {
+    const m = unMonde();
+    await ouvrirLaVente(m.d, P, { lignes: [{ table: 'the', id: 'a', quantite: 1 }], acheteur: ACHETEUR }, null, 'https://vavi.test');
+    expect(m.comptes).toEqual(['acct_proprio1']);
+    const autre = evenement(3500, 'eur', 'acct_autre99');
+    expect((await confirmerLaVente(m.d, autre, signer(autre, 'whsec_x'))).corps).toMatchObject({ refusee: 'compte' });
+    expect(m.commandes.get('c1')!.etat).toBe('a_payer');
   });
   it('la facture ne s’ouvre qu’avec le jeton de la commande', async () => {
     const m = unMonde();

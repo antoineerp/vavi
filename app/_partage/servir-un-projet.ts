@@ -2,14 +2,19 @@
  * Servir un projet depuis le magasin des builds : l'aperçu (`/p/<id>/`, le build désigné par `publish`, ou le brouillon
  * `?brouillon=<empreinte>` retenu par un cookie limité à l'aperçu) ou le site public (`/s/<id>/`, le build que la
  * personne a mis en ligne avec « Publier » ; jamais un brouillon). Le même dist sert les deux (`poserLEnvironnement`).
+ * Chaque page servie porte la preuve de sa visite (`lib/formulaires`), que l'envoi d'un formulaire présente.
  */
 import { configurationPublique } from '@/lib/supabase/configuration';
 import { clientDeService } from '@/lib/supabase/service';
 import { magasinS3 } from '@/lib/publication/le-magasin';
 import { racineDuBuild } from '@/lib/publication/publier';
-import { cheminDansLeDist, COOKIE_DU_BROUILLON, leBuildAServir, servirUnDist } from '@/lib/publication/servir';
+import { cheminDansLeDist, COOKIE_DU_BROUILLON, leBuildAServir } from '@/lib/publication/servir';
+import { servirLeSite } from '@/lib/seo/servir-le-site';
+import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { leBuildDesigne } from '@/lib/projets/les-projets';
+import { CHEMIN_DE_LA_PREUVE, DUREE_DE_LA_PREUVE_S, emettreLaPreuve, nomDeLaPreuve } from '@/lib/formulaires/le-jugement';
+import { secretDeLaPreuve } from './les-formulaires-reels';
 
 const leCookie = (requete: Request): string | null =>
   (requete.headers.get('cookie') ?? '').split(';').map((x) => x.trim()).find((x) => x.startsWith(`${COOKIE_DU_BROUILLON}=`))?.slice(COOKIE_DU_BROUILLON.length + 1) ?? null;
@@ -31,10 +36,15 @@ export async function servirUnProjet(requete: Request, brut: string, chemin: rea
   const choix = lequel === 'apercu'
     ? leBuildAServir({ page: cheminDansLeDist(chemin) === 'index.html', demande: new URL(requete.url).searchParams.get('brouillon'), cookie: leCookie(requete), designe: designe.valeur })
     : { empreinte: designe.valeur, cookie: 'garder' as const };
-  const r = await servirUnDist(magasin.magasin, choix.empreinte ? racineDuBuild(id, choix.empreinte) : null, chemin,
-    { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, base, projet: id });
-  const entetes = new Headers({ 'content-type': r.type, 'cache-control': r.cache, 'x-content-type-options': 'nosniff', vary: 'cookie' });
+  const r = await servirLeSite(magasin.magasin, choix.empreinte ? racineDuBuild(id, choix.empreinte) : null, chemin,
+    { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, base, projet: id }, lequel, `${adresseDeLaPlateforme()}${base.replace(/\/$/, '')}`);
+  const entetes = new Headers({ 'content-type': r.type, 'cache-control': r.cache, 'x-content-type-options': 'nosniff', vary: 'cookie', ...r.entetes });
   if (choix.cookie === 'poser') entetes.append('set-cookie', `${COOKIE_DU_BROUILLON}=${choix.empreinte}; Path=${base}; HttpOnly; Secure; SameSite=Lax`);
   if (choix.cookie === 'effacer') entetes.append('set-cookie', `${COOKIE_DU_BROUILLON}=; Path=${base}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
+  // Chaque page servie porte la preuve de sa visite (l'heure, signée), que seul l'envoi d'un formulaire reçoit.
+  const secret = secretDeLaPreuve();
+  if (secret && r.statut === 200 && r.type.startsWith('text/html')) {
+    entetes.append('set-cookie', `${nomDeLaPreuve(id)}=${await emettreLaPreuve(id, Date.now(), secret)}; Path=${CHEMIN_DE_LA_PREUVE}; Max-Age=${DUREE_DE_LA_PREUVE_S}; HttpOnly; Secure; SameSite=Lax`);
+  }
   return new Response(new Uint8Array(r.corps), { status: r.statut, headers: entetes });
 }
