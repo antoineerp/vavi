@@ -14,6 +14,8 @@ import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 import { publier, revenir, poserUnSecret } from './gestes';
 import { EditeurDeTextes } from './editeur';
 import { seDeconnecter } from '@/app/_partage/se-deconnecter';
+import { boiteSurSupabase, leCourrierDeLaPlateforme, lesVisites } from '@/lib/formulaires/sur-supabase';
+import { resumerLAudience } from '@/lib/formulaires/l-audience';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +36,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   if (p.lu && !p.valeur) notFound();
   if (!p.lu) return <main className="console"><p role="alert">{t.erreur} {p.pourquoi}</p></main>;
   const projet = p.valeur!;
-  const [versions, secrets, fichiers] = await Promise.all([c.projets.versions(c.compte, id, 30), c.projets.nomsDesSecrets(c.compte, id), c.projets.fichiers(c.compte, id)]);
+  const [versions, secrets, fichiers, messages, visites] = await Promise.all([c.projets.versions(c.compte, id, 30), c.projets.nomsDesSecrets(c.compte, id), c.projets.fichiers(c.compte, id),
+    boiteSurSupabase(c.base).lister(id, 20), lesVisites(c.base, id, 30)]);
+  const audience = visites.lu ? resumerLAudience(visites.valeur) : null;
   const manifeste = fichiers.lu ? leManifesteStocke(fichiers.valeur.get('app.json')) : null;
   const vend = manifeste?.lu ? laBoutique(manifeste.manifeste) !== null : false;
   const manquent = [CLE_STRIPE, SECRET_DU_WEBHOOK].filter((n) => !(secrets.lu && secrets.valeur.includes(n)));
@@ -66,6 +70,30 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
       {projet.apercuEmpreinte && <EditeurDeTextes id={id} t={{ textes: t.textes, textesExplication: t.textesExplication, textesActif: t.textesActif, textesChoisir: t.textesChoisir,
         textesPasIci: t.textesPasIci, enregistrer: t.enregistrer, annuler: t.annuler, enCours: t.enCours, textesFait: t.textesFait, textesRouge: t.textesRouge, textesRefus: t.textesRefus }} />}
+
+      <h2>{t.messages}</h2>
+      {!leCourrierDeLaPlateforme() && <p className="attenue">{t.messagesSansCourriel}</p>}
+      {!messages.lu ? <p role="alert">{t.erreur} {messages.pourquoi}</p> : messages.valeur.length === 0 ? <div className="carte"><p className="attenue">{t.messagesVide}</p></div> : (
+        <ul className="liste carte">
+          {messages.valeur.map((m) => (
+            <li key={m.id} style={{ display: 'block', opacity: m.statut === 'spam' ? 0.6 : 1 }}>
+              <div><strong>{m.formulaire}</strong> <span className="attenue">— {date(m.creeLe)}{m.page ? ` · ${m.page}` : ''}{m.statut === 'spam' ? ` · ${t.spam}` : ''}{m.courriel === 'echec' ? ` · ${t.courrielEchec}` : ''}</span></div>
+              {Object.entries(m.donnees).map(([k, v]) => <div key={k}><span className="attenue">{k} :</span> {Array.isArray(v) ? v.join(', ') : String(v ?? '')}</div>)}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <h2>{t.audience}</h2>
+      {!audience ? <p role="alert">{t.erreur} {visites.lu ? '' : visites.pourquoi}</p> : audience.total === 0 ? <div className="carte"><p className="attenue">{t.audienceVide}</p></div> : (
+        <div className="carte">
+          <p><strong>{audience.total}</strong> {t.visites}</p>
+          {([[t.pagesVues, audience.pages.map((x) => [x.chemin, x.visites] as const)], [t.provenances, audience.provenances.map((x) => [x.referent, x.visites] as const)],
+            [t.campagnes, audience.campagnes.map((x) => [x.campagne, x.visites] as const)]] as const).filter(([, l]) => l.length > 0).map(([titre, l]) => (
+            <div key={titre}><strong>{titre}</strong><ul className="liste">{l.map(([n, v]) => <li key={n}><span>{n}</span><span className="attenue">{v}</span></li>)}</ul></div>
+          ))}
+        </div>
+      )}
 
       <h2>{t.versions}</h2>
       <p className="attenue">{t.revenirExplication}</p>

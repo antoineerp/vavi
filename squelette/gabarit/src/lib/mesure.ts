@@ -28,7 +28,8 @@ function envoyer(chemin: string, recherche: string): void {
   try {
     const api = window.__CONSTRUCTOR_API_URL__ ?? '';
     const projet = window.__PROJECT_ID__ ?? '';
-    if (!api || !projet || enApercu || navigator.webdriver || window.parent !== window) return;
+    // `api` vide : l'app est servie par la plateforme elle-même (vavi), le collecteur est à la même adresse.
+    if (!projet || enApercu || navigator.webdriver || window.parent !== window) return;
     if ((document.visibilityState as string) === 'prerender') return;
     const maintenant = Date.now();
     const avant = envoyees.get(chemin);
