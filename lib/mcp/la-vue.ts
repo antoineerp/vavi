@@ -1,6 +1,6 @@
 /**
  * LA VUE DE VAVI DANS CLAUDE (MCP Apps, spécification 2026-01-26) — sous la réponse de Claude, la fiche du projet :
- * l'aperçu encadré, où il en est (en ligne, à publier), ses dernières versions, ses messages et ses visites, et le
+ * le lien de l'aperçu, où il en est (en ligne, à publier), ses dernières versions, ses messages et ses visites, et le
  * bouton « Publier » que la personne seule clique (décision d'Antoine du 24/11 : un maximum dans Claude, Publier aussi).
  *
  * La vue est une page HTML sans dépendance, servie par `resources/read` de `ui://vavi/projet`. Elle parle à l'hôte en
@@ -48,7 +48,6 @@ main{padding:12px 14px;display:grid;gap:10px}
 .entete{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 h1{font-size:16px;margin:0}.etat{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--trait);color:var(--doux)}
 .etat.vert{color:var(--vert);border-color:var(--vert)}
-iframe{width:100%;height:460px;border:1px solid var(--trait);border-radius:8px;background:#fff}
 .boutons{display:flex;gap:8px;flex-wrap:wrap}
 button{font:inherit;padding:7px 12px;border-radius:8px;border:1px solid var(--trait);background:transparent;color:var(--texte);cursor:pointer}
 button.principal{background:var(--accent);border-color:var(--accent);color:#fff}button:disabled{opacity:.5;cursor:default}
@@ -61,11 +60,11 @@ button.principal{background:var(--accent);border-color:var(--accent);color:#fff}
 (function(){
   var JETON=${enScript(jeton)};
   var fr=(navigator.language||'').toLowerCase().indexOf('fr')===0;
-  var T=fr?{attente:'Chargement du projet…',enLigne:'En ligne',aPublier:'Changements à publier',rien:'Pas encore d’aperçu',grand:'Ouvrir en grand',
+  var T=fr?{attente:'Chargement du projet…',enLigne:'En ligne',aPublier:'Changements à publier',rien:'Pas encore d’aperçu',grand:'Voir l’aperçu',
     site:'Voir le site en ligne',publier:'Publier',publierQ:'Confirmer : mettre en ligne cet aperçu',publie:'C’est en ligne.',console:'Console vavi',
     versions:'Dernières versions',messages:'Messages reçus',visites:'Visites (30 jours)',aucun:'Aucun',offre:'Choisir une offre',
     travail:'Travail en cours avec Claude',erreur:'Cela n’a pas marché :',sansApercu:'Demandez à Claude de construire l’aperçu.'}
-  :{attente:'Loading the project…',enLigne:'Online',aPublier:'Changes to publish',rien:'No preview yet',grand:'Open full size',
+  :{attente:'Loading the project…',enLigne:'Online',aPublier:'Changes to publish',rien:'No preview yet',grand:'See the preview',
     site:'See the live site',publier:'Publish',publierQ:'Confirm: put this preview online',publie:'It is online.',console:'vavi console',
     versions:'Latest versions',messages:'Messages received',visites:'Visits (30 days)',aucun:'None',offre:'Choose a plan',
     travail:'Work in progress with Claude',erreur:'That did not work:',sansApercu:'Ask Claude to build the preview.'};
@@ -85,7 +84,9 @@ button.principal{background:var(--accent);border-color:var(--accent);color:#fff}
     v.appendChild(el('div',{class:'entete'},[el('h1',{texte:f.name}),el('span',{class:'etat'+(f.state==='en_ligne'?' vert':''),texte:etat})]));
     if(f.work_session)v.appendChild(el('p',{class:'doux',texte:T.travail+' : '+f.work_session}));
     if(message)v.appendChild(el('p',{role:'status',texte:message}));
-    if(f.preview_url)v.appendChild(el('iframe',{src:f.preview_url,title:'aperçu',loading:'lazy'}));else v.appendChild(el('p',{class:'doux',texte:T.sansApercu}));
+    // Pas de cadre : Claude.ai n'ouvre pas un site extérieur dans la vue (frameDomains non appliqué, 24/11). L'aperçu
+    // s'ouvre dans un onglet, par l'hôte (ui/open-link).
+    if(!f.preview_url)v.appendChild(el('p',{class:'doux',texte:T.sansApercu}));
     var b=el('div',{class:'boutons'});
     if(f.preview_url)b.appendChild(el('button',{texte:T.grand,onclick:function(){lien(f.preview_url);}}));
     // Deux clics, dans la vue : le cadre de l'hôte peut interdire window.confirm (bac à sable sans « allow-modals »).
