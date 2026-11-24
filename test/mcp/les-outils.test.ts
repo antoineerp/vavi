@@ -59,6 +59,7 @@ beforeEach(() => {
     base: { rpc: async (f: string, a: Record<string, unknown>) => (f === 'create_app_schema' ? { data: schemaDuProjet(String(a.project_id)), error: null }
       : ctx.sqlRefuse ? { data: null, error: { message: ctx.sqlRefuse } } : { data: null, error: null }) },
     construire: async () => { ctx.construits++; return ctx.prochain; },
+    preRendre: async () => null,
   };
   c = ctx;
 });
