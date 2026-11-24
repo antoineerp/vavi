@@ -42,6 +42,8 @@ export interface Contexte {
   readonly scellerUnSecret: (projet: string, nom: string, valeur: string) => string;
   /** Le dernier refus rendu, par compte et projet : le même deux fois de suite dit d'arrêter. */
   readonly refusPrecedents: Map<string, Refus>;
+  /** L'abonnement du compte, tel que Claude le lit (l'offre, ce qu'elle publie, où la choisir) ; absent : non dit. */
+  readonly abonnement?: () => Promise<Record<string, unknown> | null>;
 }
 
 export type Rendu = { readonly ok: true; readonly [champ: string]: unknown } | Refus;
@@ -130,7 +132,9 @@ const vueDuProjet = (c: Contexte, p: Projet) => ({
 
 export async function listerLesProjets(c: Contexte): Promise<Rendu> {
   const l = await c.projets.lister(c.compte);
-  return l.lu ? fait({ projects: l.valeur.map((p) => vueDuProjet(c, p)) }) : panne(l.pourquoi);
+  if (!l.lu) return panne(l.pourquoi);
+  const plan = c.abonnement ? await c.abonnement() : null;
+  return fait({ projects: l.valeur.map((p) => vueDuProjet(c, p)), ...(plan ? { plan } : {}) });
 }
 
 export async function creerUnProjet(c: Contexte, a: { app_json: unknown }): Promise<Rendu> {
@@ -155,8 +159,10 @@ export async function lEtatDuProjet(c: Contexte, a: { project: string }): Promis
   const arbre = lArbreDUnProjet(f.valeur);
   const build = arbre.lu ? await c.projets.leBuild(c.compte, a.project, arbre.empreinte) : null;
   const ch = p.valeur.chantier;
+  const plan = c.abonnement ? await c.abonnement() : null;
   return fait({
     ...vueDuProjet(c, p.valeur),
+    ...(plan ? { plan } : {}),
     work_session: ch ? { id: ch.id, intention: ch.intention, opened_at: ch.ouvertLe, changes: ch.gestes, done: ch.fait, remaining: ch.reste } : null,
     database_laid_out_at: p.valeur.basePoseeLe,
     your_files: [...f.valeur].filter(([chemin]) => chemin !== 'app.json').map(([chemin, t]) => ({ path: chemin, fingerprint: empreinteDuFichier(t), size: t.length })),

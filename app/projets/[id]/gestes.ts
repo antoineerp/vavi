@@ -12,6 +12,9 @@ import { scellerUnSecret } from '@/lib/mcp/les-jetons';
 import { construireLApercu as batir, estUnRefus } from '@/lib/mcp/les-gestes';
 import { leContexteReel } from '@/lib/mcp/le-contexte-reel';
 import { lesTextesDUnElement, reecrireUnTexte, type Reecriture } from '@/lib/contenus/reecrire';
+import { leDroitDePublier } from '@/lib/abonnements/l-abonnement';
+import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
+import { lesAbonnementsReels } from '@/app/_partage/les-abonnements-reels';
 
 const ID = /^[0-9a-f-]{36}$/;
 const retour = (id: string, q: Record<string, string>): never => redirect(`/projets/${id}?${new URLSearchParams(q)}`);
@@ -19,6 +22,12 @@ const retour = (id: string, q: Record<string, string>): never => redirect(`/proj
 export async function publier(id: string) {
   if (!ID.test(id)) redirect('/projets');
   const c = await laConsole(`/projets/${id}`);
+  // L'OFFRE, VÉRIFIÉE PAR LE SERVEUR : l'essai n'a que l'aperçu ; une offre payante publie ses natures, dans sa place.
+  const f = await c.projets.fichiers(c.compte, id);
+  const m = f.lu ? leManifesteStocke(f.valeur.get('app.json')) : null;
+  const droit = await leDroitDePublier(lesAbonnementsReels(), c.compte, id, m?.lu ? m.manifeste : null);
+  if (!droit.lu) retour(id, { erreur: 'panne' });
+  if (droit.lu && !droit.valeur.permis) retour(id, { erreur: droit.valeur.pourquoi });
   const r = await mettreLApercuEnLigne(c.projets, c.compte, id);
   if (r.publie) console.log(`[console] ${id.slice(0, 8)} mis en ligne (${r.empreinte.slice(0, 12)})`);
   retour(id, r.publie ? { fait: 'publie' } : { erreur: r.pourquoi });

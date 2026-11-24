@@ -17,6 +17,8 @@ import { configurationPublique } from '@/lib/supabase/configuration';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { leNavigateurDuServeur, preRendre } from '@/lib/seo/le-pre-rendu';
 import type { ContexteDuServeur } from './le-serveur';
+import { abonnementsSurSupabase } from '@/lib/abonnements/sur-supabase';
+import { lEtatDuCompte, laVueDeLAbonnement } from '@/lib/abonnements/l-abonnement';
 
 const REFUS_PRECEDENTS = new Map<string, Refus>();
 const LANGUES_DES_COMPTES = new Map<string, string>();
@@ -62,6 +64,10 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
       adresse: adresseDeLaPlateforme(),
       scellerUnSecret,
       refusPrecedents: REFUS_PRECEDENTS,
+      async abonnement() {
+        const e = await lEtatDuCompte({ ...abonnementsSurSupabase(base), maintenant: Date.now() }, compte);
+        return e.lu ? laVueDeLAbonnement(e.valeur, `${adresseDeLaPlateforme()}/abonnement`) : null;
+      },
     },
   };
 }

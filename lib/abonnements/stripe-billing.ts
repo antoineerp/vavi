@@ -1,0 +1,103 @@
+/**
+ * L'ABONNEMENT À VAVI PAR STRIPE BILLING — sur le compte Stripe de vavi lui-même (jamais celui d'un client) :
+ *   · `ouvrirLePaiement` — la page d'abonnement de Stripe, au prix de la grille (`les-offres.ts`), jamais à celui du
+ *     navigateur ; le compte vavi et l'offre voyagent dans les métadonnées que vavi pose ;
+ *   · `lEvenement` — un évènement signé, lu en une mise à jour de l'abonnement d'un compte (ou rien) ;
+ *   · `resilier` — à la fin de la période payée, ou tout de suite (l'ancien abonnement quand l'offre change).
+ * La signature se vérifie comme celle de la vente (`lib/vente/stripe.ts`), avec le secret de CE webhook-ci.
+ *
+ * Neuf dans vavi (lot 8).
+ */
+import type { AppelStripe } from '@/lib/vente/stripe';
+import { DEVISE_DES_OFFRES, CENTIMES_D_UN_PROJET_EN_PLUS, OFFRES, estUneOffre, type Offre } from './les-offres';
+
+/** Le secret du webhook des abonnements de vavi (évènements du compte de vavi, non des comptes reliés). */
+export const SECRET_DU_WEBHOOK_DES_ABONNEMENTS = 'VAVI_STRIPE_WEBHOOK_ABONNEMENTS';
+export const EVENEMENTS_ECOUTES = ['checkout.session.completed', 'customer.subscription.updated', 'customer.subscription.deleted', 'invoice.payment_failed'] as const;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+export interface LePaiementAOuvrir {
+  readonly compte: string; readonly courriel: string | null; readonly client: string | null;
+  readonly offre: Offre; readonly projetsEnPlus: number; readonly langue: string;
+  readonly retourOk: string; readonly retourAnnule: string;
+}
+
+export async function ouvrirLePaiement(appel: AppelStripe, cle: string, p: LePaiementAOuvrir):
+  Promise<{ readonly ouvert: true; readonly url: string } | { readonly ouvert: false; readonly pourquoi: string }> {
+  const corps = new URLSearchParams({ mode: 'subscription', success_url: p.retourOk, cancel_url: p.retourAnnule, locale: p.langue === 'fr' ? 'fr' : 'auto' });
+  if (p.client) corps.set('customer', p.client); else if (p.courriel) corps.set('customer_email', p.courriel);
+  const nom = OFFRES[p.offre].nom[p.langue === 'fr' ? 'fr' : 'en'];
+  const lignes = [{ nom: `vavi — ${nom}`, centimes: OFFRES[p.offre].centimes, quantite: 1 },
+    ...(p.projetsEnPlus > 0 ? [{ nom: p.langue === 'fr' ? 'vavi — projet en plus' : 'vavi — extra project', centimes: CENTIMES_D_UN_PROJET_EN_PLUS, quantite: p.projetsEnPlus }] : [])];
+  lignes.forEach((l, i) => {
+    corps.set(`line_items[${i}][price_data][currency]`, DEVISE_DES_OFFRES.toLowerCase());
+    corps.set(`line_items[${i}][price_data][unit_amount]`, String(l.centimes));
+    corps.set(`line_items[${i}][price_data][recurring][interval]`, 'month');
+    corps.set(`line_items[${i}][price_data][product_data][name]`, l.nom);
+    corps.set(`line_items[${i}][quantity]`, String(l.quantite));
+  });
+  const meta = { vavi_compte: p.compte, vavi_offre: p.offre, vavi_en_plus: String(p.projetsEnPlus) };
+  for (const [k, v] of Object.entries(meta)) { corps.set(`metadata[${k}]`, v); corps.set(`subscription_data[metadata][${k}]`, v); }
+  corps.set('client_reference_id', p.compte);
+  const r = await appel('https://api.stripe.com/v1/checkout/sessions', { method: 'POST', headers: { authorization: `Bearer ${cle}`, 'content-type': 'application/x-www-form-urlencoded' }, body: corps.toString() });
+  const d = (await r.json().catch(() => ({}))) as { url?: unknown; error?: { message?: unknown } };
+  return r.ok && typeof d.url === 'string' ? { ouvert: true, url: d.url } : { ouvert: false, pourquoi: String(d.error?.message ?? 'Stripe n’a rendu aucune session') };
+}
+
+/** Résilie un abonnement : à la fin de sa période (`aLaFin`), ou tout de suite. */
+export async function resilier(appel: AppelStripe, cle: string, abonnement: string, aLaFin: boolean): Promise<string | null> {
+  if (!/^sub_[A-Za-z0-9]{6,64}$/.test(abonnement)) return 'abonnement inconnu';
+  const r = aLaFin
+    ? await appel(`https://api.stripe.com/v1/subscriptions/${abonnement}`, { method: 'POST', headers: { authorization: `Bearer ${cle}`, 'content-type': 'application/x-www-form-urlencoded' }, body: 'cancel_at_period_end=true' })
+    : await appel(`https://api.stripe.com/v1/subscriptions/${abonnement}`, { method: 'DELETE' as never, headers: { authorization: `Bearer ${cle}` } });
+  if (r.ok) return null;
+  const d = (await r.json().catch(() => ({}))) as { error?: { message?: unknown } };
+  return String(d.error?.message ?? 'Stripe a refusé');
+}
+
+export interface MiseAJour {
+  readonly compte: string; readonly offre: Offre; readonly projetsEnPlus: number; readonly statut: string;
+  readonly finDePeriode: string | null; readonly resilieALaFin: boolean;
+  readonly client: string | null; readonly abonnement: string | null;
+}
+export type LectureDeLEvenement =
+  | { readonly forme: 'mise_a_jour'; readonly maj: MiseAJour }
+  | { readonly forme: 'impaye'; readonly client: string | null; readonly abonnement: string | null }
+  | { readonly forme: 'sans_objet' };
+
+const texte = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
+const idDe = (v: unknown): string | null => texte(v) ?? texte((v as { id?: unknown } | null)?.id);
+
+/** Les métadonnées que vavi a posées, relues ; une offre hors de la grille ne s'applique pas. */
+function lesMetadonnees(meta: unknown): { compte: string; offre: Offre; enPlus: number } | null {
+  const m = (meta ?? {}) as Record<string, unknown>;
+  const enPlus = Number(m.vavi_en_plus ?? 0);
+  if (typeof m.vavi_compte !== 'string' || !UUID.test(m.vavi_compte) || !estUneOffre(m.vavi_offre) || !Number.isInteger(enPlus) || enPlus < 0 || enPlus > 50) return null;
+  return { compte: m.vavi_compte, offre: m.vavi_offre, enPlus };
+}
+
+/** PURE — un évènement signé de Stripe, lu. */
+export function lEvenement(type: string, objet: Record<string, unknown>): LectureDeLEvenement {
+  if (type === 'checkout.session.completed') {
+    if (objet.mode !== 'subscription') return { forme: 'sans_objet' };
+    const m = lesMetadonnees(objet.metadata);
+    if (!m) return { forme: 'sans_objet' };
+    const paye = objet.payment_status === 'paid' || objet.payment_status === 'no_payment_required';
+    return { forme: 'mise_a_jour', maj: { compte: m.compte, offre: m.offre, projetsEnPlus: m.enPlus, statut: paye ? 'active' : 'incomplete',
+      finDePeriode: null, resilieALaFin: false, client: idDe(objet.customer), abonnement: idDe(objet.subscription) } };
+  }
+  if (type === 'customer.subscription.updated' || type === 'customer.subscription.deleted') {
+    const m = lesMetadonnees(objet.metadata);
+    if (!m) return { forme: 'sans_objet' };
+    // La fin de période : sur l'abonnement (anciennes versions de l'API) ou sur ses lignes (versions récentes).
+    const items = ((objet.items ?? {}) as { data?: Array<{ current_period_end?: unknown }> }).data ?? [];
+    const fin = [objet.current_period_end, ...items.map((i) => i.current_period_end)].find((v): v is number => typeof v === 'number');
+    return { forme: 'mise_a_jour', maj: { compte: m.compte, offre: m.offre, projetsEnPlus: m.enPlus,
+      statut: type === 'customer.subscription.deleted' ? 'canceled' : String(objet.status ?? 'incomplete').replace(/[^a-z_]/g, '').slice(0, 30) || 'incomplete',
+      finDePeriode: fin ? new Date(fin * 1000).toISOString() : null, resilieALaFin: objet.cancel_at_period_end === true,
+      client: idDe(objet.customer), abonnement: idDe(objet.id) } };
+  }
+  if (type === 'invoice.payment_failed') return { forme: 'impaye', client: idDe(objet.customer), abonnement: idDe(objet.subscription ?? (objet.parent as { subscription_details?: { subscription?: unknown } } | undefined)?.subscription_details?.subscription) };
+  return { forme: 'sans_objet' };
+}

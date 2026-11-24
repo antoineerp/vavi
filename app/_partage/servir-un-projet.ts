@@ -15,6 +15,7 @@ import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { leBuildDesigne } from '@/lib/projets/les-projets';
 import { CHEMIN_DE_LA_PREUVE, DUREE_DE_LA_PREUVE_S, emettreLaPreuve, nomDeLaPreuve } from '@/lib/formulaires/le-jugement';
 import { secretDeLaPreuve } from './les-formulaires-reels';
+import { leSiteDuProprietaireEstServi } from './les-abonnements-reels';
 
 const leCookie = (requete: Request): string | null =>
   (requete.headers.get('cookie') ?? '').split(';').map((x) => x.trim()).find((x) => x.startsWith(`${COOKIE_DU_BROUILLON}=`))?.slice(COOKIE_DU_BROUILLON.length + 1) ?? null;
@@ -32,6 +33,11 @@ export async function servirUnProjet(requete: Request, brut: string, chemin: rea
   const designe = await leBuildDesigne(clientDeService(), id, lequel);
   if (!designe.lu) return new Response('la base de vavi n’a pas répondu', { status: 503 });
   if (designe.valeur === 'inconnu') return new Response('projet inconnu', { status: 404 });
+  // LE SITE EN LIGNE SE MET EN PAUSE quand l'abonnement de son propriétaire a fini sa grâce (rien n'est effacé ; l'aperçu reste).
+  if (lequel === 'en_ligne' && designe.valeur) {
+    const p = await clientDeService().from('vavi_projets').select('proprietaire').eq('id', id).maybeSingle<{ proprietaire: string }>();
+    if (p.data && !(await leSiteDuProprietaireEstServi(p.data.proprietaire))) return enPause();
+  }
   const base = `/${lequel === 'apercu' ? 'p' : 's'}/${id}/`;
   const choix = lequel === 'apercu'
     ? leBuildAServir({ page: cheminDansLeDist(chemin) === 'index.html', demande: new URL(requete.url).searchParams.get('brouillon'), cookie: leCookie(requete), designe: designe.valeur })
@@ -47,4 +53,12 @@ export async function servirUnProjet(requete: Request, brut: string, chemin: rea
     entetes.append('set-cookie', `${nomDeLaPreuve(id)}=${await emettreLaPreuve(id, Date.now(), secret)}; Path=${CHEMIN_DE_LA_PREUVE}; Max-Age=${DUREE_DE_LA_PREUVE_S}; HttpOnly; Secure; SameSite=Lax`);
   }
   return new Response(new Uint8Array(r.corps), { status: r.statut, headers: entetes });
+}
+
+/** La page d'un site en pause : dite au visiteur sans rien de l'abonnement de son propriétaire. */
+function enPause(): Response {
+  const html = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">'
+    + '<title>Site en pause</title><style>body{font:16px/1.5 system-ui,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;background:#fafafa;color:#222}main{max-width:32rem;padding:2rem}</style></head>'
+    + '<body><main><h1>Ce site est momentanément en pause</h1><p>Il revient dès que son éditeur l’a remis en ligne.</p><p lang="en">This site is paused for now. It will be back once its publisher brings it online again.</p></main></body></html>';
+  return new Response(html, { status: 503, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'retry-after': '3600', 'x-content-type-options': 'nosniff' } });
 }
