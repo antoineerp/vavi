@@ -28,7 +28,7 @@ it('la racine et une page profonde s’ouvrent, sans erreur', async () => {
   const m = unMagasinEnMemoire(); await publierLeDist(m, 'r', c.dist);
   const srv = createServer(async (q, r) => {
     const u = new URL(q.url!, 'http://x'); const seg = u.pathname.replace(/^\/s\/abc\//, '').split('/').filter(Boolean);
-    const x = await servirUnDist(m, 'r', seg, { supabaseUrl: 'https://x.supabase.co', cleAnonyme: 'k'.repeat(30), schema: 's', base: '/s/abc/' });
+    const x = await servirUnDist(m, 'r', seg, { supabaseUrl: 'https://x.supabase.co', cleAnonyme: 'k'.repeat(30), schema: 's', base: '/s/abc/', projet: 'abc' });
     r.writeHead(x.statut, { 'content-type': x.type }); r.end(x.corps);
   }).listen(55801);
   const b = await lancerChromium(); const p = await b.newPage();

@@ -12,6 +12,10 @@ export const TEXTES = {
     nom: 'Nom (ex. STRIPE_SECRET_KEY)', valeur: 'Valeur', poser: 'Enregistrer', aucunSecret: 'Aucun secret.',
     publie: 'C’est en ligne.', revenu: (v: number) => `Revenu : nouvelle version ${v}.`, aConstruire: 'Cet état n’a jamais été construit : demandez à Claude de lancer un aperçu.',
     secretPose: (n: string) => `${n} est enregistré.`, erreur: 'Cela n’a pas marché :', deconnexion: 'Se déconnecter', retour: '← Mes projets',
+    encaisser: 'Encaisser les paiements', encaisserExplication: 'Votre boutique encaisse sur votre propre compte Stripe. Enregistrez ci-dessous :',
+    cleStripe: 'votre clé secrète Stripe (Développeurs → Clés API)', secretWebhook: 'le secret de signature du webhook ci-dessous',
+    webhook: 'Dans Stripe (Développeurs → Webhooks), ajoutez cette adresse, avec les évènements checkout.session.completed et checkout.session.async_payment_succeeded :',
+    pret: 'Les deux sont enregistrés : la boutique encaisse.', manque: 'Il manque :',
   },
   en: {
     mesProjets: 'My projects', aucun: 'You have no project yet. Open Claude.ai, connect the vavi connector, then choose the "Start a project" prompt.',
@@ -25,5 +29,9 @@ export const TEXTES = {
     nom: 'Name (e.g. STRIPE_SECRET_KEY)', valeur: 'Value', poser: 'Save', aucunSecret: 'No secret.',
     publie: 'It is online.', revenu: (v: number) => `Done: new version ${v}.`, aConstruire: 'This state was never built: ask Claude to run a preview.',
     secretPose: (n: string) => `${n} is saved.`, erreur: 'It did not work:', deconnexion: 'Sign out', retour: '← My projects',
+    encaisser: 'Take payments', encaisserExplication: 'Your shop takes payments on your own Stripe account. Save below:',
+    cleStripe: 'your Stripe secret key (Developers → API keys)', secretWebhook: 'the signing secret of the webhook below',
+    webhook: 'In Stripe (Developers → Webhooks), add this address, with the events checkout.session.completed and checkout.session.async_payment_succeeded:',
+    pret: 'Both are saved: the shop takes payments.', manque: 'Missing:',
   },
 } as const;

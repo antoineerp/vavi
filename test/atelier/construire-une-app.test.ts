@@ -30,7 +30,7 @@ describe.runIf(process.env.VAVI_BATIR === 'oui')('construire une app', () => {
     expect(js).toBeDefined();
     const m = unMagasinEnMemoire();
     await publierLeDist(m, racineDuBuild(P, 'c'.repeat(64)), c.dist);
-    const servi = await servirUnDist(m, racineDuBuild(P, 'c'.repeat(64)), js!.split('/'), { supabaseUrl: 'https://x', cleAnonyme: 'k', schema: 's', base: `/p/${P}/` });
+    const servi = await servirUnDist(m, racineDuBuild(P, 'c'.repeat(64)), js!.split('/'), { supabaseUrl: 'https://x', cleAnonyme: 'k', schema: 's', base: `/p/${P}/`, projet: P });
     expect(servi.statut).toBe(200);
     expect(servi.corps.equals(c.dist.get(js!)!)).toBe(true);
   }, 600_000);

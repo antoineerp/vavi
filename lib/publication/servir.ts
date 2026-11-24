@@ -4,7 +4,8 @@
  * sert son `index.html` (le routeur de l'app décide) ; un fichier absent rend 404, jamais la page à sa place.
  *
  * `index.html` reçoit, au service et jamais au build, ce que l'app lit au démarrage (`squelette/gabarit/src/lib/env.ts`) :
- * l'adresse et la clé PUBLIQUE de la base, le schéma du projet, sa base de montage. Aucune clé secrète : le type n'en
+ * l'adresse et la clé PUBLIQUE de la base, le schéma du projet, sa base de montage, le projet (ses appels à la plateforme
+ * partent de la même adresse : `/api/…`). Aucune clé secrète : le type n'en
  * porte pas.
  */
 import type { Magasin } from './le-magasin';
@@ -16,6 +17,8 @@ export interface EnvDeLApp {
   readonly schema: string;
   /** `/p/<id>/` pour l'aperçu. */
   readonly base: string;
+  /** Le projet servi : l'app le nomme dans ses appels à la plateforme (`/api/pay/<projet>/…`), servis à la même adresse. */
+  readonly projet: string;
 }
 
 export interface Reponse { readonly statut: number; readonly type: string; readonly cache: string; readonly corps: Buffer }
@@ -33,7 +36,8 @@ const enScript = (v: string): string => JSON.stringify(v).replace(/</g, '\\u003c
  */
 export function poserLEnvironnement(html: string, env: EnvDeLApp): string {
   const script = `<base href="${env.base.replace(/[^\w/.-]/g, '')}">` + `<script>window.__SUPABASE_URL__=${enScript(env.supabaseUrl)};window.__SUPABASE_ANON_KEY__=${enScript(env.cleAnonyme)};`
-    + `window.__DATABASE_SCHEMA__=${enScript(env.schema)};window.__VAVI_BASENAME__=${enScript(env.base)};</script>`;
+    + `window.__DATABASE_SCHEMA__=${enScript(env.schema)};window.__VAVI_BASENAME__=${enScript(env.base)};`
+    + `window.__PROJECT_ID__=${enScript(env.projet)};window.__CONSTRUCTOR_API_URL__="";</script>`;
   const tete = /<head[^>]*>/i.exec(html);
   return tete ? html.replace(tete[0], `${tete[0]}${script}`) : `${script}${html}`;
 }
