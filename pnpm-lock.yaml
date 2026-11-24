@@ -17,6 +17,9 @@ importers:
       '@supabase/supabase-js':
         specifier: 2.46.1
         version: 2.46.1
+      astronomia:
+        specifier: 4.2.0
+        version: 4.2.0
       next:
         specifier: 15.5.25
         version: 15.5.25(@types/node@22.10.2)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -29,6 +32,12 @@ importers:
       server-only:
         specifier: 0.0.1
         version: 0.0.1
+      suncalc:
+        specifier: 2.0.0
+        version: 2.0.0
+      tz-lookup:
+        specifier: 6.1.25
+        version: 6.1.25
       zod:
         specifier: 3.23.8
         version: 3.23.8
@@ -1076,6 +1085,10 @@ packages:
   assertion-error@1.1.0:
     resolution: {integrity: sha512-jgsaNduz+ndvGyFt3uSuWqvy4lCnIJiovtouQN5JZHOKCS2QuhEdbcQHFhVksz2N2U9hXJo8odG7ETyWlEeuDw==}
 
+  astronomia@4.2.0:
+    resolution: {integrity: sha512-mTvpBGyXB80aSsDhAAiuwza5VqAyqmj5yzhjBrFhRy17DcWDzJrb8Vdl4Sm+g276S+mY7bk/5hi6akZ5RQFeHg==}
+    engines: {node: '>=12.0.0'}
+
   bowser@2.15.1:
     resolution: {integrity: sha512-ma47ABeUiTsmG4McKDtGCgQSiTCatM97Mlbn13K42N1kPSFE14oN3WFMjtyL4KubhGvQTqYheKl4Qx2bJtMXLQ==}
 
@@ -1365,6 +1378,9 @@ packages:
       babel-plugin-macros:
         optional: true
 
+  suncalc@2.0.0:
+    resolution: {integrity: sha512-RcO28GOMXNnB+sr+c7/+zv5UPMa9wxIsUVGE3HddjQykqCVEC2rc4t4IjBB7qaa7K7dx5Cxp8UZwexyXrX8JkA==}
+
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
 
@@ -1395,6 +1411,9 @@ packages:
     resolution: {integrity: sha512-hjcS1mhfuyi4WW8IWtjP7brDrG2cuDZukyrYrSauoXGNgx0S7zceP07adYkJycEr56BOUTNPzbInooiN3fn1qw==}
     engines: {node: '>=14.17'}
     hasBin: true
+
+  tz-lookup@6.1.25:
+    resolution: {integrity: sha512-fFewT9o1uDzsW1QnUU1ValqaihFnwiUiiHr1S79/fxOzKXYYvX+EHeRnpvQJ9B3Qg67wPXT6QF2Esc4pFOrvLg==}
 
   ufo@1.6.4:
     resolution: {integrity: sha512-JFNbkD1Svwe0KvGi8GOeLcP4kAWQ609twvCdcHxq1oSL8svv39ZuSvajcD8B+5D0eL4+s1Is2D/O6KN3qcTeRA==}
@@ -2646,6 +2665,8 @@ snapshots:
 
   assertion-error@1.1.0: {}
 
+  astronomia@4.2.0: {}
+
   bowser@2.15.1: {}
 
   cac@6.7.14: {}
@@ -2998,6 +3019,8 @@ snapshots:
       client-only: 0.0.1
       react: 19.3.0
 
+  suncalc@2.0.0: {}
+
   tinybench@2.9.0: {}
 
   tinypool@0.8.4: {}
@@ -3018,6 +3041,8 @@ snapshots:
   type-detect@4.1.0: {}
 
   typescript@5.6.3: {}
+
+  tz-lookup@6.1.25: {}
 
   ufo@1.6.4: {}
 
