@@ -102,7 +102,7 @@ describe('les ressources', () => {
   it('listent les capacités tirées du gabarit', async () => {
     expect(lesRessources().map((r) => r.uri)).toEqual(['vavi://capacites']);
     const r = await uneRessource('vavi://capacites', ctx);
-    expect('contents' in r && r.contents[0]!.text).toMatch(/- react\n/);
+    expect('contents' in r && r.contents[0]!.text).toMatch(/- react 19\.3\.0\n/);
   });
   it('rendent la note du chantier, ou disent qu’il n’y en a pas', async () => {
     const a = await uneRessource('vavi://projet/p1/chantier', ctx);

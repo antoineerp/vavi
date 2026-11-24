@@ -17,8 +17,10 @@ import { configurationPublique } from '@/lib/supabase/configuration';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { leNavigateurDuServeur, preRendre } from '@/lib/seo/le-pre-rendu';
 import type { ContexteDuServeur } from './le-serveur';
+import type { Suivi } from './les-gestes';
 
 const REFUS_PRECEDENTS = new Map<string, Refus>();
+const SUIVIS = new Map<string, Suivi>();
 const LANGUES_DES_COMPTES = new Map<string, string>();
 let gabarit: string | null = null;
 const leGabarit = (): string => (gabarit ??= readFileSync(join(DOSSIER_DU_GABARIT, 'package.json'), 'utf8'));
@@ -62,6 +64,7 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
       adresse: adresseDeLaPlateforme(),
       scellerUnSecret,
       refusPrecedents: REFUS_PRECEDENTS,
+      suivis: SUIVIS,
     },
   };
 }

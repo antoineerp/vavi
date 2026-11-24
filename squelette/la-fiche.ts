@@ -19,9 +19,14 @@ export function lesDeclarations(chemin: string, texte: string): string {
     .join('\n');
 }
 
-export function laFicheDe(fichiers: readonly (readonly [string, string])[]): string {
+/** Les paquets dont la version change la façon d'écrire : leurs conventions sont celles de CES versions. */
+export const VERSIONS_DITES = ['react', 'react-router', 'vite', 'typescript', 'tailwindcss', '@tanstack/react-query', 'framer-motion', 'zod'] as const;
+
+export function laFicheDe(fichiers: readonly (readonly [string, string])[], versions: Readonly<Record<string, string>> = {}): string {
+  const dites = VERSIONS_DITES.filter((p) => versions[p]).map((p) => `${p} ${versions[p]}`);
   return [
     '# vavi platform files: their API (declarations only). Read a whole file with `read_files` only if you need its code.',
+    ...(dites.length ? [`Template versions (write the conventions of these exact versions): ${dites.join(', ')}.`] : []),
     ...fichiers.map(([c, t]) => `\n## ${c}\n${lesDeclarations(c, t)}`),
   ].join('\n') + '\n';
 }

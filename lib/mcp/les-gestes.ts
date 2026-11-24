@@ -11,6 +11,7 @@
  * Les dépendances (base, magasin, build) sont passées : les essais jouent les gestes sans réseau.
  */
 import { derive } from '@/squelette/poser';
+import { lesLignesDesMesures } from '@/lib/seo/les-mesures-a-l-ecran';
 import { estFige, CHEMINS_A_LIRE_ENTIERS, CHEMINS_EN_FICHE, POSES_PAR_UN_OUTIL, laFiche } from '@/squelette/registre';
 import { lireLeManifeste, type Manifeste } from '@/lib/backend/app/manifeste';
 import { poserLaBase, type AppelDeLaBase } from '@/lib/relais/poser-la-base';
@@ -20,7 +21,7 @@ import type { Construction } from '@/lib/atelier/construire';
 import type { Magasin } from '@/lib/publication/le-magasin';
 import type { PreRendu } from '@/lib/seo/le-pre-rendu';
 import { publierLeDist, racineDuBuild } from '@/lib/publication/publier';
-import { refuser, suiteDeRefus, paquetInconnu, CONSIGNES_D_OUTIL, type Outil, type Refus } from '@/lib/consignes';
+import { refuser, suiteDeRefus, paquetInconnu, erreurMasquee, laBoucle, ROUGES_D_AFFILEE, CONSIGNES_D_OUTIL, type Outil, type Refus } from '@/lib/consignes';
 import { estUnFichierDEnvironnement, unSecretDans } from './les-secrets';
 import { lArbreDUnProjet } from '@/lib/projets/l-arbre-d-un-projet';
 import { revenirA } from '@/lib/versions/revenir';
@@ -42,7 +43,24 @@ export interface Contexte {
   readonly scellerUnSecret: (projet: string, nom: string, valeur: string) => string;
   /** Le dernier refus rendu, par compte et projet : le même deux fois de suite dit d'arrêter. */
   readonly refusPrecedents: Map<string, Refus>;
+  /** Ce que vavi suit d'un chantier, par compte et projet (en mémoire du processus) : builds rouges d'affilée, texte envoyé. */
+  readonly suivis: Map<string, Suivi>;
 }
+
+export interface Suivi { rouges: number; envoyes: number }
+const cleDe = (c: Contexte, projet: string | undefined): string => `${c.compte}|${projet ?? ''}`;
+function leSuivi(c: Contexte, projet: string | undefined): Suivi {
+  const cle = cleDe(c, projet);
+  let s = c.suivis.get(cle);
+  if (!s) {
+    s = { rouges: 0, envoyes: 0 };
+    c.suivis.set(cle, s);
+    if (c.suivis.size > 10_000) c.suivis.delete(c.suivis.keys().next().value!);
+  }
+  return s;
+}
+/** Une estimation des jetons, dite comme telle : environ 3,5 caractères par jeton, arrondie à la centaine. */
+const jetonsEstimes = (caracteres: number): number => Math.round(caracteres / 3.5 / 100) * 100;
 
 export type Rendu = { readonly ok: true; readonly [champ: string]: unknown } | Refus;
 const fait = (x: Record<string, unknown>): Rendu => ({ ok: true, ...x });
@@ -104,7 +122,8 @@ export function cheminRefuse(chemin: string): Refus | null {
 function texteRefuse(c: Contexte, chemin: string, texte: string): Refus | null {
   const secret = unSecretDans(texte);
   if (secret) return refuser('secret_dans_le_code', `${chemin} contains what looks like a secret (${secret.sorte}).`, { fichier: chemin, ligne: secret.ligne });
-  return /\.(tsx?|jsx?|mjs)$/.test(chemin) ? paquetInconnu(chemin, texte, c.permis) : null;
+  if (!/\.(tsx?|jsx?|mjs|cjs)$/.test(chemin)) return null;
+  return erreurMasquee(chemin, texte) ?? paquetInconnu(chemin, texte, c.permis);
 }
 
 /** app.json tel que Claude l'envoie : valide sans réparation, sinon refusé avec chaque écart. */
@@ -200,6 +219,7 @@ export async function ouvrirUnChantier(c: Contexte, a: { project: string; intent
     const x = o.valeur.autre;
     return refuser('chantier_ouvert', `A work session is already open: "${x.intention}" (opened ${x.ouvertLe}, last change ${x.dernierGesteLe}). Call again with \`resume: true\` to continue it here, or abandon it with \`abandonner_chantier\`.`);
   }
+  c.suivis.set(cleDe(c, a.project), { rouges: 0, envoyes: 0 });
   const ch = (await leProjet(c, a.project));
   const note = ch.ok && ch.valeur.chantier ? { done: ch.valeur.chantier.fait, remaining: ch.valeur.chantier.reste } : null;
   return fait({
@@ -320,6 +340,8 @@ export async function appliquerDesChangements(c: Contexte, a: { project: string;
     written: [...ecrits].map(([chemin, t]) => ({ path: chemin, fingerprint: empreinteMontree(t) })),
     deleted: supprimes,
     next: 'Run `build_preview` to check the change.',
+    // Le compteur : Claude peut dire à la personne où en est la conversation (jetons : ce que vavi a envoyé, estimé).
+    session: { changes: `${gestes}/${GESTES_D_UNE_LONGUE_CONVERSATION}`, tokens_sent_by_vavi_estimate: jetonsEstimes(leSuivi(c, a.project).envoyes) },
     ...(gestes >= GESTES_D_UNE_LONGUE_CONVERSATION ? { long_conversation: LONGUE } : {}),
   });
 }
@@ -384,9 +406,14 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
     await c.projets.enregistrerUnBuild(c.compte, a.project, { empreinte: arbre.empreinte, vert: false, ecarts: b.ecarts });
     const premier = b.ecarts[0];
     const liste = b.ecarts.slice(0, 15).map((e) => `${e.fichier ?? '?'}: ${e.fait}`).join(' | ');
-    return refuser('build_rouge', `The build failed at the ${b.etape === 'types' ? 'type check' : b.etape === 'build' ? 'bundling' : 'installation of the packages'} (${b.ecarts.length} error(s)): ${liste}`,
+    const suivi = leSuivi(c, a.project);
+    suivi.rouges += 1;
+    const rouge = refuser('build_rouge', `The build failed at the ${b.etape === 'types' ? 'type check' : b.etape === 'build' ? 'bundling' : 'installation of the packages'} (${b.ecarts.length} error(s)): ${liste}`,
       { ...(premier?.fichier ? { fichier: premier.fichier } : {}), ...(premier && ligneDe(premier.fait) ? { ligne: ligneDe(premier.fait) } : {}) });
+    // Une boucle de réparation qui change d'erreur à chaque tour échappe au « même refus deux fois » : elle se compte.
+    return suivi.rouges >= ROUGES_D_AFFILEE ? { ...rouge, arreter: laBoucle(suivi.rouges) } : rouge;
   }
+  leSuivi(c, a.project).rouges = 0;
   for (const [chemin, octets] of b.dist) {
     if (!TEXTES_DU_DIST.test(chemin)) continue;
     const s = unSecretDans(octets.toString('utf8'));
@@ -406,6 +433,8 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
     checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the draft and check.',
     prerendered: pre === null ? 'skipped: no browser on this vavi server, public pages need JavaScript to be read'
       : 'erreur' in pre ? `failed: ${pre.erreur.slice(0, 200)}` : { pages: pre.gardees, not_kept: pre.ecartees },
+    // Des avertissements, jamais un refus : ce que les pages publiques montrent au bureau et au téléphone.
+    ...(pre && 'mesures' in pre && pre.mesures.length ? { screen_checks: { warnings: lesLignesDesMesures(pre.mesures), note: 'Measured on the public pages, as a visitor. Fix what matters to the person; these never block.' } } : {}),
   });
 }
 
@@ -433,7 +462,8 @@ export async function publierLApercu(c: Contexte, a: { project: string; work_ses
 
 /** Le refus passe par la mémoire du compte et du projet : le même deux fois de suite porte l'ordre d'arrêter. */
 export function seSouvenir(c: Contexte, projet: string | undefined, r: Rendu): Rendu {
-  const cle = `${c.compte}|${projet ?? ''}`;
+  const cle = cleDe(c, projet);
+  if (projet) leSuivi(c, projet).envoyes += JSON.stringify(r).length;
   if (!estUnRefus(r)) { c.refusPrecedents.delete(cle); return r; }
   const suite = suiteDeRefus(c.refusPrecedents.get(cle) ?? null, r);
   c.refusPrecedents.set(cle, r);

@@ -1,4 +1,5 @@
 # vavi platform files: their API (declarations only). Read a whole file with `read_files` only if you need its code.
+Template versions (write the conventions of these exact versions): react 19.3.0, react-router 7.18.4, vite 7.3.6, typescript 5.9.3, tailwindcss 4.3.3, @tanstack/react-query 5.103.2, framer-motion 13.4.1, zod 4.6.5.
 
 ## src/lib/acces.ts
 /**

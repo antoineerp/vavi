@@ -4,11 +4,11 @@
  */
 import { INSTRUCTIONS_DU_SERVEUR } from './instructions';
 import { lePrompt, type LePrompt } from './prompts';
-import { laRessourceDesCapacites, lesPaquetsDuGabarit } from './paquets';
+import { laRessourceDesCapacites, lesPaquetsDuGabarit, lesVersionsDuGabarit } from './paquets';
 
 export { OUTILS, CONSIGNES_D_OUTIL, type Outil } from './instructions';
-export { CODES_DE_REFUS, refuser, suiteDeRefus, type CodeDeRefus, type Refus } from './refus';
-export { paquetInconnu, lesPaquetsDuGabarit } from './paquets';
+export { CODES_DE_REFUS, ROUGES_D_AFFILEE, laBoucle, refuser, suiteDeRefus, type CodeDeRefus, type Refus } from './refus';
+export { paquetInconnu, erreurMasquee, lesPaquetsDuGabarit, lesVersionsDuGabarit } from './paquets';
 export { leGuide, GUIDE } from './guide';
 export { lesPrompts, LANGUES, type Langue } from './prompts';
 
@@ -46,7 +46,7 @@ export function lesModelesDeRessources() {
 
 export async function uneRessource(uri: string, ctx: ContexteDesRessources): Promise<{ contents: { uri: string; mimeType: string; text: string }[] } | { erreur: string }> {
   if (uri === 'vavi://capacites') {
-    return { contents: [{ uri, mimeType: 'text/markdown', text: laRessourceDesCapacites(lesPaquetsDuGabarit(ctx.gabaritPackageJson)) }] };
+    return { contents: [{ uri, mimeType: 'text/markdown', text: laRessourceDesCapacites(lesPaquetsDuGabarit(ctx.gabaritPackageJson), lesVersionsDuGabarit(ctx.gabaritPackageJson)) }] };
   }
   const m = NOTE.exec(uri);
   if (m) {

@@ -54,7 +54,7 @@ const empreinteDe = async (project: string, path: string) => {
 beforeEach(() => {
   const ctx = {
     compte: MOI, projets: desProjetsEnMemoire(), magasin: unMagasinEnMemoire(), permis: lesPaquetsDuGabarit(GABARIT),
-    adresse: 'https://vavi.test', refusPrecedents: new Map<string, Refus>(), scellerUnSecret: (_p: string, _n: string, v: string) => `scelle(${v.length})`,
+    adresse: 'https://vavi.test', refusPrecedents: new Map<string, Refus>(), suivis: new Map(), scellerUnSecret: (_p: string, _n: string, v: string) => `scelle(${v.length})`,
     prochain: vert(), construits: 0, sqlRefuse: null as string | null,
     base: { rpc: async (f: string, a: Record<string, unknown>) => (f === 'create_app_schema' ? { data: schemaDuProjet(String(a.project_id)), error: null }
       : ctx.sqlRefuse ? { data: null, error: { message: ctx.sqlRefuse } } : { data: null, error: null }) },
@@ -257,5 +257,50 @@ describe('le serveur MCP', () => {
     expect(await servirLeMcp({ jsonrpc: '2.0', method: 'notifications/initialized' }, ctx())).toBeNull();
     const prompts = await servirLeMcp({ jsonrpc: '2.0', id: 4, method: 'prompts/list' }, ctx());
     expect(JSON.stringify(prompts)).toContain('Démarrer un projet');
+  });
+});
+
+describe('les défauts connus des agents de code, fermés par les outils (24/11, 14h)', () => {
+  it('une directive qui fait taire le typage est refusée à sa ligne ; le même mot dans un texte passe', async () => {
+    const w = await unChantier();
+    const r = await refus('apply_changes', { ...w, why: 'masquer', changes: [{ path: 'src/pages/A.tsx', content: 'const a = 1;\n// @ts-ignore\nexport default function A() { return null; }' }] });
+    expect(r).toMatchObject({ code: 'erreur_masquee', fichier: 'src/pages/A.tsx', ligne: 2 });
+    expect((await refus('apply_changes', { ...w, why: 'masquer', changes: [{ path: 'src/pages/B.tsx', content: '/* eslint-disable */\nexport default function B() { return null; }' }] })).code).toBe('erreur_masquee');
+    await ok('apply_changes', { ...w, why: 'un texte', changes: [{ path: 'src/pages/C.tsx', content: 'export default function C() { return <p>Écrire @ts-ignore est refusé.</p>; }' }] });
+  });
+  it('trois builds rouges d’affilée, même sur des erreurs différentes, disent d’arrêter ; un vert remet à zéro', async () => {
+    const w = await unChantier();
+    const rouge = (n: number): Construction => ({ construite: false, etape: 'types', duree: 3, ecarts: [{ fichier: `src/pages/P${n}.tsx`, fait: `ligne ${n} : erreur ${n} (TS2322)` }] });
+    const construire = async (n: number) => { c.prochain = rouge(n); await ok('apply_changes', { ...w, why: `essai ${n}`, changes: [{ path: `src/pages/P${n}.tsx`, content: `export const p${n} = ${n};` }] }); return refus('build_preview', { project: w.project }); };
+    expect((await construire(1)).arreter).toBeUndefined();
+    expect((await construire(2)).arreter).toBeUndefined();
+    expect((await construire(3)).arreter).toMatch(/3 red builds in a row[\s\S]*rollback/);
+    c.prochain = vert();
+    await ok('apply_changes', { ...w, why: 'réparé', changes: [{ path: 'src/pages/P9.tsx', content: 'export const p9 = 9;' }] });
+    await ok('build_preview', { project: w.project });
+    expect((await construire(4)).arreter).toBeUndefined();
+  });
+  it('chaque modification dit où en est la conversation', async () => {
+    const w = await unChantier();
+    const r = await ok('apply_changes', { ...w, why: 'compter', changes: [{ path: 'src/pages/A.tsx', content: 'export const a = 1;' }] });
+    expect(r.session).toMatchObject({ changes: `1/${GESTES_D_UNE_LONGUE_CONVERSATION}` });
+    expect((r.session as { tokens_sent_by_vavi_estimate: number }).tokens_sent_by_vavi_estimate).toBeGreaterThan(0);
+  });
+  it('la fiche donne les versions du gabarit, pour écrire leurs conventions', async () => {
+    const p = await ok('create_project', { app_json: APP_JSON });
+    const ch = await ok('ouvrir_chantier', { project: p.project, intention: 'les versions' });
+    expect(String(ch.platform_api)).toMatch(/react 19\.3\.0, react-router 7\./);
+  });
+});
+
+describe('les mesures à l’écran arrivent au build, en avertissement', () => {
+  it('build_preview reste vert et dit ce que les pages montrent au téléphone', async () => {
+    const w = await unChantier();
+    (c as { preRendre: Contexte['preRendre'] }).preRendre = async () => ({ fichiers: new Map(), gardees: ['/'], ecartees: [],
+      mesures: [{ adresse: '/', ecran: 'phone', ecarts: [{ sorte: 'overflow', ou: '<div> « Bande »', fait: 'goes 210px past the 390px screen' }] }] });
+    await ok('apply_changes', { ...w, why: 'accueil', changes: [{ path: 'src/pages/index.tsx', content: 'export default function A() { return null; }' }] });
+    const b = await ok('build_preview', { project: w.project });
+    expect(b.green).toBe(true);
+    expect((b.screen_checks as { warnings: string[] }).warnings).toEqual(['/ (phone) overflow: <div> « Bande » goes 210px past the 390px screen']);
   });
 });
