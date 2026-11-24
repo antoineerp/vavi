@@ -9,6 +9,10 @@ import { leProjetServi } from '@/lib/projets/les-projets';
 import { comptesSurSupabase } from '@/lib/stripe-connect/sur-supabase';
 import { CLE_DE_VAVI, SECRET_DU_WEBHOOK_DE_VAVI } from '@/lib/stripe-connect/le-compte';
 import type { DependancesDeLaVente } from '@/lib/vente/la-vente';
+import type { DependancesDesCommandes, LaPersonne } from '@/lib/vente/les-commandes';
+import { agirPourUnCompte } from '@/lib/relais/agir-pour-un-compte';
+import { TABLE_DE_LA_COMMANDE } from '@/lib/backend/app/la-commande';
+import { leCourrierDeLaPlateforme } from '@/lib/formulaires/sur-supabase';
 
 export function laVenteReelle(): DependancesDeLaVente {
   const base = clientDeService();
@@ -39,4 +43,26 @@ export async function lAcheteurConnecte(requete: Request): Promise<string | null
 export async function leCorps(requete: Request): Promise<Record<string, unknown>> {
   const c = (await requete.json().catch(() => null)) as unknown;
   return c && typeof c === 'object' && !Array.isArray(c) ? c as Record<string, unknown> : {};
+}
+
+/** Les commandes après le paiement : la base, le geste fait comme le compte (`voie_neuve_pour`), le courrier de la plateforme. */
+export function lesCommandesReelles(): DependancesDesCommandes {
+  const base = clientDeService();
+  const courrier = leCourrierDeLaPlateforme();
+  return {
+    rpc: (fonction, args) => base.rpc(fonction, args),
+    leProjet: (id) => leProjetServi(base, id),
+    transiter: (compte, schema, args) => agirPourUnCompte(base, compte, 'voie_neuve_appeler', { p_schema: schema, p_fonction: `${TABLE_DE_LA_COMMANDE}_transiter`, p_arguments: args }),
+    courrier: courrier ? (m) => courrier({ ...m, repondreA: null }) : null,
+    journal: (ligne) => { console.error(ligne); },
+  };
+}
+
+/** La personne d'une session d'app : son compte, son adresse et si elle l'a confirmée ; `null` : pas de session valide. */
+export async function laPersonneConnectee(requete: Request): Promise<LaPersonne | null> {
+  const jeton = /^Bearer\s+(\S+)$/i.exec(requete.headers.get('authorization') ?? '')?.[1];
+  if (!jeton) return null;
+  const r = await clientDeService().auth.getUser(jeton);
+  const u = r.error ? null : r.data.user;
+  return u ? { compte: u.id, courriel: u.email ?? null, confirme: Boolean(u.email_confirmed_at) } : null;
 }
