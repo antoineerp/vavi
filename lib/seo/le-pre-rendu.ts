@@ -11,7 +11,6 @@
  * une page pré-rendue ne sait pas si elle sera servie sous `/s/<id>/` ou, plus tard, à la racine d'un domaine.
  */
 import { createServer, type Server } from 'node:http';
-import { createRequire } from 'node:module';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
@@ -54,7 +53,10 @@ export async function ouvrirLeNavigateur(hotes: readonly string[], env: Readonly
   let chromium: { launch(o: object): Promise<UnNavigateur> };
   try {
     // Le nom passe par une variable : le paquet du serveur se charge à l'exécution, jamais empaqueté par le build de vavi.
-    ({ chromium } = createRequire(join(process.cwd(), 'package.json'))(paquet) as { chromium: typeof chromium });
+    // Par `process.getBuiltinModule` : le build de Next remplaçait `createRequire(...)` importé par `(void 0)` (24/11,
+    // vavi-essai : « (void 0) is not a function »), et le pré-rendu n'a jamais tourné sur le serveur.
+    const exiger = process.getBuiltinModule('node:module').createRequire(join(process.cwd(), 'package.json'));
+    ({ chromium } = exiger(paquet) as { chromium: typeof chromium });
   } catch (e) {
     return { raison: `Playwright not found (${paquet}): ${String((e as Error)?.message ?? e).split('\n')[0]!.slice(0, 200)}` };
   }
