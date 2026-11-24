@@ -5,6 +5,7 @@
  */
 import 'server-only';
 import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { lesReglagesDuMagasin } from './les-reglages-du-magasin';
 
 export interface Objet { readonly octets: Buffer; readonly type: string; readonly meta: Readonly<Record<string, string>> }
 export interface TeteDObjet { readonly taille: number; readonly meta: Readonly<Record<string, string>> }
@@ -16,8 +17,6 @@ export interface Magasin {
   lire(cle: string): Promise<Objet | 'absent'>;
 }
 
-const VARIABLES = ['S3_ENDPOINT', 'S3_ACCESS_KEY', 'S3_SECRET_KEY', 'S3_BUCKET'] as const;
-
 export type LectureDuMagasin = { readonly lu: true; readonly magasin: Magasin } | { readonly lu: false; readonly manque: readonly string[] };
 
 const estAbsent = (e: unknown): boolean => {
@@ -27,11 +26,10 @@ const estAbsent = (e: unknown): boolean => {
 
 /** Le magasin S3 lu de l'environnement ; ce qui manque est nommé. */
 export function magasinS3(env: Readonly<Record<string, string | undefined>> = process.env): LectureDuMagasin {
-  const manque = VARIABLES.filter((v) => !env[v]);
-  if (manque.length) return { lu: false, manque };
-  const client = new S3Client({ endpoint: env.S3_ENDPOINT, region: env.S3_REGION || 'auto', forcePathStyle: true,
-    credentials: { accessKeyId: env.S3_ACCESS_KEY!, secretAccessKey: env.S3_SECRET_KEY! } });
-  const Bucket = env.S3_BUCKET!;
+  const r = lesReglagesDuMagasin(env);
+  if (!r.lu) return { lu: false, manque: r.manque };
+  const { endpoint, region, cle, secret, bucket: Bucket } = r.reglages;
+  const client = new S3Client({ endpoint, region, forcePathStyle: true, credentials: { accessKeyId: cle, secretAccessKey: secret } });
   return { lu: true, magasin: {
     async poser(cle, octets, o) {
       await client.send(new PutObjectCommand({ Bucket, Key: cle, Body: octets, ContentType: o.type, CacheControl: o.cache, Metadata: o.meta ? { ...o.meta } : undefined }));
