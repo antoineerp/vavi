@@ -15,7 +15,8 @@ dépendances déclarées.
 | Clé | Fonction | Module | Test | Dépend de | État | Lot |
 | --- | --- | --- | --- | --- | --- | --- |
 | socle | Configuration et auth Supabase (navigateur, serveur, service, session) | lib/supabase | test/supabase-configuration.test.ts | — | neuve | 1 |
-| gardes | Les gardes du dépôt (cette liste, la fermeture des imports) et l'écriture des migrations | scripts | test/fonctions.test.ts | relais, projets, vente, formulaires, stripe-connect, conformite, capacites, abonnements, administration, export | neuve | 1 |
+| entetes | En-têtes de sécurité : HTTPS imposé, types non devinés ; la console jamais encadrée ni dotée de caméra, micro, position ; une app servie encadrable (aperçu dans Claude) | lib/les-entetes.ts | test/les-entetes.test.ts | — | neuve | 8 |
+| gardes | Les gardes du dépôt (cette liste, la fermeture des imports) et l'écriture des migrations | scripts | test/fonctions.test.ts | relais, projets, vente, formulaires, stripe-connect, conformite, capacites, abonnements, administration, export, mcp | neuve | 1 |
 | backend | Base par projet dérivée d'app.json : tables, RLS, cycles, journal, membres (SQL pur) | lib/backend | test/backend/ | — | reprise | 2 |
 | relais | Base de la plateforme : schéma par projet, pose de la base, relais navigateur → base sous la RLS (`voie_neuve_*`), agir pour un compte | lib/relais | test/relais/ | backend | reprise | 2 |
 | projets | Les projets d'un compte et les fichiers que Claude écrit, gardés tels quels (tables de la plateforme, écriture d'un lot en une transaction), l'arbre construit qu'ils donnent, le build désigné (aperçu, en ligne) | lib/projets | test/projets/ | backend, squelette | neuve | 5 |

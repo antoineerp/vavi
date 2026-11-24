@@ -4,18 +4,18 @@
  *
  * Repris de constructor-v13@5bb786e : lib/mcp/la-porte-mcp.ts, sans l'app ni ses rôles.
  */
-import { lireUnAcces } from './les-jetons';
+import { lireUnAcces, type Acces } from './les-jetons';
 import { metadonneesDeLaRessource } from './l-adresse';
 
 export type Passage =
-  | { readonly passe: true; readonly compte: string }
+  | { readonly passe: true; readonly compte: string; readonly acces: Acces; readonly refuser: (message: string) => string }
   | { readonly passe: false; readonly statut: 401; readonly message: string; readonly entete: string };
 
 export function passerLaPorte(autorisation: string | null, maintenant = Date.now(), metadonnees = metadonneesDeLaRessource()): Passage {
-  const refuser = (message: string): Passage => ({ passe: false, statut: 401, message,
+  const refuser = (message: string): Extract<Passage, { passe: false }> => ({ passe: false, statut: 401, message,
     entete: `Bearer resource_metadata="${metadonnees}", error="invalid_token", error_description="${message.replace(/"/g, "'")}"` });
   const jeton = /^Bearer\s+(\S+)$/i.exec(autorisation ?? '')?.[1];
   if (!jeton) return refuser('autorisation requise');
   const acces = lireUnAcces(jeton, maintenant);
-  return acces.lu ? { passe: true, compte: acces.valeur.compte } : refuser(acces.pourquoi);
+  return acces.lu ? { passe: true, compte: acces.valeur.compte, acces: acces.valeur, refuser: (m) => refuser(m).entete } : refuser(acces.pourquoi);
 }

@@ -9,6 +9,7 @@
  * Repris de constructor-v13@5bb786e : lib/mcp/le-serveur-mcp.ts (la forme JSON-RPC, les lots), avec les outils du
  * constructeur à la place de ceux des données d'une app.
  */
+import { LOT_AU_PLUS } from './les-limites';
 import { INSTRUCTIONS, lesPrompts, unPrompt, lesRessources, lesModelesDeRessources, uneRessource, type ContexteDesRessources } from '@/lib/consignes';
 import { appelerUnOutil, lesOutils } from './les-outils';
 import { estUnRefus, type Contexte } from './les-gestes';
@@ -75,7 +76,10 @@ async function repondre(r: Requete, ctx: ContexteDuServeur): Promise<ReponseRpc 
 export async function servirLeMcp(corps: unknown, ctx: ContexteDuServeur): Promise<ReponseRpc | ReponseRpc[] | null> {
   if (Array.isArray(corps)) {
     if (corps.length === 0) return erreur(null, -32600, 'Invalid Request');
-    const reponses = (await Promise.all(corps.map((r) => repondre(objet(r), ctx)))).filter((x): x is ReponseRpc => x !== null);
+    if (corps.length > LOT_AU_PLUS) return erreur(null, -32600, `Invalid Request: a batch holds at most ${LOT_AU_PLUS} messages`);
+    // Un message après l'autre : un lot ne lance jamais plusieurs builds à la fois (vague 0, audit du 24/11).
+    const reponses: ReponseRpc[] = [];
+    for (const r of corps) { const x = await repondre(objet(r), ctx); if (x !== null) reponses.push(x); }
     return reponses.length ? reponses : null;
   }
   return repondre(objet(corps), ctx);

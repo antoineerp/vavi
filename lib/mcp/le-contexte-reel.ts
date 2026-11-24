@@ -13,6 +13,7 @@ import { DOSSIER_DU_GABARIT } from '@/squelette/registre';
 import { lesPaquetsDuGabarit, type Refus } from '@/lib/consignes';
 import { adresseDeLaPlateforme } from './l-adresse';
 import { scellerUnSecret } from './les-jetons';
+import { avecUneMemoire, etatSurSupabase, type EtatDeLAcces } from './l-etat-de-l-acces';
 import { configurationPublique } from '@/lib/supabase/configuration';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { leNavigateurDuServeur, preRendre } from '@/lib/seo/le-pre-rendu';
@@ -77,3 +78,7 @@ export async function compteDeLaSession(jeton: string): Promise<string | null> {
   const u = await clientDeService().auth.getUser(jeton);
   return u.error || !u.data.user ? null : u.data.user.id;
 }
+
+let etat: EtatDeLAcces | null = null;
+/** Les codes échangés et les déconnexions de Claude, en base ; la révocation lue au plus toutes les 30 s par compte. */
+export const etatDeLAccesReel = (): EtatDeLAcces => (etat ??= avecUneMemoire(etatSurSupabase(clientDeService())));
