@@ -70,3 +70,14 @@ export function laMigrationDesCapacites(): string {
     SQL_DES_CAPACITES.trim(), '',
   ].join('\n');
 }
+
+export const CHEMIN_DE_LA_MIGRATION_DES_PIECES = 'supabase/migrations/20261124230000_les_pieces.sql';
+
+/** PURE — le texte de la migration des pièces jointes (ce que la base ne cite plus, rendu à la plateforme). */
+export function laMigrationDesPieces(sqlDesOrphelines: string): string {
+  return [
+    '-- LES PIÈCES JOINTES — écrite par scripts/ecrire-la-migration-du-socle.ts depuis lib/capacites/les-pieces-orphelines.ts.',
+    '-- Ne pas modifier à la main : modifier la source, puis relancer le script.',
+    sqlDesOrphelines.trim(), "NOTIFY pgrst, 'reload schema';", '',
+  ].join('\n');
+}

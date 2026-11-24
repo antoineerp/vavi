@@ -52,7 +52,8 @@ export interface DependancesDeLEffacement {
   laPersonne(jetonDeSession: string): Promise<LaPersonne | null>;
   /** Le nom du projet et le schéma de son app ; `null` : il n'existe pas. */
   leProjet(id: string): Promise<Issue<{ readonly nom: string; readonly schema: string } | null>>;
-  effacer(schema: string, compte: string): Promise<Issue<Effacement>>;
+  /** Efface le compte de l'app ; `projet` : pour que ses fichiers que plus rien ne cite partent aussi du stockage. */
+  effacer(schema: string, compte: string, projet: string): Promise<Issue<Effacement>>;
 }
 
 const MOTS = {
@@ -99,6 +100,6 @@ export async function confirmerLEffacement(d: Pick<DependancesDeLEffacement, 'se
   const p = await d.leProjet(l.projet);
   if (!p.lu) return { fait: false, pourquoi: 'panne' };
   if (!p.valeur) return { fait: false, pourquoi: 'projet_inconnu' };
-  const e = await d.effacer(p.valeur.schema, l.compte);
+  const e = await d.effacer(p.valeur.schema, l.compte, l.projet);
   return e.lu ? { fait: true, nom: p.valeur.nom, effacement: e.valeur } : { fait: false, pourquoi: 'panne' };
 }
