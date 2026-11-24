@@ -387,8 +387,9 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   }
   const deja = await c.projets.leBuild(c.compte, a.project, arbre.empreinte);
   if (deja.lu && deja.valeur?.vert) {
-    return fait({ green: true, draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, rebuilt: false,
-      note: 'Nothing changed since the last green build.' });
+    const designe = await c.projets.publierLApercu(c.compte, a.project, arbre.empreinte);
+    return fait({ green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, rebuilt: false,
+      preview_updated: designe.lu, note: 'Nothing changed since the last green build.' });
   }
   // Des chemins relatifs : le même build sert l'aperçu, le brouillon et le site public (`poserLEnvironnement`).
   const b = await c.construire(arbre.construit, './');
@@ -417,9 +418,13 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
     return refuser('plateforme_en_panne', `The build is green but could not be stored (${(e as Error).message}).`);
   }
   await c.projets.enregistrerUnBuild(c.compte, a.project, { empreinte: arbre.empreinte, vert: true, ecarts: [] });
+  // Un build vert DEVIENT l'aperçu (24/11, retour d'Antoine : la console disait « pas encore d'aperçu » après un build
+  // vert) : la console et le lien montrent la dernière version qui se construit ; `publish` ferme le chantier.
+  const designe = await c.projets.publierLApercu(c.compte, a.project, arbre.empreinte);
   return fait({
-    green: true, draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree,
-    checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the draft and check.',
+    green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree,
+    preview_updated: designe.lu,
+    checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the preview and check.',
     prerendered: pre === null ? 'skipped: no browser on this vavi server, public pages need JavaScript to be read'
       : 'erreur' in pre ? `failed: ${pre.erreur.slice(0, 200)}` : { pages: pre.gardees, not_kept: pre.ecartees },
   });
@@ -442,7 +447,7 @@ export async function publierLApercu(c: Contexte, a: { project: string; work_ses
   if (!ferme.lu) return panne(ferme.pourquoi);
   return fait({
     preview_url: urlDeLApercu(c, a.project), work_session: 'closed',
-    note: 'The preview now shows this version. It is not online for the public: only the person puts it online, with the Publish button of the vavi console.',
+    note: 'The work session is closed; the preview shows this version. It is not online for the public: only the person puts it online, with the Publish button.',
   });
 }
 

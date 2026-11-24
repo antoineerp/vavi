@@ -158,6 +158,9 @@ describe('on ne publie que le build vert de l’arbre courant', () => {
     c.prochain = vert();
     const b = await ok('build_preview', { project: w.project });
     expect(b.draft_url).toMatch(/^https:\/\/vavi\.test\/p\/[^/]+\/\?brouillon=[0-9a-f]{64}$/);
+    // Le build vert devient l'aperçu tout de suite (retour d'Antoine du 24/11) : la console le montre sans attendre `publish`.
+    expect(b).toMatchObject({ preview_url: expect.stringMatching(/^https:\/\/vavi\.test\/p\/[^/]+\/$/), preview_updated: true });
+    expect((await ok('get_project_state', { project: w.project })).preview_url).toBe(b.preview_url);
     expect(await ok('build_preview', { project: w.project })).toMatchObject({ rebuilt: false });
     expect(c.construits).toBe(2);
     expect(await ok('publish', w)).toMatchObject({ work_session: 'closed', note: expect.stringContaining('Publish button') });

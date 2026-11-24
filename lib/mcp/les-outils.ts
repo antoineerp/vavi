@@ -92,13 +92,13 @@ export const DEFINITIONS = {
     geste: (c, a) => g.poserUnSecret(c, a),
   }),
   build_preview: def({
-    title: 'Build a draft preview', lecture: false, entree: z.object({ project: projet }),
-    description: 'Type-checks and builds the current version. Green: a draft address the person can open; the preview does not change. Red: each error with its file and line.',
+    title: 'Build the preview', lecture: false, entree: z.object({ project: projet }),
+    description: 'Type-checks and builds the current version. Green: the preview now shows it (give the person `preview_url`). Red: each error with its file and line; the preview keeps the last green version.',
     geste: (c, a) => g.construireLApercu(c, a),
   }),
   publish: def({
-    title: 'Update the preview', lecture: false, entree: z.object({ project: projet, work_session: chantier }),
-    description: 'Points the preview /p/<id>/ to the green build of the current version, and closes the work session. It does not put the site online: the person does, in the vavi console.',
+    title: 'Close the work session', lecture: false, entree: z.object({ project: projet, work_session: chantier }),
+    description: 'When the person is happy with the preview: checks that the current version is built green, and closes the work session. It does not put the site online: the person does, with the Publish button.',
     geste: (c, a) => g.publierLApercu(c, a),
   }),
   history: def({
