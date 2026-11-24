@@ -22,6 +22,7 @@ dépendances déclarées.
 | design | Règles de design, peau (jetons, contraste construit), exemples de design | lib/design | test/design/ | backend | reprise | 3 |
 | atelier | Construire une app dans un atelier : ses paquets une fois par verrou, `tsc` puis `vite build`, le dist ou les erreurs (fichier, ligne) | lib/atelier | test/atelier/ | — | reprise | 4 |
 | publication | Publier un dist sur le magasin d'objets (S3), servir l'aperçu `/p/<id>/` avec l'environnement public de l'app | lib/publication | test/publication/ | — | reprise | 4 |
+| consignes | Ce que le serveur MCP dit à Claude : instructions, prompts, ressources, forme des refus, guide de la personne (multilingue) | lib/consignes | test/consignes.test.ts | — | neuve | 5 |
 | mcp | Serveur MCP constructeur et son OAuth (inscription dynamique, PKCE S256) | lib/mcp | test/mcp.test.ts | socle, backend, squelette, atelier, publication, design | à reprendre | 5 |
 | seo | Référencement, pré-rendu des pages publiques, découverte (sitemap, robots, llms.txt) | lib/seo | test/seo.test.ts | publication | à reprendre | 6 |
 | vente | Vente Stripe : prix lu en base, webhook signé, commande, TVA, facture, accès payé | lib/vente | test/vente.test.ts | socle, backend | à reprendre | 6 |
