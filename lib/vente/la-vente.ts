@@ -9,6 +9,7 @@
  *     montant encaissé est relu contre celui de la commande, et la BASE la fait
  *     payée (`commande_par_paiement`, que seule la plateforme exécute) ; rejoué, il ne refait rien ;
  *   · `lireLaFacture` — la facture, à qui porte le jeton de la commande.
+ * L'accès payé (un rôle acheté) passe par le même webhook : `l-acces-paye.ts`.
  * Ce module ne lit ni le réseau ni les secrets lui-même : ses dépendances le font (`DependancesDeLaVente`), la route les
  * branche, les essais les jouent.
  */
@@ -20,6 +21,7 @@ import { laBoutique, type Boutique } from './la-boutique';
 import { chiffrer, laDestination, lePanierMontre, lesArticlesAPayer, lireLeCode, lireLesCoordonnees, lireLesLignes, type ArticleLu, type Refus } from './le-chiffrage';
 import { lePaiementDeLEvenement, ouvrirUneSessionStripe, verifierLaSignature, type AppelStripe } from './stripe';
 import { laFacture, type CommandeFacturee } from './la-facture';
+import { accorderLAcces } from './l-acces-paye';
 
 export interface DependancesDeLaVente {
   readonly rpc: AppelDeLaBase['rpc'];
@@ -159,12 +161,16 @@ export async function confirmerLaVente(d: DependancesDeLaVente, corps: string, s
   const schema = schemaDuProjet(id);
   const commande = typeof meta.vavi_commande === 'string' ? meta.vavi_commande : null;
   const attendu = Number(meta.vavi_montant);
-  if (!schema || !commande || !Number.isInteger(attendu)) return { statut: 200, corps: { recu: true, sansObjet: true } };
+  const acces = typeof meta.vavi_acces === 'string';
+  if (!schema || (!acces && (!commande || !Number.isInteger(attendu)))) return { statut: 200, corps: { recu: true, sansObjet: true } };
   const compte = await d.leCompte(id);
   if (!compte || e.account !== compte.compte) {
     d.journal(`[vente] ${schema} — webhook d'un autre compte que celui du projet (${String(e.account ?? 'aucun')})`);
     return { statut: 200, corps: { recu: true, refusee: 'compte' } };
   }
+  // UN ACCÈS PAYÉ (un rôle, pas une commande) : relu contre l'offre d'app.json, posé une fois.
+  if (acces) return accorderLAcces(d, id, objet);
+  if (!commande) return { statut: 200, corps: { recu: true, sansObjet: true } };
   const paye = typeof objet.amount_total === 'number' ? objet.amount_total : null;
   const devise = String(objet.currency ?? '').toUpperCase();
   if (paye === null || paye < attendu || devise !== meta.vavi_devise) {
