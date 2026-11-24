@@ -15,15 +15,16 @@ dépendances déclarées.
 | Clé | Fonction | Module | Test | Dépend de | État | Lot |
 | --- | --- | --- | --- | --- | --- | --- |
 | socle | Configuration et auth Supabase (navigateur, serveur, service, session) | lib/supabase | test/supabase-configuration.test.ts | — | neuve | 1 |
-| gardes | Les gardes du dépôt (cette liste, la fermeture des imports) et l'écriture des migrations | scripts | test/fonctions.test.ts | relais | neuve | 1 |
+| gardes | Les gardes du dépôt (cette liste, la fermeture des imports) et l'écriture des migrations | scripts | test/fonctions.test.ts | relais, projets | neuve | 1 |
 | backend | Base par projet dérivée d'app.json : tables, RLS, cycles, journal, membres (SQL pur) | lib/backend | test/backend/ | — | reprise | 2 |
 | relais | Base de la plateforme : schéma par projet, pose de la base, relais navigateur → base sous la RLS (`voie_neuve_*`), agir pour un compte | lib/relais | test/relais/ | backend | reprise | 2 |
+| projets | Les projets d'un compte et les fichiers que Claude écrit, gardés tels quels (tables de la plateforme, écriture d'un lot en une transaction) | lib/projets | test/projets/ | — | neuve | 5 |
 | squelette | Squelette d'app : le gabarit Vite/React et ses briques (`squelette/gabarit`, des données), les fichiers figés dérivés d'app.json, ce que l'app tire | squelette | test/squelette/ | backend, design | reprise | 3 |
 | design | Règles de design, peau (jetons, contraste construit), exemples de design | lib/design | test/design/ | backend | reprise | 3 |
 | atelier | Construire une app dans un atelier : ses paquets une fois par verrou, `tsc` puis `vite build`, le dist ou les erreurs (fichier, ligne) | lib/atelier | test/atelier/ | — | reprise | 4 |
 | publication | Publier un dist sur le magasin d'objets (S3), servir l'aperçu `/p/<id>/` avec l'environnement public de l'app | lib/publication | test/publication/ | — | reprise | 4 |
 | consignes | Ce que le serveur MCP dit à Claude : instructions, prompts, ressources, forme des refus, guide de la personne (multilingue) | lib/consignes | test/consignes.test.ts | — | neuve | 5 |
-| mcp | Serveur MCP constructeur et son OAuth (inscription dynamique, PKCE S256) | lib/mcp | test/mcp.test.ts | socle, backend, squelette, atelier, publication, design | à reprendre | 5 |
+| mcp | Serveur MCP constructeur : les 13 outils du cahier des garde-fous (refus de la liste fermée), prompts, ressources, et son OAuth (inscription dynamique, PKCE S256, jetons scellés à déchiffrement strict) | lib/mcp | test/mcp/ | socle, backend, relais, squelette, atelier, publication, projets, consignes | neuve | 5 |
 | seo | Référencement, pré-rendu des pages publiques, découverte (sitemap, robots, llms.txt) | lib/seo | test/seo.test.ts | publication | à reprendre | 6 |
 | vente | Vente Stripe : prix lu en base, webhook signé, commande, TVA, facture, accès payé | lib/vente | test/vente.test.ts | socle, backend | à reprendre | 6 |
 | domaines | Domaines personnalisés et leurs certificats | lib/domaines | test/domaines.test.ts | socle | à reprendre | 6 |

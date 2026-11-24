@@ -1,5 +1,6 @@
 /**
- * Servir une app depuis le magasin : l'aperçu sous `/p/<id>/`. Un chemin sans extension est une page de l'app : on
+ * Servir une app depuis le magasin : l'aperçu sous `/p/<id>/`, qui sert le build que le projet DÉSIGNE (`publish`), ou
+ * un brouillon (`build_preview`) que la personne regarde par son adresse `?brouillon=<empreinte>`. Un chemin sans extension est une page de l'app : on
  * sert son `index.html` (le routeur de l'app décide) ; un fichier absent rend 404, jamais la page à sa place.
  *
  * `index.html` reçoit, au service et jamais au build, ce que l'app lit au démarrage (`squelette/gabarit/src/lib/env.ts`) :
@@ -7,7 +8,7 @@
  * porte pas.
  */
 import type { Magasin } from './le-magasin';
-import { cachePour, PREFIXE_DE_L_APERCU, typeDe } from './publier';
+import { cachePour, typeDe } from './publier';
 
 export interface EnvDeLApp {
   readonly supabaseUrl: string;
@@ -41,16 +42,37 @@ export function cheminDansLeDist(segments: readonly string[]): string | null {
   return chemin === '' || !/\.[a-z0-9]+$/i.test(parts[parts.length - 1] ?? '') ? 'index.html' : chemin;
 }
 
-export async function servirLApercu(magasin: Magasin, projet: string, segments: readonly string[], env: EnvDeLApp): Promise<Reponse> {
+/** Une empreinte d'arbre : 64 caractères hexadécimaux. Rien d'autre n'entre dans une clé du magasin. */
+export const estUneEmpreinte = (v: unknown): v is string => typeof v === 'string' && /^[0-9a-f]{64}$/.test(v);
+
+export const COOKIE_DU_BROUILLON = 'vavi_brouillon';
+
+/**
+ * Quel build servir, PURE. Une page (`index.html`) décide : `?brouillon=<e>` montre ce brouillon et le retient par un
+ * cookie limité à `/p/<id>/` (les fichiers de l'app, demandés sans la requête, le suivent) ; une page sans brouillon
+ * revient à l'aperçu et efface le cookie. Un fichier suit le cookie.
+ */
+export function leBuildAServir(o: { readonly page: boolean; readonly demande: string | null; readonly cookie: string | null; readonly designe: string | null }):
+  { readonly empreinte: string | null; readonly cookie: 'poser' | 'effacer' | 'garder' } {
+  if (o.page) {
+    if (estUneEmpreinte(o.demande)) return { empreinte: o.demande, cookie: 'poser' };
+    return { empreinte: o.designe, cookie: o.cookie ? 'effacer' : 'garder' };
+  }
+  return { empreinte: estUneEmpreinte(o.cookie) ? o.cookie : o.designe, cookie: 'garder' };
+}
+
+/** `racine` : la clé du build dans le magasin (`racineDuBuild`). */
+export async function servirUnDist(magasin: Magasin, racine: string | null, segments: readonly string[], env: EnvDeLApp): Promise<Reponse> {
   const chemin = cheminDansLeDist(segments);
   if (chemin === null) return texte(400, 'chemin refusé');
+  if (racine === null) return texte(404, 'cette app n’a pas encore d’aperçu : lancez un build');
   let objet;
   try {
-    objet = await magasin.lire(`${PREFIXE_DE_L_APERCU}${projet}/${chemin}`);
+    objet = await magasin.lire(`${racine}/${chemin}`);
   } catch {
     return texte(503, 'le magasin des builds n’a pas répondu');
   }
-  if (objet === 'absent') return texte(404, chemin === 'index.html' ? 'cette app n’a pas encore été construite' : 'fichier introuvable');
+  if (objet === 'absent') return texte(404, chemin === 'index.html' ? 'ce build n’existe pas' : 'fichier introuvable');
   const corps = chemin === 'index.html' ? Buffer.from(poserLEnvironnement(objet.octets.toString('utf8'), env), 'utf8') : objet.octets;
   return { statut: 200, type: typeDe(chemin), cache: cachePour(chemin), corps };
 }

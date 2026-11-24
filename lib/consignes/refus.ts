@@ -26,6 +26,8 @@ export const CODES_DE_REFUS = {
   app_json_refuse: 'Fix app.json at the place given in `fait`, then send it again with `configure_backend`.',
   projet_inconnu: 'Call `list_projects` and use one of the project ids it returns.',
   base_illisible: 'The platform could not read the project database. Say so to the person; do not retry more than once.',
+  chemin_refuse: 'Use a relative path inside the project, such as src/pages/Home.tsx: no leading slash, no "..".',
+  plateforme_en_panne: 'A part of vavi did not answer. Say so to the person; do not retry more than once.',
   confirmation_requise: 'Only the person can do this, in the vavi console. Give them the link in `fait` and wait.',
 } as const;
 

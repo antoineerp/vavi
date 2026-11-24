@@ -1,5 +1,5 @@
 /**
- * Publier un `dist` : le poser sous `<prefixe><projet>/`, les fichiers d'abord, `index.html` en DERNIER. C'est la
+ * Publier un `dist` : le poser sous `<racine>/`, les fichiers d'abord, `index.html` en DERNIER. C'est la
  * bascule : tant qu'il n'est pas écrit, l'ancienne version reste servie entière ; un fichier en échec arrête tout avant
  * elle. `index.html` porte l'empreinte de tout l'ensemble : déjà la même en ligne, rien ne part.
  *
@@ -9,8 +9,12 @@
 import { createHash } from 'node:crypto';
 import type { Magasin } from './le-magasin';
 
-/** L'aperçu : la dernière version construite, servie sous `/p/<id>/`. */
-export const PREFIXE_DE_L_APERCU = 'apercus/';
+/**
+ * Chaque build vert d'un projet est gardé sous `builds/<projet>/<empreinte de l'arbre>/`, jamais réécrit : un brouillon
+ * se montre sans toucher l'aperçu, et publier ne fait que DÉSIGNER un build déjà construit (lot 5).
+ */
+export const PREFIXE_DES_BUILDS = 'builds/';
+export const racineDuBuild = (projet: string, empreinte: string): string => `${PREFIXE_DES_BUILDS}${projet}/${empreinte}`;
 /** La clé de métadonnée de `index.html` qui porte l'empreinte de l'ensemble. */
 export const META_DE_L_EMPREINTE = 'empreinte';
 
@@ -44,11 +48,11 @@ export const cachePour = (chemin: string): string =>
   chemin === 'index.html' ? 'no-cache, no-store, must-revalidate'
     : chemin.startsWith('assets/') ? 'public, max-age=31536000, immutable' : 'public, max-age=60';
 
-export async function publierLeDist(magasin: Magasin, projet: string, dist: ReadonlyMap<string, Buffer>, prefixe = PREFIXE_DE_L_APERCU): Promise<Publication> {
+export async function publierLeDist(magasin: Magasin, racine: string, dist: ReadonlyMap<string, Buffer>): Promise<Publication> {
   const index = dist.get('index.html');
   if (!index) throw new Error('le dist n’a pas d’index.html : rien à servir');
   const empreinte = empreinteDuDist(dist);
-  const cleDeLEntree = `${prefixe}${projet}/index.html`;
+  const cleDeLEntree = `${racine}/index.html`;
   const enLigne = await magasin.tete(cleDeLEntree);
   if (enLigne !== 'absent' && enLigne.meta[META_DE_L_EMPREINTE] === empreinte) {
     return { fichiers: dist.size, envoyes: 0, sautes: dist.size, empreinte, dejaEnLigne: true };
@@ -56,7 +60,7 @@ export async function publierLeDist(magasin: Magasin, projet: string, dist: Read
   let envoyes = 0, sautes = 0;
   for (const [chemin, octets] of dist) {
     if (chemin === 'index.html') continue;
-    const cle = `${prefixe}${projet}/${chemin}`;
+    const cle = `${racine}/${chemin}`;
     if (chemin.startsWith('assets/')) {
       const t = await magasin.tete(cle);
       if (t !== 'absent' && t.taille === octets.length) { sautes++; continue; }
