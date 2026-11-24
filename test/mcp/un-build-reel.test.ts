@@ -8,6 +8,8 @@ import { join } from 'node:path';
 import { lesPaquetsDuGabarit, type Refus } from '@/lib/consignes';
 import { derive } from '@/squelette/poser';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
+import { leNavigateurDuServeur, preRendre } from '@/lib/seo/le-pre-rendu';
+import { servirLeSite } from '@/lib/seo/servir-le-site';
 import { construireLApp } from '@/lib/atelier/construire';
 import { racineDuBuild } from '@/lib/publication/publier';
 import { servirUnDist } from '@/lib/publication/servir';
@@ -27,6 +29,11 @@ describe.runIf(process.env.VAVI_BATIR === 'oui')('un projet construit par les ou
       compte: 'aaaaaaaa-0000-4000-8000-00000000000a', projets: desProjetsEnMemoire(), magasin, adresse: 'https://vavi.test',
       permis: lesPaquetsDuGabarit(readFileSync(join(__dirname, '../../squelette/gabarit/package.json'), 'utf8')), refusPrecedents: new Map<string, Refus>(),
       scellerUnSecret: () => 's', construire: construireLApp,
+      async preRendre(projet, dist, m) {
+        const n = await leNavigateurDuServeur();
+        return n ? preRendre(n, dist, { env: { supabaseUrl: 'https://x.supabase.co', cleAnonyme: 'k'.repeat(30), schema: 's', projet },
+          app: { nom: m.nom, description: m.description, langue: m.langues.principale, autres: m.langues.autres, editeur: null } }) : null;
+      },
       base: { rpc: async (f: string, a: Record<string, unknown>) => ({ data: f === 'create_app_schema' ? schemaDuProjet(String(a.project_id)) : null, error: null }) },
     };
     const jouer = async (nom: string, args: Record<string, unknown>) => {
@@ -45,5 +52,15 @@ describe.runIf(process.env.VAVI_BATIR === 'oui')('un projet construit par les ou
     expect(servi.statut).toBe(200);
     expect(servi.corps.toString()).toContain(`<base href="/p/${p.project}/">`);
     expect(servi.corps.toString()).toMatch(/src="\.\/assets\/[^"]+\.js"/);
+    // Avec un navigateur sur ce serveur, la page publique est pré-rendue, et le site en ligne la sert lisible sans JavaScript.
+    if (b.prerendered && typeof b.prerendered === 'object') {
+      expect(b.prerendered).toMatchObject({ pages: ['/'] });
+      const env = { supabaseUrl: 'https://x', cleAnonyme: 'k', schema: 's', base: `/s/${p.project}/`, projet: String(p.project) };
+      const site = await servirLeSite(magasin, racineDuBuild(String(p.project), String(b.fingerprint)), [], env, 'en_ligne', `https://vavi.test/s/${p.project}`);
+      expect(site.corps.toString().split('__SUPABASE_URL__').length).toBe(2); expect(site.corps.toString()).not.toContain('__vavi_base__'); expect(site.corps.toString()).toMatch(/<h1[^>]*>Bonjour<\/h1>/);
+      expect(site.corps.toString()).toContain(`<link rel="canonical" href="https://vavi.test/s/${p.project}/">`);
+      const robots = await servirLeSite(magasin, racineDuBuild(String(p.project), String(b.fingerprint)), ['robots.txt'], env, 'en_ligne', `https://vavi.test/s/${p.project}`);
+      expect(robots.corps.toString()).toContain(`Sitemap: https://vavi.test/s/${p.project}/sitemap.xml`);
+    }
   }, 600_000);
 });

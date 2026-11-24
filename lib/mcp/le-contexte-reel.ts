@@ -13,6 +13,9 @@ import { DOSSIER_DU_GABARIT } from '@/squelette/registre';
 import { lesPaquetsDuGabarit, type Refus } from '@/lib/consignes';
 import { adresseDeLaPlateforme } from './l-adresse';
 import { scellerUnSecret } from './les-jetons';
+import { configurationPublique } from '@/lib/supabase/configuration';
+import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
+import { leNavigateurDuServeur, preRendre } from '@/lib/seo/le-pre-rendu';
 import type { ContexteDuServeur } from './le-serveur';
 
 const REFUS_PRECEDENTS = new Map<string, Refus>();
@@ -47,6 +50,14 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
     outils: {
       compte, projets, base, magasin: magasin.lu ? magasin.magasin : null,
       construire: (arbre, b) => construireLApp(arbre, b),
+      async preRendre(projet, dist, m) {
+        const publique = configurationPublique(process.env);
+        const schema = schemaDuProjet(projet);
+        const navigateur = publique.lue && schema ? await leNavigateurDuServeur() : null;
+        if (!navigateur || !publique.lue || !schema) return null;
+        return preRendre(navigateur, dist, { env: { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet },
+          app: { nom: m.nom, description: m.description, langue: m.langues.principale, autres: m.langues.autres, editeur: m.editeur ?? null } });
+      },
       permis: lesPaquetsDuGabarit(leGabarit()),
       adresse: adresseDeLaPlateforme(),
       scellerUnSecret,

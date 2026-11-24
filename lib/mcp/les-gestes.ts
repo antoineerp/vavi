@@ -18,6 +18,7 @@ import type { Projets, Projet } from '@/lib/projets/les-projets';
 import { empreinteDuFichier } from '@/lib/projets/les-empreintes';
 import type { Construction } from '@/lib/atelier/construire';
 import type { Magasin } from '@/lib/publication/le-magasin';
+import type { PreRendu } from '@/lib/seo/le-pre-rendu';
 import { publierLeDist, racineDuBuild } from '@/lib/publication/publier';
 import { refuser, suiteDeRefus, paquetInconnu, type Refus } from '@/lib/consignes';
 import { estUnFichierDEnvironnement, unSecretDans } from './les-secrets';
@@ -32,6 +33,8 @@ export interface Contexte {
   /** `null` : le magasin des builds n'est pas configuré. */
   readonly magasin: Magasin | null;
   readonly construire: (arbre: ReadonlyMap<string, string>, base: string) => Promise<Construction>;
+  /** Le pré-rendu des pages publiques d'un build vert (`lib/seo`) ; rend `null` sans navigateur sur ce serveur. */
+  readonly preRendre: (projet: string, dist: ReadonlyMap<string, Buffer>, manifeste: Manifeste) => Promise<PreRendu | null>;
   /** Les paquets du gabarit verrouillé. */
   readonly permis: readonly string[];
   /** L'adresse publique de la plateforme, sans barre finale. */
@@ -378,8 +381,11 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
     const s = unSecretDans(octets.toString('utf8'));
     if (s) return refuser('secret_dans_le_code', `The built app would ship what looks like a secret (${s.sorte}) in ${chemin}.`, { fichier: chemin });
   }
+  // Les pages publiques, rendues en visiteur, s'ajoutent au dist à côté de la coquille : lisibles sans JavaScript.
+  const pre = await c.preRendre(a.project, b.dist, arbre.manifeste).catch((e: unknown) => ({ erreur: String((e as Error)?.message ?? e) }));
+  const dist = pre && 'fichiers' in pre ? new Map([...b.dist, ...pre.fichiers]) : b.dist;
   try {
-    await publierLeDist(c.magasin, racineDuBuild(a.project, arbre.empreinte), b.dist);
+    await publierLeDist(c.magasin, racineDuBuild(a.project, arbre.empreinte), dist);
   } catch (e) {
     return refuser('plateforme_en_panne', `The build is green but could not be stored (${(e as Error).message}).`);
   }
@@ -387,6 +393,8 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   return fait({
     green: true, draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree,
     checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the draft and check.',
+    prerendered: pre === null ? 'skipped: no browser on this vavi server, public pages need JavaScript to be read'
+      : 'erreur' in pre ? `failed: ${pre.erreur.slice(0, 200)}` : { pages: pre.gardees, not_kept: pre.ecartees },
   });
 }
 
