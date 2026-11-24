@@ -1,6 +1,22 @@
 /** Les textes de la console, en français et en anglais. On dit ce qui change pour la personne, jamais un chemin de fichier. */
 export const TEXTES = {
   fr: {
+    commencer: {
+      titre: 'Commencer : brancher vavi dans Claude',
+      intro: 'Une seule fois, en 2 minutes. Ensuite, vous parlez à Claude et vavi construit, héberge et publie.',
+      prerequis: 'Il faut un abonnement Claude payant (Pro, Max, Team ou Enterprise) : les connecteurs personnalisés n’existent pas dans l’offre gratuite de Claude.',
+      etapes: [
+        'Sur claude.ai, ouvrez les Paramètres (votre nom, en bas à gauche), puis la page Plug-ins (ou Connecteurs).',
+        'Cliquez « Ajouter », puis « Ajouter un connecteur personnalisé ». Pas « Importer un plug-in ».',
+        'Nom : vavi. Adresse : celle ci-dessous. Laissez vides les options avancées, puis cliquez Ajouter.',
+        'Cliquez « Se connecter » : une page vavi s’ouvre. Donnez votre adresse, cliquez le lien reçu par courriel, puis Autoriser.',
+        'Dans une nouvelle conversation, vérifiez que vavi est activé dans le menu des outils (sous la zone de saisie), puis dites à Claude ce que vous voulez : « Fais-moi un site pour… », ou joignez un fichier Excel.',
+      ],
+      adresse: 'Adresse du connecteur', copier: 'Copier', copie: 'Copié',
+      ensuite: 'Votre projet apparaît ensuite dans « Mes projets » : vous y voyez l’aperçu, et c’est vous qui cliquez « Publier ».',
+      bloque: 'Bloqué ? Le bouton « Ajouter un connecteur personnalisé » n’apparaît pas : votre offre Claude ne le permet pas. La page vavi ne s’ouvre pas : vérifiez l’adresse, sans espace à la fin.',
+      lien: 'Comment brancher vavi dans Claude',
+    },
     mesProjets: 'Mes projets', aucun: 'Vous n’avez pas encore de projet. Ouvrez Claude.ai, branchez le connecteur vavi, puis choisissez le prompt « Démarrer un projet ».',
     version: 'version', ouvrir: 'Ouvrir', enLigne: 'En ligne', aPublier: 'Changements à publier', rienAPublier: 'Pas encore d’aperçu',
     apercu: 'Aperçu', voirLApercu: 'Voir l’aperçu', siteEnLigne: 'Site en ligne', voirLeSite: 'Voir le site',
@@ -58,6 +74,22 @@ export const TEXTES = {
     } as Record<string, string>,
   },
   en: {
+    commencer: {
+      titre: 'Getting started: connect vavi to Claude',
+      intro: 'Once, in 2 minutes. Then you talk to Claude, and vavi builds, hosts and publishes.',
+      prerequis: 'You need a paid Claude plan (Pro, Max, Team or Enterprise): custom connectors are not in Claude’s free plan.',
+      etapes: [
+        'On claude.ai, open Settings (your name, bottom left), then the Plugins (or Connectors) page.',
+        'Click “Add”, then “Add custom connector”. Not “Import a plugin”.',
+        'Name: vavi. URL: the one below. Leave the advanced options empty, then click Add.',
+        'Click “Connect”: a vavi page opens. Enter your e-mail, click the link you receive, then Allow.',
+        'In a new conversation, check that vavi is turned on in the tools menu (under the message box), then tell Claude what you want: “Make me a website for…”, or attach an Excel file.',
+      ],
+      adresse: 'Connector URL', copier: 'Copy', copie: 'Copied',
+      ensuite: 'Your project then appears in “My projects”: you see the preview there, and you are the one who clicks “Publish”.',
+      bloque: 'Stuck? No “Add custom connector” button: your Claude plan does not allow it. The vavi page does not open: check the URL, with no trailing space.',
+      lien: 'How to connect vavi to Claude',
+    },
     mesProjets: 'My projects', aucun: 'You have no project yet. Open Claude.ai, connect the vavi connector, then choose the "Start a project" prompt.',
     version: 'version', ouvrir: 'Open', enLigne: 'Online', aPublier: 'Changes to publish', rienAPublier: 'No preview yet',
     apercu: 'Preview', voirLApercu: 'See the preview', siteEnLigne: 'Online site', voirLeSite: 'See the site',
