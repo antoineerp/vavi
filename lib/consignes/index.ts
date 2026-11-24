@@ -6,7 +6,7 @@ import { INSTRUCTIONS_DU_SERVEUR } from './instructions';
 import { lePrompt, type LePrompt } from './prompts';
 import { laRessourceDesCapacites, lesPaquetsDuGabarit } from './paquets';
 
-export { OUTILS, type Outil } from './instructions';
+export { OUTILS, CONSIGNES_D_OUTIL, type Outil } from './instructions';
 export { CODES_DE_REFUS, refuser, suiteDeRefus, type CodeDeRefus, type Refus } from './refus';
 export { paquetInconnu, lesPaquetsDuGabarit } from './paquets';
 export { leGuide, GUIDE } from './guide';

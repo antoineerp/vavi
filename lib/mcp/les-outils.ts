@@ -53,7 +53,7 @@ export const DEFINITIONS = {
   }),
   get_project_state: def({
     title: 'Read the state of a project', lecture: true, entree: z.object({ project: projet }),
-    description: 'Always call it first. The version, the open work session and its notes, your files with their fingerprints, the platform files to read first, the state of the current build.',
+    description: 'Always call it first. The version, the open work session and its notes, your files with their fingerprints, which platform files to read whole, the state of the current build.',
     geste: (c, a) => g.lEtatDuProjet(c, a),
   }),
   read_files: def({
@@ -64,7 +64,7 @@ export const DEFINITIONS = {
   ouvrir_chantier: def({
     title: 'Open a work session', lecture: false,
     entree: z.object({ project: projet, intention: z.string().min(3).max(300).describe('The one thing this session does, in one sentence.'), resume: z.boolean().optional().describe('true continues the session already open (only if the person said so).') }),
-    description: 'Opens the work session that every change belongs to. One per project at a time: another conversation\'s open session is refused, not overwritten.',
+    description: 'Opens the work session that every change belongs to. One per project at a time: another conversation\'s open session is refused, not overwritten. Returns the API of the platform files you build on.',
     geste: (c, a) => g.ouvrirUnChantier(c, a),
   }),
   abandonner_chantier: def({

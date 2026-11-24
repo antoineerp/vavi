@@ -11,15 +11,15 @@
  * Les dépendances (base, magasin, build) sont passées : les essais jouent les gestes sans réseau.
  */
 import { derive } from '@/squelette/poser';
-import { estFige, CHEMINS_MONTRES, POSES_PAR_UN_OUTIL } from '@/squelette/registre';
+import { estFige, CHEMINS_A_LIRE_ENTIERS, CHEMINS_EN_FICHE, POSES_PAR_UN_OUTIL, laFiche } from '@/squelette/registre';
 import { lireLeManifeste, type Manifeste } from '@/lib/backend/app/manifeste';
 import { poserLaBase, type AppelDeLaBase } from '@/lib/relais/poser-la-base';
 import type { Projets, Projet } from '@/lib/projets/les-projets';
-import { empreinteDuFichier } from '@/lib/projets/les-empreintes';
+import { empreinteDuFichier, empreinteMontree, concorde } from '@/lib/projets/les-empreintes';
 import type { Construction } from '@/lib/atelier/construire';
 import type { Magasin } from '@/lib/publication/le-magasin';
 import { publierLeDist, racineDuBuild } from '@/lib/publication/publier';
-import { refuser, suiteDeRefus, paquetInconnu, type Refus } from '@/lib/consignes';
+import { refuser, suiteDeRefus, paquetInconnu, CONSIGNES_D_OUTIL, type Outil, type Refus } from '@/lib/consignes';
 import { estUnFichierDEnvironnement, unSecretDans } from './les-secrets';
 import { lArbreDUnProjet } from '@/lib/projets/l-arbre-d-un-projet';
 import { revenirA } from '@/lib/versions/revenir';
@@ -46,7 +46,7 @@ const fait = (x: Record<string, unknown>): Rendu => ({ ok: true, ...x });
 export const estUnRefus = (r: Rendu): r is Refus => (r as Refus).refuse === true;
 
 /** Au-delà, la conversation est longue : l'outil le dit, et Claude propose « Reprendre » dans une nouvelle. */
-export const GESTES_D_UNE_LONGUE_CONVERSATION = 40;
+export const GESTES_D_UNE_LONGUE_CONVERSATION = 25;
 const LONGUE = 'This work session is getting long. Propose to the person to continue in a new conversation with the "Resume" prompt: vavi keeps the session notes.';
 const MAX_ECRIT = 2_000_000;
 const MAX_LU = 400_000;
@@ -117,6 +117,9 @@ function leManifesteEnvoye(brut: unknown): Etape<Manifeste> {
   return passe(r.manifeste);
 }
 
+/** Les consignes d'un outil rare, rendues avec sa réponse plutôt que dans les instructions (`CONSIGNES_D_OUTIL`). */
+const regles = (o: Outil): { rules?: string } => (CONSIGNES_D_OUTIL[o] ? { rules: CONSIGNES_D_OUTIL[o] } : {});
+
 /* ── Les gestes ────────────────────────────────────────────────────────── */
 
 const vueDuProjet = (c: Contexte, p: Projet) => ({
@@ -140,7 +143,8 @@ export async function creerUnProjet(c: Contexte, a: { app_json: unknown }): Prom
   return fait({
     project: p.valeur.id, name: m.valeur.nom, version: 1,
     database: pose.posee ? 'laid out from app.json' : `not laid out: ${pose.motif}. Send app.json again with \`configure_backend\`.`,
-    next: `Open a work session with \`ouvrir_chantier\`, then read with \`read_files\` the platform files you build on: ${CHEMINS_MONTRES.join(', ')}.`,
+    next: `Open a work session with \`ouvrir_chantier\`: it gives the API of the platform files you build on. Then read with \`read_files\`: ${CHEMINS_A_LIRE_ENTIERS.join(', ')}.`,
+    ...regles('create_project'),
   });
 }
 
@@ -156,9 +160,9 @@ export async function lEtatDuProjet(c: Contexte, a: { project: string }): Promis
     ...vueDuProjet(c, p.valeur),
     work_session: ch ? { id: ch.id, intention: ch.intention, opened_at: ch.ouvertLe, changes: ch.gestes, done: ch.fait, remaining: ch.reste } : null,
     database_laid_out_at: p.valeur.basePoseeLe,
-    your_files: [...f.valeur].filter(([chemin]) => chemin !== 'app.json').map(([chemin, t]) => ({ path: chemin, fingerprint: empreinteDuFichier(t), size: t.length })),
-    app_json: f.valeur.has('app.json') ? { fingerprint: empreinteDuFichier(f.valeur.get('app.json')!) } : null,
-    platform_files: { read_first: CHEMINS_MONTRES, all: arbre.lu ? [...arbre.fige.keys()] : [] },
+    your_files: [...f.valeur].filter(([chemin]) => chemin !== 'app.json').map(([chemin, t]) => ({ path: chemin, fingerprint: empreinteMontree(t), size: t.length })),
+    app_json: f.valeur.has('app.json') ? { fingerprint: empreinteMontree(f.valeur.get('app.json')!) } : null,
+    platform_files: { read_whole: CHEMINS_A_LIRE_ENTIERS, api_of: CHEMINS_EN_FICHE, api: 'given by `ouvrir_chantier`', count: arbre.lu ? arbre.fige.size : 0 },
     current_build: !arbre.lu ? `app.json does not hold: ${arbre.erreurs.join(' | ')}`
       : !build || !build.lu ? 'unknown' : !build.valeur ? 'not built yet: run `build_preview`'
         : build.valeur.vert ? { green: true, draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), published: p.valeur.apercuEmpreinte === arbre.empreinte }
@@ -179,7 +183,7 @@ export async function lireDesFichiers(c: Contexte, a: { project: string; paths: 
     if (texte === undefined) return { path: chemin, missing: true };
     if (lus + texte.length > MAX_LU) return { path: chemin, not_sent: 'too much text in one call: read this file in another call' };
     lus += texte.length;
-    return { path: chemin, fingerprint: empreinteDuFichier(texte), ...(platform ? { platform: true } : {}), content: texte };
+    return { path: chemin, fingerprint: empreinteMontree(texte), ...(platform ? { platform: true } : {}), content: texte };
   });
   return fait({ version: p.valeur.version, files });
 }
@@ -195,7 +199,12 @@ export async function ouvrirUnChantier(c: Contexte, a: { project: string; intent
   }
   const ch = (await leProjet(c, a.project));
   const note = ch.ok && ch.valeur.chantier ? { done: ch.valeur.chantier.fait, remaining: ch.valeur.chantier.reste } : null;
-  return fait({ work_session: o.valeur.chantier, resumed: o.valeur.repris, version: p.valeur.version, ...(o.valeur.repris ? { notes: note } : {}) });
+  return fait({
+    work_session: o.valeur.chantier, resumed: o.valeur.repris, version: p.valeur.version, ...(o.valeur.repris ? { notes: note } : {}),
+    // Une fois par chantier : la fiche des fichiers de la plateforme, à la place de leur lecture entière.
+    platform_api: laFiche(),
+    next: `Read with \`read_files\` ${CHEMINS_A_LIRE_ENTIERS.join(', ')} and the files your change touches.`,
+  });
 }
 
 /** Ramène l'arbre stocké à `cible` en une version (rollback, abandon), par `lib/versions` ; traduit en refus de Claude. */
@@ -276,11 +285,12 @@ export async function appliquerDesChangements(c: Contexte, a: { project: string;
     const refus = cheminRefuse(ch.path);
     if (refus) return refus;
     const actuel = f.valeur.get(ch.path);
-    if (actuel !== undefined && ch.read_fingerprint !== empreinteDuFichier(actuel)) {
+    if (actuel !== undefined && !concorde(ch.read_fingerprint, actuel)) {
       return refuser('conflit', ch.read_fingerprint ? `${ch.path} changed since you read it.` : `${ch.path} already exists: give the \`read_fingerprint\` that \`read_files\` returned for it.`, { fichier: ch.path, fichiers: [ch.path] });
     }
     if (actuel === undefined && ch.read_fingerprint) return refuser('conflit', `${ch.path} no longer exists.`, { fichier: ch.path, fichiers: [ch.path] });
-    attendus[ch.path] = actuel === undefined ? null : ch.read_fingerprint!;
+    // La base compare l'empreinte entière : celle du texte que Claude a lu, puisqu'elle concorde.
+    attendus[ch.path] = actuel === undefined ? null : empreinteDuFichier(actuel);
     if (ch.delete) {
       if (actuel === undefined) return refuser('chemin_refuse', `${ch.path} does not exist: there is nothing to delete.`, { fichier: ch.path });
       supprimes.push(ch.path);
@@ -304,7 +314,7 @@ export async function appliquerDesChangements(c: Contexte, a: { project: string;
   const gestes = p.valeur.chantier!.gestes + 1;
   return fait({
     version: r.valeur.version,
-    written: [...ecrits].map(([chemin, t]) => ({ path: chemin, fingerprint: empreinteDuFichier(t) })),
+    written: [...ecrits].map(([chemin, t]) => ({ path: chemin, fingerprint: empreinteMontree(t) })),
     deleted: supprimes,
     next: 'Run `build_preview` to check the change.',
     ...(gestes >= GESTES_D_UNE_LONGUE_CONVERSATION ? { long_conversation: LONGUE } : {}),
@@ -317,7 +327,7 @@ export async function configurerLeBackend(c: Contexte, a: { project: string; wor
   const f = await lesFichiers(c, a.project);
   if (!f.ok) return f.refus;
   const actuel = f.valeur.get('app.json');
-  if (actuel !== undefined && a.read_fingerprint !== empreinteDuFichier(actuel)) {
+  if (actuel !== undefined && !concorde(a.read_fingerprint, actuel)) {
     return refuser('conflit', 'app.json changed since you read it.', { fichier: 'app.json', fichiers: ['app.json'] });
   }
   const m = leManifesteEnvoye(a.app_json);
@@ -329,14 +339,15 @@ export async function configurerLeBackend(c: Contexte, a: { project: string; wor
       : refuser('app_json_refuse', `The database refused this declaration: ${pose.motif}`, { fichier: 'app.json' });
   }
   const texte = derive('app.json', m.valeur);
-  const r = await c.projets.appliquer(c.compte, a.project, { chantier: a.work_session, attendus: { 'app.json': actuel === undefined ? null : a.read_fingerprint },
+  const r = await c.projets.appliquer(c.compte, a.project, { chantier: a.work_session, attendus: { 'app.json': actuel === undefined ? null : empreinteDuFichier(actuel) },
     ecrits: new Map([['app.json', texte]]), supprimes: [], pourquoi: a.why });
   if (!r.lu) return panne(r.pourquoi);
   if (!r.valeur.applique) return 'conflit' in r.valeur ? refuser('conflit', 'app.json changed while the database was laid out.', { fichiers: r.valeur.conflit }) : refuser('chantier_requis', 'The work session was closed.');
   await c.projets.marquerLaBase(c.compte, a.project, m.valeur.nom);
   return fait({
-    version: r.valeur.version, app_json: { fingerprint: empreinteDuFichier(texte) }, database: `laid out (${pose.groupes} steps); the access rules come from app.json`,
+    version: r.valeur.version, app_json: { fingerprint: empreinteMontree(texte) }, database: `laid out (${pose.groupes} steps); the access rules come from app.json`,
     next: 'The types of the tables changed: read src/donnees/types.ts again with `read_files` before using them.',
+    ...regles('configure_backend'),
   });
 }
 
@@ -345,7 +356,7 @@ export async function poserUnSecret(c: Contexte, a: { project: string; name: str
   if (!p.ok) return p.refus;
   const r = await c.projets.poserUnSecret(c.compte, a.project, a.name, c.scellerUnSecret(a.project, a.name, a.value));
   // La valeur n'est jamais répétée : ni ici, ni au journal.
-  return r.lu ? fait({ stored: a.name, note: 'The value is stored encrypted and is never shown again. The app reaches it only through its capabilities, on the server.' }) : panne(r.pourquoi);
+  return r.lu ? fait({ stored: a.name, note: 'The value is stored encrypted and is never shown again. The app reaches it only through its capabilities, on the server.', ...regles('set_secret') }) : panne(r.pourquoi);
 }
 
 const ligneDe = (fait: string): number | undefined => { const m = /ligne (\d+)/.exec(fait); return m ? Number(m[1]) : undefined; };
@@ -408,6 +419,7 @@ export async function publierLApercu(c: Contexte, a: { project: string; work_ses
   return fait({
     preview_url: urlDeLApercu(c, a.project), work_session: 'closed',
     note: 'The preview now shows this version. It is not online for the public: only the person puts it online, with the Publish button of the vavi console.',
+    ...regles('publish'),
   });
 }
 

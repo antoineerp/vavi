@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  INSTRUCTIONS, OUTILS, CODES_DE_REFUS, GUIDE, LANGUES, lesPrompts, unPrompt, refuser, suiteDeRefus,
+  INSTRUCTIONS, OUTILS, CONSIGNES_D_OUTIL, CODES_DE_REFUS, GUIDE, LANGUES, lesPrompts, unPrompt, refuser, suiteDeRefus,
   paquetInconnu, lesPaquetsDuGabarit, lesRessources, uneRessource,
 } from '@/lib/consignes';
 
@@ -17,11 +17,15 @@ describe('les instructions du serveur', () => {
     expect(inconnus).toEqual([]);
   });
   it('restent courtes : ce qu’un outil refuse ne s’y répète pas', () => {
-    expect(INSTRUCTIONS.split(/\s+/).length).toBeLessThanOrEqual(800);
+    expect(INSTRUCTIONS.split(/\s+/).length).toBeLessThanOrEqual(330);
   });
   it('disent de répondre dans la langue de la personne', () => {
-    expect(INSTRUCTIONS).toMatch(/language they write in/);
+    expect(INSTRUCTIONS).toMatch(/language the person writes in/);
   });
+});
+
+it('les consignes d’outil ne nomment que des outils du serveur', () => {
+  expect(Object.values(CONSIGNES_D_OUTIL).flatMap((t) => nomsCites(t!)).filter((n) => !outils.includes(n))).toEqual([]);
 });
 
 describe('les refus', () => {

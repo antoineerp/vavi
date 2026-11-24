@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { OUTILS, lesPaquetsDuGabarit, type Refus } from '@/lib/consignes';
 import { derive } from '@/squelette/poser';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
-import { empreinteDuFichier } from '@/lib/projets/les-empreintes';
+import { empreinteDuFichier, empreinteMontree, concorde } from '@/lib/projets/les-empreintes';
 import type { Construction } from '@/lib/atelier/construire';
 import { appelerUnOutil, lesOutils } from '@/lib/mcp/les-outils';
 import { GESTES_D_UNE_LONGUE_CONVERSATION, type Contexte, type Rendu } from '@/lib/mcp/les-gestes';
@@ -116,7 +116,35 @@ describe('le cadre n’est écrit que par la plateforme', () => {
     const w = await unChantier();
     const f = await ok('read_files', { project: w.project, paths: ['src/donnees/types.ts', 'app.json'] });
     expect((f.files as { platform?: boolean; content: string }[])[0]).toMatchObject({ platform: true });
-    expect((f.files as { fingerprint: string }[])[1]!.fingerprint).toBe(empreinteDuFichier(derive('app.json', unManifeste({ nature: 'site', nom: 'Le café' }))));
+    expect((f.files as { fingerprint: string }[])[1]!.fingerprint).toBe(empreinteMontree(derive('app.json', unManifeste({ nature: 'site', nom: 'Le café' }))));
+  });
+});
+
+describe('ce que Claude reçoit reste court (économie de contexte du 24/11)', () => {
+  it('l’empreinte montrée concorde avec son texte, et seulement avec lui', () => {
+    const t = 'export const a = 1;';
+    expect(empreinteMontree(t)).toHaveLength(12);
+    expect(concorde(empreinteMontree(t), t)).toBe(true);
+    expect(concorde(empreinteDuFichier(t), t)).toBe(true);
+    expect(concorde(empreinteMontree(t), t + ' ')).toBe(false);
+    expect(concorde(empreinteDuFichier(t).slice(0, 11), t)).toBe(false);
+    expect(concorde(undefined, t)).toBe(false);
+  });
+  it('un fichier changé depuis sa lecture, cité par l’empreinte courte, est un conflit ; la bonne passe', async () => {
+    const w = await unChantier();
+    await ok('apply_changes', { ...w, why: 'premier', changes: [{ path: 'src/pages/A.tsx', content: 'export default function A() { return null; }' }] });
+    const lue = await empreinteDe(w.project, 'src/pages/A.tsx');
+    expect(lue).toHaveLength(12);
+    await ok('apply_changes', { ...w, why: 'deuxieme', changes: [{ path: 'src/pages/A.tsx', read_fingerprint: lue, content: 'export default function A() { return <p />; }' }] });
+    expect((await refus('apply_changes', { ...w, why: 'troisieme', changes: [{ path: 'src/pages/A.tsx', read_fingerprint: lue, content: 'x' }] })).code).toBe('conflit');
+  });
+  it('la fiche des fichiers de la plateforme vient une fois, avec le chantier ; l’état ne liste plus tous les fichiers figés', async () => {
+    const p = await ok('create_project', { app_json: APP_JSON });
+    const ch = await ok('ouvrir_chantier', { project: p.project, intention: 'le menu' });
+    expect(String(ch.platform_api)).toMatch(/export declare function useLecture/);
+    const etat = await ok('get_project_state', { project: p.project });
+    expect(etat).not.toHaveProperty('platform_api');
+    expect(JSON.stringify(etat).length).toBeLessThanOrEqual(1500);
   });
 });
 
