@@ -19,6 +19,11 @@ export interface LecturesDeLaVue {
   visites(projet: string): Promise<number | null>;
   /** Le droit de l'offre, vérifié par le serveur ; `null` : illisible. */
   droitDePublier(projet: string): Promise<{ readonly permis: true } | { readonly permis: false; readonly pourquoi: string } | null>;
+  /** ESSAI du 24/11 : la page de l'aperçu, son environnement posé et sa base absolue, que la vue exécute elle-même
+   * (Claude.ai n'encadre pas un site extérieur) ; `null` : illisible. */
+  pageDeLApercu?(projet: string, empreinte: string, adresse: string): Promise<string | null>;
+  /** Les domaines que la vue charge (le code de l'app) et joint (sa base) pour l'exécuter. */
+  readonly domaines?: { readonly ressources: readonly string[]; readonly connexions: readonly string[] };
 }
 
 const SANS_JETON = 'This tool is reserved to the vavi view, clicked by the person. You cannot call it: tell the person to use the Publish button in the vavi card, or in the vavi console.';
@@ -64,5 +69,7 @@ async function laFiche(c: Contexte, id: string): Promise<Rendu> {
     can_publish: droit ? droit.permis : null,
     versions: versions.lu ? versions.valeur.map((v) => ({ version: v.numero, why: v.pourquoi, at: v.creeLe })) : null,
     messages, visits: visites,
+    app_html: projet.apercuEmpreinte && c.vue?.pageDeLApercu
+      ? await c.vue.pageDeLApercu(id, projet.apercuEmpreinte, lAdresseDeLApp(id, 'apercu', adresses)).catch(() => null) : null,
   };
 }

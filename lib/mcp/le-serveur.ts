@@ -72,7 +72,7 @@ async function repondre(r: Requete, ctx: ContexteDuServeur): Promise<ReponseRpc 
       // La vue porte le jeton qui prouve qu'un clic vient de la personne : lue par l'hôte, elle n'est pas listée au modèle.
       if (p.uri === RESSOURCE_DE_LA_VUE) {
         const o = ctx.outils;
-        return resultat(id, laRessourceDeLaVue({ jeton: ecrireUnJetonDeVue(o.compte), cadres: lesCadresPermis(o.adresse, o.domaineDesApps ?? null) }));
+        return resultat(id, laRessourceDeLaVue({ jeton: ecrireUnJetonDeVue(o.compte), cadres: lesCadresPermis(o.adresse, o.domaineDesApps ?? null), ressources: o.vue?.domaines?.ressources ?? [], connexions: o.vue?.domaines?.connexions ?? [] }));
       }
       const u = await uneRessource(typeof p.uri === 'string' ? p.uri : '', ctx);
       return 'erreur' in u ? erreur(id, -32602, u.erreur) : resultat(id, u);

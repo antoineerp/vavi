@@ -8,6 +8,8 @@ import { join } from 'node:path';
 import { clientDeService } from '@/lib/supabase/service';
 import { projetsSurSupabase } from '@/lib/projets/les-projets';
 import { magasinS3 } from '@/lib/publication/le-magasin';
+import { racineDuBuild } from '@/lib/publication/publier';
+import { poserLEnvironnement } from '@/lib/publication/servir';
 import { leDomaineDesApps } from '@/lib/publication/les-adresses-des-apps';
 import { construireLApp } from '@/lib/atelier/construire';
 import { DOSSIER_DU_GABARIT } from '@/squelette/registre';
@@ -76,6 +78,23 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         return e.lu ? laVueDeLAbonnement(e.valeur, `${adresseDeLaPlateforme()}/abonnement`) : null;
       },
       vue: {
+        domaines: (() => {
+          const pub = configurationPublique(process.env);
+          const domaine = leDomaineDesApps(process.env);
+          const ressources = domaine ? [`https://*.${domaine}`] : [new URL(adresseDeLaPlateforme()).origin];
+          return { ressources, connexions: [...ressources, ...(pub.lue ? [new URL(pub.valeur.url).origin] : [])] };
+        })(),
+        async pageDeLApercu(projet, empreinte, adresse) {
+          const pub = configurationPublique(process.env);
+          const schema = schemaDuProjet(projet);
+          if (!magasin.lu || !pub.lue || !schema) return null;
+          const o = await magasin.magasin.lire(`${racineDuBuild(projet, empreinte)}/index.html`);
+          if (o === 'absent') return null;
+          const html = poserLEnvironnement(o.octets.toString('utf8'), { supabaseUrl: pub.valeur.url, cleAnonyme: pub.valeur.cleAnonyme, schema, base: '/', projet, console: adresseDeLaPlateforme() });
+          // La base des fichiers : l'aperçu ; la base du routeur : là où la vue tourne (le chemin de son cadre).
+          return html.replace('<base href="/">', `<base href="${adresse.replace(/"/g, '')}">`)
+            .replace('</script>', 'window.__VAVI_BASENAME__=location.pathname;</script>');
+        },
         async messages(projet) { const m = await boiteSurSupabase(base).lister(projet, 100); return m.lu ? m.valeur.length : null; },
         async visites(projet) { const v = await lesVisites(base, projet, 30); return v.lu ? v.valeur.length : null; },
         async droitDePublier(projet) {

@@ -51,6 +51,9 @@ export async function servirUnProjet(requete: Request, brut: string, chemin: rea
   const r = await servirLeSite(magasin.magasin, choix.empreinte ? racineDuBuild(id, choix.empreinte) : null, chemin,
     { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, base, projet: id, console: adresseDeLaPlateforme() }, lequel, racinePublique);
   const entetes = new Headers({ 'content-type': r.type, 'cache-control': r.cache, 'x-content-type-options': 'nosniff', vary: 'cookie', ...r.entetes });
+  // Les fichiers de l'app (code, styles, images), publics, se chargent d'une autre origine : la vue de vavi dans Claude
+  // exécute l'aperçu (essai du 24/11). Jamais une page : elle porte la preuve de visite et le cookie du brouillon.
+  if (lequel === 'apercu' && !r.type.startsWith('text/html')) entetes.set('access-control-allow-origin', '*');
   if (choix.cookie === 'poser') entetes.append('set-cookie', `${COOKIE_DU_BROUILLON}=${choix.empreinte}; Path=${base}; HttpOnly; Secure; SameSite=Lax`);
   if (choix.cookie === 'effacer') entetes.append('set-cookie', `${COOKIE_DU_BROUILLON}=; Path=${base}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
   // Chaque page servie porte la preuve de sa visite (l'heure, signée), que seul l'envoi d'un formulaire reçoit.
