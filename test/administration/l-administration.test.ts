@@ -57,7 +57,7 @@ describe('le tableau', () => {
     expect(t.grille.site).toBe(2400);
   });
   it('les services : le nom des secrets qui manquent, jamais leur valeur', () => {
-    const s = lEtatDesServices({ RESEND_API_KEY: 're_secret', VAVI_ADMINS: ' ' });
+    const s = lEtatDesServices({ RESEND_API_KEY: 're_secret', VAVI_EXPEDITEUR: 'vavi@exemple.fr', VAVI_ADMINS: ' ' });
     expect(s.find((x) => x.service === 'Courriel (Resend)')?.manquent).toEqual([]);
     expect(s.find((x) => x.service === 'Administration')?.manquent).toEqual(['VAVI_ADMINS']);
     expect(JSON.stringify(s)).not.toContain('re_secret');
