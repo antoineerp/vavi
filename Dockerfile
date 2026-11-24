@@ -16,6 +16,8 @@ RUN pnpm build
 
 FROM node:22-bookworm-slim
 WORKDIR /app
+# bubblewrap : le bac à sable où tsc et vite construisent chaque app (lib/atelier/le-bac-a-sable.ts).
+RUN apt-get update && apt-get install -y --no-install-recommends bubblewrap && rm -rf /var/lib/apt/lists/*
 ARG VAVI_VERSION=inconnue
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 VAVI_VERSION=$VAVI_VERSION VAVI_DEPENDANCES_DES_APPS=/tmp/vavi-dependances-des-apps
 COPY --from=build /app/.next/standalone ./

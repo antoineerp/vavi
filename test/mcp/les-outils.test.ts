@@ -113,6 +113,14 @@ describe('le cadre n’est écrit que par la plateforme', () => {
     expect(await ecrire('.env.local')).toMatchObject({ code: 'secret_dans_le_code' });
     expect(await ecrire('src/pages/Contact.tsx')).toMatchObject({ ok: true });
   });
+  it('vague 0 : une configuration à la racine (que Vite, PostCSS ou Babel exécuteraient au build) est refusée ; src/ et public/ passent', async () => {
+    const w = await unChantier();
+    const ecrire = (path: string) => appel('apply_changes', { ...w, why: 'essai', changes: [{ path, content: 'x' }] });
+    expect(await ecrire('postcss.config.cjs')).toMatchObject({ code: 'chemin_refuse', fait: expect.stringContaining('src/ and public/') });
+    expect(await ecrire('babel.config.js')).toMatchObject({ code: 'chemin_refuse' });
+    expect(await ecrire('outils/plugin.ts')).toMatchObject({ code: 'chemin_refuse' });
+    expect(await ecrire('public/logo.svg')).toMatchObject({ ok: true });
+  });
   it('les fichiers figés se lisent, posés depuis app.json, marqués de la plateforme', async () => {
     const w = await unChantier();
     const f = await ok('read_files', { project: w.project, paths: ['src/donnees/types.ts', 'app.json'] });
