@@ -29,7 +29,7 @@ Supabase (projet neuf, région Europe), pnpm seul. Né le 24/11/2026 des fonctio
 ```bash
 pnpm install
 pnpm typecheck          # 0 erreur
-pnpm test               # tous verts
+pnpm test               # tous verts (les essais sur PostgreSQL réel tournent en root : sudo -E env "PATH=$PATH" pnpm exec vitest run test/backend test/relais)
 pnpm fermeture          # 0 écart
 pnpm build
 ```
