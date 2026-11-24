@@ -16,6 +16,7 @@ import { EditeurDeTextes } from './editeur';
 import { seDeconnecter } from '@/app/_partage/se-deconnecter';
 import { boiteSurSupabase, leCourrierDeLaPlateforme, lesVisites } from '@/lib/formulaires/sur-supabase';
 import { resumerLAudience } from '@/lib/formulaires/l-audience';
+import { leRegistre } from '@/lib/conformite/le-registre';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     boiteSurSupabase(c.base).lister(id, 20), lesVisites(c.base, id, 30)]);
   const audience = visites.lu ? resumerLAudience(visites.valeur) : null;
   const manifeste = fichiers.lu ? leManifesteStocke(fichiers.valeur.get('app.json')) : null;
+  const registre = manifeste?.lu ? leRegistre(manifeste.manifeste, c.langue) : null;
   const vend = manifeste?.lu ? laBoutique(manifeste.manifeste) !== null : false;
   const cleStripe = process.env[CLE_DE_VAVI]?.trim();
   const relie = vend && cleStripe ? await comptesSurSupabase(c.base).lire(id) : null;
@@ -126,6 +128,30 @@ export default async function Page({ params, searchParams }: { params: Promise<{
               : stripe?.lu && stripe.valeur.encaisse ? <p>{t.stripePret}{stripe.valeur.aFournir > 0 ? ` ${t.stripeAFournir(stripe.valeur.aFournir)}` : ''} <a href="https://dashboard.stripe.com/" target="_blank" rel="noreferrer">{t.stripeTableau}</a></p>
               : <><p>{stripe?.lu ? t.stripeEnCours(stripe.valeur.aFournir) : t.stripeIllisible}</p><a className="bouton" href={`/projets/${id}/stripe`}>{t.stripeContinuer}</a></>}
             <p className="attenue">{t.stripeCeQueStripeDemande}</p>
+          </div>
+        </>
+      )}
+
+      {registre && (
+        <>
+          <h2>{t.registre}</h2>
+          <p className="attenue">{t.registreExplication}</p>
+          <ul className="liste carte">
+            {registre.traitements.map((x) => (
+              <li key={`${x.source}-${x.quoi}`} style={{ display: 'block' }}>
+                <div><strong>{x.quoi}</strong></div>
+                <div><span className="attenue">{t.registreDonnees} :</span> {x.donnees.join(', ')}</div>
+                <div><span className="attenue">{t.registrePourquoi} :</span> {x.pourquoi}</div>
+                <div><span className="attenue">{t.registreQui} :</span> {x.qui.join(', ')}</div>
+                <div><span className="attenue">{t.registreDuree} :</span> {x.duree}</div>
+              </li>
+            ))}
+          </ul>
+          <div className="carte">
+            <p><strong>{t.registreTraceurs}</strong> : {registre.traceurs.map((x) => `${x.nom} (${x.but})`).join(' ; ')}</p>
+            <p className="attenue">{registre.bandeau ? t.registreBandeau : t.registreSansBandeau}</p>
+            <p><strong>{t.registreSousTraitants}</strong> : {registre.sousTraitants.join(' ; ')}</p>
+            <p className="attenue">{t.registreDroits}</p>
           </div>
         </>
       )}
