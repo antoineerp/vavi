@@ -1,0 +1,39 @@
+{
+  "name": "vavi",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "fermeture": "tsx scripts/fermeture.ts"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.8.0",
+    "@supabase/supabase-js": "2.46.1",
+    "next": "15.5.25",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "@types/react": "19.0.2",
+    "@types/react-dom": "19.0.2",
+    "tsx": "4.19.2",
+    "typescript": "5.6.3",
+    "vitest": "1.6.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
