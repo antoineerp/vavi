@@ -5,6 +5,7 @@ Ce fichier est la liste FERMÉE de ce que vavi contient. Une fonction qui n'est 
 dépendances déclarées.
 
 - **Module** : le dossier (ou le fichier) qui porte la fonction. Tout fichier de `lib/` appartient à un module listé.
+  `squelette/gabarit` est une donnée : l'app posée, avec son propre build ; la fermeture ne la lit pas.
 - **Dépend de** : les autres fonctions (par leur clé) que son code a le droit d'importer.
 - **État** : `neuve` (écrite ici), `reprise` (venue de constructor-v13, le commit d'origine en tête de chaque fichier),
   `à reprendre` (prévue, pas encore là : ni module ni test exigés).
@@ -17,11 +18,11 @@ dépendances déclarées.
 | gardes | Les gardes du dépôt (cette liste, la fermeture des imports) et l'écriture des migrations | scripts | test/fonctions.test.ts | relais | neuve | 1 |
 | backend | Base par projet dérivée d'app.json : tables, RLS, cycles, journal, membres (SQL pur) | lib/backend | test/backend/ | — | reprise | 2 |
 | relais | Base de la plateforme : schéma par projet, pose de la base, relais navigateur → base sous la RLS (`voie_neuve_*`), agir pour un compte | lib/relais | test/relais/ | backend | reprise | 2 |
-| squelette | Squelette d'app (gabarit Vite/React) et ses briques | squelette | test/squelette.test.ts | — | à reprendre | 3 |
-| design | Règles de design, peau (jetons, contraste construit), polices, exemples | lib/design | test/design.test.ts | backend | à reprendre | 3 |
+| squelette | Squelette d'app : le gabarit Vite/React et ses briques (`squelette/gabarit`, des données), les fichiers figés dérivés d'app.json, ce que l'app tire | squelette | test/squelette/ | backend, design | reprise | 3 |
+| design | Règles de design, peau (jetons, contraste construit), exemples de design | lib/design | test/design/ | backend | reprise | 3 |
 | atelier | Build dans un atelier éphémère (tsc, vite build) | lib/atelier | test/atelier.test.ts | — | à reprendre | 4 |
 | publication | Publication et aperçu sur le magasin d'objets, `/p/<id>` | lib/publication | test/publication.test.ts | atelier | à reprendre | 4 |
-| mcp | Serveur MCP constructeur et son OAuth (inscription dynamique, PKCE S256) | lib/mcp | test/mcp.test.ts | socle, backend, atelier, publication, design | à reprendre | 5 |
+| mcp | Serveur MCP constructeur et son OAuth (inscription dynamique, PKCE S256) | lib/mcp | test/mcp.test.ts | socle, backend, squelette, atelier, publication, design | à reprendre | 5 |
 | seo | Référencement, pré-rendu des pages publiques, découverte (sitemap, robots, llms.txt) | lib/seo | test/seo.test.ts | publication | à reprendre | 6 |
 | vente | Vente Stripe : prix lu en base, webhook signé, commande, TVA, facture, accès payé | lib/vente | test/vente.test.ts | socle, backend | à reprendre | 6 |
 | domaines | Domaines personnalisés et leurs certificats | lib/domaines | test/domaines.test.ts | socle | à reprendre | 6 |

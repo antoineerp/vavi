@@ -1,8 +1,9 @@
 name: CI
 
+# Un seul passage par changement : la PR, puis main une fois fusionnée (une branche poussée sans PR ne lance rien).
 on:
   push:
-    branches: [main, 'claude/**']
+    branches: [main]
   pull_request:
 
 concurrency:
@@ -23,8 +24,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Types
         run: pnpm typecheck
-      - name: Tests
+      - name: Tests, dont le build d'une app posée (VAVI_BATIR)
         run: pnpm test
+        env:
+          VAVI_BATIR: 'oui'
       - name: Tests sur PostgreSQL réel (en root, comme l'exige le banc)
         run: sudo -E env "PATH=$PATH" VAVI_EXIGER_POSTGRES=oui pnpm exec vitest run test/backend test/relais
       - name: Fermeture des imports
