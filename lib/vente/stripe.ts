@@ -1,7 +1,7 @@
 // Repris de constructor-v13@5bb786e : lib/payments/stripe-signature.ts et lib/ecommerce/payments.ts (la session Checkout)
 /**
- * STRIPE, PAR LE COMPTE DU PROPRIÉTAIRE DE L'APP — sa clé secrète et le secret de son webhook sont des secrets du projet
- * (posés dans la console, scellés ; jamais vus par Claude ni par le navigateur). Deux gestes, sans SDK :
+ * STRIPE, SUR LE COMPTE DU PROPRIÉTAIRE DE L'APP — par la clé de vavi et l'en-tête `Stripe-Account` du compte que vavi
+ * lui a relié (Stripe Connect, paiement direct : l'argent va chez lui). Deux gestes, sans SDK :
  *   · `ouvrirUneSessionStripe` — une session Checkout hébergée, aux articles que la plateforme a chiffrés en base ;
  *   · `verifierLaSignature` — le webhook n'est cru que signé : HMAC-SHA256 sur les OCTETS REÇUS, horodatage borné
  *     (le rejeu), toutes les signatures `v1` essayées (la rotation du secret), comparaison à temps constant.
@@ -41,7 +41,7 @@ export function lePaiementDeLEvenement(type: string, objet: unknown): 'paye' | '
 }
 
 /** L'appel HTTP vers Stripe : `fetch`, ou un double dans les essais. */
-export type AppelStripe = (url: string, init: { method: 'POST'; headers: Record<string, string>; body: string }) => Promise<{ ok: boolean; json(): Promise<unknown> }>;
+export type AppelStripe = (url: string, init: { method: 'POST' | 'GET'; headers: Record<string, string>; body?: string }) => Promise<{ ok: boolean; json(): Promise<unknown> }>;
 
 export interface SessionAOuvrir {
   readonly devise: string;
@@ -52,7 +52,7 @@ export interface SessionAOuvrir {
 }
 
 /** Ouvre une session Checkout : rend son adresse et son identifiant, ou pourquoi Stripe a refusé. */
-export async function ouvrirUneSessionStripe(appel: AppelStripe, cle: string, s: SessionAOuvrir):
+export async function ouvrirUneSessionStripe(appel: AppelStripe, cle: string, compte: string, s: SessionAOuvrir):
   Promise<{ readonly ouverte: true; readonly url: string; readonly id: string } | { readonly ouverte: false; readonly pourquoi: string }> {
   const corps = new URLSearchParams({ mode: 'payment', success_url: s.retourOk, cancel_url: s.retourAnnule });
   if (s.courriel) corps.set('customer_email', s.courriel);
@@ -67,7 +67,7 @@ export async function ouvrirUneSessionStripe(appel: AppelStripe, cle: string, s:
     corps.set(`payment_intent_data[metadata][${k}]`, v.slice(0, 500));
   }
   const r = await appel('https://api.stripe.com/v1/checkout/sessions', {
-    method: 'POST', headers: { authorization: `Bearer ${cle}`, 'content-type': 'application/x-www-form-urlencoded' }, body: corps.toString(),
+    method: 'POST', headers: { authorization: `Bearer ${cle}`, 'stripe-account': compte, 'content-type': 'application/x-www-form-urlencoded' }, body: corps.toString(),
   });
   const d = (await r.json().catch(() => ({}))) as { url?: unknown; id?: unknown; error?: { message?: unknown } };
   if (!r.ok || typeof d.url !== 'string' || typeof d.id !== 'string') return { ouverte: false, pourquoi: String(d.error?.message ?? 'Stripe n’a rendu aucune session') };

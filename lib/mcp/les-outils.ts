@@ -87,7 +87,7 @@ export const DEFINITIONS = {
   }),
   set_secret: def({
     title: 'Store a secret', lecture: false,
-    entree: z.object({ project: projet, name: z.string().regex(/^[A-Z][A-Z0-9_]{1,63}$/).describe('e.g. STRIPE_SECRET_KEY'), value: z.string().min(1).max(8000) }),
+    entree: z.object({ project: projet, name: z.string().regex(/^[A-Z][A-Z0-9_]{1,63}$/).describe('e.g. ANTHROPIC_API_KEY'), value: z.string().min(1).max(8000) }),
     description: 'Stores a secret key of the project, encrypted. The value is never shown again and never goes into the code.',
     geste: (c, a) => g.poserUnSecret(c, a),
   }),
