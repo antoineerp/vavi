@@ -16,6 +16,16 @@ export const TEXTES = {
     cleStripe: 'votre clé secrète Stripe (Développeurs → Clés API)', secretWebhook: 'le secret de signature du webhook ci-dessous',
     webhook: 'Dans Stripe (Développeurs → Webhooks), ajoutez cette adresse, avec les évènements checkout.session.completed et checkout.session.async_payment_succeeded :',
     pret: 'Les deux sont enregistrés : la boutique encaisse.', manque: 'Il manque :',
+    textes: 'Modifier les textes', textesExplication: 'Cliquez sur un texte de l’aperçu, réécrivez-le, enregistrez. L’aperçu se reconstruit en une minute environ ; rien ne part en ligne avant « Publier ».',
+    textesActif: 'Arrêter de modifier', textesChoisir: 'Cliquez sur le texte à changer.', textesPasIci: 'Ce texte ne se change pas ici (il vient du cadre de l’app ou d’une donnée) : demandez-le à Claude.',
+    enregistrer: 'Enregistrer', annuler: 'Annuler', enCours: 'Enregistrement et reconstruction de l’aperçu…',
+    textesFait: 'Texte changé : l’aperçu est à jour.', textesRouge: 'Texte enregistré, mais l’aperçu n’a pas pu se reconstruire : revenez à la version d’avant, ou demandez à Claude.',
+    textesRefus: {
+      chantier_ouvert: 'Claude travaille sur ce projet en ce moment : réessayez quand il aura fini.', conflit: 'Le projet a changé entre-temps : rechargez la page.',
+      texte_change: 'Ce texte a changé depuis la construction de l’aperçu : rechargez la page.', texte_vide: 'Un texte ne peut pas être vide : pour le retirer, demandez-le à Claude.',
+      texte_trop_long: 'Ce texte est trop long (2 000 caractères au plus).', fichier_du_cadre: 'Ce texte vient du cadre de l’app : il ne se change pas ici.',
+      fichier_absent: 'Ce texte n’existe plus : rechargez la page.', designation_illisible: 'Ce texte ne se change pas ici.', panne: 'vavi n’a pas répondu ; réessayez.',
+    } as Record<string, string>,
   },
   en: {
     mesProjets: 'My projects', aucun: 'You have no project yet. Open Claude.ai, connect the vavi connector, then choose the "Start a project" prompt.',
@@ -33,5 +43,15 @@ export const TEXTES = {
     cleStripe: 'your Stripe secret key (Developers → API keys)', secretWebhook: 'the signing secret of the webhook below',
     webhook: 'In Stripe (Developers → Webhooks), add this address, with the events checkout.session.completed and checkout.session.async_payment_succeeded:',
     pret: 'Both are saved: the shop takes payments.', manque: 'Missing:',
+    textes: 'Edit the texts', textesExplication: 'Click a text in the preview, rewrite it, save. The preview rebuilds in about a minute; nothing goes online before "Publish".',
+    textesActif: 'Stop editing', textesChoisir: 'Click the text to change.', textesPasIci: 'This text cannot be changed here (it comes from the app frame or from data): ask Claude.',
+    enregistrer: 'Save', annuler: 'Cancel', enCours: 'Saving and rebuilding the preview…',
+    textesFait: 'Text changed: the preview is up to date.', textesRouge: 'Text saved, but the preview could not rebuild: go back to the previous version, or ask Claude.',
+    textesRefus: {
+      chantier_ouvert: 'Claude is working on this project right now: try again when it is done.', conflit: 'The project changed meanwhile: reload the page.',
+      texte_change: 'This text changed since the preview was built: reload the page.', texte_vide: 'A text cannot be empty: to remove it, ask Claude.',
+      texte_trop_long: 'This text is too long (2,000 characters at most).', fichier_du_cadre: 'This text comes from the app frame: it cannot be changed here.',
+      fichier_absent: 'This text no longer exists: reload the page.', designation_illisible: 'This text cannot be changed here.', panne: 'vavi did not answer; try again.',
+    } as Record<string, string>,
   },
 } as const;

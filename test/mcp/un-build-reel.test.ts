@@ -1,6 +1,7 @@
 /**
  * De bout en bout, avec le VRAI atelier (VAVI_BATIR=oui) : un projet créé par les outils, deux fichiers écrits par
- * Claude, un `build_preview` vert, puis l'aperçu servi par l'empreinte qu'il désigne.
+ * Claude, un `build_preview` vert, puis l'aperçu servi par l'empreinte qu'il désigne ; puis un texte réécrit par la
+ * personne (lib/contenus) à la place que le VRAI build a posée (`data-texte`), et l'aperçu rebâti qui le montre.
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -14,7 +15,8 @@ import { construireLApp } from '@/lib/atelier/construire';
 import { racineDuBuild } from '@/lib/publication/publier';
 import { servirUnDist } from '@/lib/publication/servir';
 import { appelerUnOutil } from '@/lib/mcp/les-outils';
-import type { Contexte } from '@/lib/mcp/les-gestes';
+import { construireLApercu, estUnRefus, type Contexte } from '@/lib/mcp/les-gestes';
+import { reecrireUnTexte } from '@/lib/contenus/reecrire';
 import { desProjetsEnMemoire } from '../aides/des-projets-en-memoire';
 import { unMagasinEnMemoire } from '../aides/un-magasin-en-memoire';
 import { unManifeste } from '../aides/un-manifeste';
@@ -61,6 +63,16 @@ describe.runIf(process.env.VAVI_BATIR === 'oui')('un projet construit par les ou
       expect(site.corps.toString()).toContain(`<link rel="canonical" href="https://vavi.test/s/${p.project}/">`);
       const robots = await servirLeSite(magasin, racineDuBuild(String(p.project), String(b.fingerprint)), ['robots.txt'], env, 'en_ligne', `https://vavi.test/s/${p.project}`);
       expect(robots.corps.toString()).toContain(`Sitemap: https://vavi.test/s/${p.project}/sitemap.xml`);
+      // La personne réécrit le titre dans l'aperçu : la place que le build a posée est celle que la plateforme relit.
+      const situation = /<h1[^>]*data-texte="([^"]+)"/.exec(site.corps.toString())?.[1];
+      expect(situation).toMatch(/^src\/pages\/index\.tsx:\d+-\d+$/);
+      const r = await reecrireUnTexte({ compte: c.compte, projets: c.projets, construire: async (id) => {
+        const x = await construireLApercu(c, { project: id });
+        return estUnRefus(x) ? { vert: false, detail: x.fait } : { vert: true };
+      } }, String(p.project), situation!, ['Bienvenue {chez} nous']);
+      expect(r).toMatchObject({ reecrit: true, apercu: 'a_jour' });
+      const f = await c.projets.fichiers(c.compte, String(p.project));
+      expect(f.lu && f.valeur.get('src/pages/index.tsx')).toBe(PAGE.replace('<h1>Bonjour</h1>', '<h1>{"Bienvenue {chez} nous"}</h1>'));
     }
   }, 600_000);
 });
