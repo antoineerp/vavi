@@ -1,5 +1,5 @@
 /**
- * /projets/<id> — un projet : son aperçu et son site en ligne, le bouton « Publier » (la personne seule met en ligne),
+ * /projets/<id> — un projet : son aperçu (ses textes réécrits par la personne) et son site en ligne, le bouton « Publier » (la personne seule met en ligne),
  * ses versions et « Revenir à cet état », ses secrets (noms seulement).
  */
 import Link from 'next/link';
@@ -12,6 +12,7 @@ import { laBoutique } from '@/lib/vente/la-boutique';
 import { CLE_STRIPE, SECRET_DU_WEBHOOK } from '@/lib/vente/la-vente';
 import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 import { publier, revenir, poserUnSecret } from './gestes';
+import { EditeurDeTextes } from './editeur';
 
 export const dynamic = 'force-dynamic';
 
@@ -61,6 +62,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <button type="submit" disabled={etat !== 'a_publier'}>{t.publier}</button>
         </form>
       </div>
+
+      {projet.apercuEmpreinte && <EditeurDeTextes id={id} t={{ textes: t.textes, textesExplication: t.textesExplication, textesActif: t.textesActif, textesChoisir: t.textesChoisir,
+        textesPasIci: t.textesPasIci, enregistrer: t.enregistrer, annuler: t.annuler, enCours: t.enCours, textesFait: t.textesFait, textesRouge: t.textesRouge, textesRefus: t.textesRefus }} />}
 
       <h2>{t.versions}</h2>
       <p className="attenue">{t.revenirExplication}</p>

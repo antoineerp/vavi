@@ -7,8 +7,9 @@ type Cible = { readonly el: HTMLElement; readonly image?: string; readonly texte
 
 function origineDeLaPlateforme(): string | null {
   try {
+    // Vide : l'app est servie par la plateforme elle-même (vavi), qui l'encadre depuis la même origine.
     const url = window.__CONSTRUCTOR_API_URL__;
-    return url ? new URL(url).origin : null;
+    return url ? new URL(url).origin : window.location.origin;
   } catch {
     return null;
   }
