@@ -18,6 +18,11 @@ FROM node:22-bookworm-slim
 WORKDIR /app
 # bubblewrap : le bac à sable où tsc et vite construisent chaque app (lib/atelier/le-bac-a-sable.ts).
 RUN apt-get update && apt-get install -y --no-install-recommends bubblewrap && rm -rf /var/lib/apt/lists/*
+# Chromium par Playwright : le pré-rendu des pages publiques (lib/seo/le-pre-rendu.ts), avec son propre bac à sable, sous
+# l'utilisateur node. Hors des dépendances de vavi : chargé à l'exécution par VAVI_PLAYWRIGHT.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright VAVI_PLAYWRIGHT=/opt/playwright/node_modules/playwright
+RUN mkdir -p /opt/playwright && cd /opt/playwright && npm init -y >/dev/null && npm install --no-audit --no-fund playwright@1.49.1 \
+  && npx playwright install --with-deps chromium && rm -rf /var/lib/apt/lists/* /root/.npm && chmod -R a+rX /ms-playwright
 ARG VAVI_VERSION=inconnue
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 VAVI_VERSION=$VAVI_VERSION VAVI_DEPENDANCES_DES_APPS=/tmp/vavi-dependances-des-apps
 COPY --from=build /app/.next/standalone ./

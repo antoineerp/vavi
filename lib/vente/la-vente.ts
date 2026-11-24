@@ -13,6 +13,7 @@
  * Ce module ne lit ni le réseau ni les secrets lui-même : ses dépendances le font (`DependancesDeLaVente`), la route les
  * branche, les essais les jouent.
  */
+import { lAdresseDeLApp, lAppDeLHote } from '@/lib/publication/les-adresses-des-apps';
 import { timingSafeEqual } from 'node:crypto';
 import { lireLeManifeste } from '@/lib/backend/app/manifeste';
 import type { AppelDeLaBase } from '@/lib/relais/poser-la-base';
@@ -95,12 +96,17 @@ export async function chiffrerLePanier(d: DependancesDeLaVente, id: string, corp
   return { statut: 200, corps: lePanierMontre(o.boutique, p, laDestination(corps.destination, o.boutique.livraison)) };
 }
 
-/** L'adresse de retour : une page de ce projet, servie par vavi (l'aperçu ou le site) ; sinon l'accueil du site. */
-export function leRetour(brut: unknown, adresse: string, id: string, paye: boolean): string {
-  const accueil = new URL(`/s/${id}/`, adresse);
+/**
+ * L'adresse de retour : une page de ce projet, servie par vavi (l'aperçu ou le site, à leur hôte quand les apps ont leur
+ * domaine, sinon sous `/p/` ou `/s/` de la console) ; sinon l'accueil du site.
+ */
+export function leRetour(brut: unknown, adresse: string, id: string, paye: boolean, domaine: string | null = null): string {
+  const accueil = new URL(lAdresseDeLApp(id, 'en_ligne', { console: adresse, domaine }));
   let u: URL;
-  try { u = new URL(typeof brut === 'string' ? brut : '', adresse); } catch { u = accueil; }
-  if (u.origin !== accueil.origin || !(u.pathname.startsWith(`/s/${id}/`) || u.pathname.startsWith(`/p/${id}/`))) u = accueil;
+  try { u = new URL(typeof brut === 'string' ? brut : '', accueil); } catch { u = accueil; }
+  const aSonHote = u.protocol === 'https:' && lAppDeLHote(u.host, domaine)?.projet === id;
+  const sousLaConsole = u.origin === new URL(adresse).origin && (u.pathname.startsWith(`/s/${id}/`) || u.pathname.startsWith(`/p/${id}/`));
+  if (!aSonHote && !sousLaConsole) u = new URL(accueil);
   u.hash = '';
   if (paye) u.searchParams.set('payment', 'success'); else u.searchParams.delete('payment');
   return u.toString();
@@ -110,7 +116,7 @@ export function leRetour(brut: unknown, adresse: string, id: string, paye: boole
  * POST /api/pay/<projet>/checkout — `{ lignes, acheteur, successUrl, cancelUrl, code }`. `compte` : l'acheteur connecté ;
  * `null` : un achat sans compte, rangé au propriétaire, qui le traite.
  */
-export async function ouvrirLaVente(d: DependancesDeLaVente, id: string, corps: Record<string, unknown>, compte: string | null, adresse: string): Promise<Reponse> {
+export async function ouvrirLaVente(d: DependancesDeLaVente, id: string, corps: Record<string, unknown>, compte: string | null, adresse: string, domaine: string | null = null): Promise<Reponse> {
   const o = await laBoutiqueDuProjet(d, id);
   if ('forme' in o) return non(o);
   const fr = o.boutique.langue === 'fr';
@@ -136,7 +142,7 @@ export async function ouvrirLaVente(d: DependancesDeLaVente, id: string, corps: 
   const s = await ouvrirUneSessionStripe(d.stripe, encaisse.cle, encaisse.compte, {
     devise: o.boutique.devise, articles: a.items, courriel: acheteur.courriel,
     metadonnees: { vavi_projet: id, vavi_commande: r.data, vavi_montant: String(a.montant), vavi_devise: o.boutique.devise },
-    retourOk: leRetour(corps.successUrl, adresse, id, true), retourAnnule: leRetour(corps.cancelUrl, adresse, id, false),
+    retourOk: leRetour(corps.successUrl, adresse, id, true, domaine), retourAnnule: leRetour(corps.cancelUrl, adresse, id, false, domaine),
   });
   if (!s.ouverte) { d.journal(`[vente] ${o.schema} — Stripe a refusé la session : ${s.pourquoi}`); return non(refus(502, fr ? 'Le paiement n’a pas pu s’ouvrir ; réessayez.' : 'Payment could not open; try again.')); }
   return { statut: 200, corps: { url: s.url } };

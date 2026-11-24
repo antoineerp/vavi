@@ -13,6 +13,8 @@ import { z } from 'zod';
 import type { Outil } from '@/lib/consignes';
 import { schemaJson } from './schema-json';
 import * as g from './les-gestes';
+import * as v from './les-gestes-de-la-vue';
+import { META_DE_LA_VUE, META_DE_LA_VUE_SEULE } from './la-vue';
 
 const projet = z.string().min(1).max(64).describe('The project id, as `list_projects` returns it.');
 const chantier = z.string().min(1).max(64).describe('The id of the open work session, as `ouvrir_chantier` returned it.');
@@ -34,6 +36,8 @@ interface Definition<S extends z.ZodTypeAny> {
   readonly entree: S;
   readonly lecture: boolean;
   readonly destructeur?: boolean;
+  /** La vue de vavi dans Claude (MCP Apps) : l'outil qui l'affiche, ou l'outil que seule la vue appelle. */
+  readonly _meta?: Readonly<Record<string, unknown>>;
   readonly geste: (c: g.Contexte, a: z.infer<S>) => Promise<g.Rendu>;
 }
 /** Une définition dont l'entrée est effacée : le geste ne reçoit que ce que son schéma a relu (`appelerUnOutil`). */
@@ -52,7 +56,7 @@ export const DEFINITIONS = {
     geste: (c, a) => g.creerUnProjet(c, a),
   }),
   get_project_state: def({
-    title: 'Read the state of a project', lecture: true, entree: z.object({ project: projet }),
+    title: 'Read the state of a project', _meta: META_DE_LA_VUE, lecture: true, entree: z.object({ project: projet }),
     description: 'Always call it first. The version, the open work session and its notes, your files with their fingerprints, the platform files to read first, the state of the current build.',
     geste: (c, a) => g.lEtatDuProjet(c, a),
   }),
@@ -92,13 +96,13 @@ export const DEFINITIONS = {
     geste: (c, a) => g.poserUnSecret(c, a),
   }),
   build_preview: def({
-    title: 'Build a draft preview', lecture: false, entree: z.object({ project: projet }),
-    description: 'Type-checks and builds the current version. Green: a draft address the person can open; the preview does not change. Red: each error with its file and line.',
+    title: 'Build the preview', _meta: META_DE_LA_VUE, lecture: false, entree: z.object({ project: projet }),
+    description: 'Type-checks and builds the current version. Green: the preview now shows it (give the person `preview_url`). Red: each error with its file and line; the preview keeps the last green version.',
     geste: (c, a) => g.construireLApercu(c, a),
   }),
   publish: def({
-    title: 'Update the preview', lecture: false, entree: z.object({ project: projet, work_session: chantier }),
-    description: 'Points the preview /p/<id>/ to the green build of the current version, and closes the work session. It does not put the site online: the person does, in the vavi console.',
+    title: 'Close the work session', _meta: META_DE_LA_VUE, lecture: false, entree: z.object({ project: projet, work_session: chantier }),
+    description: 'When the person is happy with the preview: checks that the current version is built green, and closes the work session. It does not put the site online: the person does, with the Publish button.',
     geste: (c, a) => g.publierLApercu(c, a),
   }),
   history: def({
@@ -114,11 +118,29 @@ export const DEFINITIONS = {
   }),
 } satisfies Record<Outil, DefinitionEffacee>;
 
+const jetonDeLaVue = z.string().min(1).max(2000).describe('The token of the vavi view. Only the view has it.');
+/** Les outils que seule la vue appelle (`visibility: ['app']`) : l'hôte ne les montre pas au modèle, et sans le jeton de
+ * la vue ils refusent (`les-gestes-de-la-vue.ts`). */
+export const DEFINITIONS_DE_LA_VUE = {
+  vavi_fiche_du_projet: def({
+    title: 'Project card (vavi view only)', lecture: true, _meta: META_DE_LA_VUE_SEULE, entree: z.object({ project: projet, geste: jetonDeLaVue }),
+    description: 'Reserved to the vavi view shown under your answer. Do not call it.',
+    geste: (c, a) => v.laFicheDuProjet(c, a),
+  }),
+  vavi_mettre_en_ligne: def({
+    title: 'Publish, clicked by the person (vavi view only)', lecture: false, _meta: META_DE_LA_VUE_SEULE, entree: z.object({ project: projet, geste: jetonDeLaVue }),
+    description: 'Reserved to the Publish button of the vavi view, clicked by the person. Do not call it: only the person puts a site online.',
+    geste: (c, a) => v.mettreEnLigneDepuisLaVue(c, a),
+  }),
+};
+const TOUTES: Readonly<Record<string, DefinitionEffacee>> = { ...DEFINITIONS, ...DEFINITIONS_DE_LA_VUE };
+
 /** `tools/list`. */
 export function lesOutils() {
-  return Object.entries(DEFINITIONS).map(([name, d]) => ({
+  return Object.entries(TOUTES).map(([name, d]) => ({
     name, title: d.title, description: d.description, inputSchema: schemaJson(d.entree),
     annotations: { title: d.title, readOnlyHint: d.lecture, destructiveHint: Boolean(d.destructeur), openWorldHint: false },
+    ...(d._meta ? { _meta: d._meta } : {}),
   }));
 }
 
@@ -126,8 +148,8 @@ export type Appel = { readonly connu: false } | { readonly connu: true; readonly
 
 /** `tools/call` : l'entrée relue par son schéma, le geste joué, le refus passé par la mémoire des refus. */
 export async function appelerUnOutil(c: g.Contexte, nom: string, args: unknown): Promise<Appel> {
-  if (!Object.hasOwn(DEFINITIONS, nom)) return { connu: false };
-  const d: DefinitionEffacee = DEFINITIONS[nom as Outil];
+  if (!Object.hasOwn(TOUTES, nom)) return { connu: false };
+  const d = TOUTES[nom]!;
   const e = d.entree.safeParse(args ?? {});
   if (!e.success) return { connu: true, invalide: e.error.issues.map((i) => `${i.path.join('.') || 'input'}: ${i.message}`).join('; ') };
   const rendu = await d.geste(c, e.data);

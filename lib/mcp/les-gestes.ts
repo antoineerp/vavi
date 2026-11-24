@@ -10,6 +10,7 @@
  *   - on ne publie que le build vert de l'arbre courant.
  * Les dépendances (base, magasin, build) sont passées : les essais jouent les gestes sans réseau.
  */
+import { lAdresseDeLApp } from '@/lib/publication/les-adresses-des-apps';
 import { derive } from '@/squelette/poser';
 import { estFige, CHEMINS_MONTRES, POSES_PAR_UN_OUTIL } from '@/squelette/registre';
 import { lireLeManifeste, type Manifeste } from '@/lib/backend/app/manifeste';
@@ -24,6 +25,7 @@ import { refuser, suiteDeRefus, paquetInconnu, type Refus } from '@/lib/consigne
 import { estUnFichierDEnvironnement, unSecretDans } from './les-secrets';
 import { lArbreDUnProjet } from '@/lib/projets/l-arbre-d-un-projet';
 import { revenirA } from '@/lib/versions/revenir';
+import type { LecturesDeLaVue } from './les-gestes-de-la-vue';
 
 export interface Contexte {
   readonly compte: string;
@@ -39,11 +41,15 @@ export interface Contexte {
   readonly permis: readonly string[];
   /** L'adresse publique de la plateforme, sans barre finale. */
   readonly adresse: string;
+  /** Le domaine des apps (`VAVI_DOMAINE_DES_APPS`) : l'aperçu y a son hôte ; absent, il est servi sous `/p/` de la console. */
+  readonly domaineDesApps?: string | null;
   readonly scellerUnSecret: (projet: string, nom: string, valeur: string) => string;
   /** Le dernier refus rendu, par compte et projet : le même deux fois de suite dit d'arrêter. */
   readonly refusPrecedents: Map<string, Refus>;
   /** L'abonnement du compte, tel que Claude le lit (l'offre, ce qu'elle publie, où la choisir) ; absent : non dit. */
   readonly abonnement?: () => Promise<Record<string, unknown> | null>;
+  /** Ce que la vue de vavi dans Claude lit en plus (messages, visites, droit de publier) ; absent : « — ». */
+  readonly vue?: LecturesDeLaVue;
 }
 
 export type Rendu = { readonly ok: true; readonly [champ: string]: unknown } | Refus;
@@ -56,7 +62,7 @@ const LONGUE = 'This work session is getting long. Propose to the person to cont
 const MAX_ECRIT = 2_000_000;
 const MAX_LU = 400_000;
 
-const urlDeLApercu = (c: Contexte, id: string): string => `${c.adresse}/p/${id}/`;
+const urlDeLApercu = (c: Contexte, id: string): string => lAdresseDeLApp(id, 'apercu', { console: c.adresse, domaine: c.domaineDesApps ?? null });
 const urlDuBrouillon = (c: Contexte, id: string, e: string): string => `${urlDeLApercu(c, id)}?brouillon=${e}`;
 
 /* ── Ce que chaque geste vérifie d'abord ───────────────────────────────── */
@@ -384,8 +390,9 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   }
   const deja = await c.projets.leBuild(c.compte, a.project, arbre.empreinte);
   if (deja.lu && deja.valeur?.vert) {
-    return fait({ green: true, draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, rebuilt: false,
-      note: 'Nothing changed since the last green build.' });
+    const designe = await c.projets.publierLApercu(c.compte, a.project, arbre.empreinte);
+    return fait({ project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, rebuilt: false,
+      preview_updated: designe.lu, note: 'Nothing changed since the last green build.' });
   }
   // Des chemins relatifs : le même build sert l'aperçu, le brouillon et le site public (`poserLEnvironnement`).
   const b = await c.construire(arbre.construit, './');
@@ -414,9 +421,13 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
     return refuser('plateforme_en_panne', `The build is green but could not be stored (${(e as Error).message}).`);
   }
   await c.projets.enregistrerUnBuild(c.compte, a.project, { empreinte: arbre.empreinte, vert: true, ecarts: [] });
+  // Un build vert DEVIENT l'aperçu (24/11, retour d'Antoine : la console disait « pas encore d'aperçu » après un build
+  // vert) : la console et le lien montrent la dernière version qui se construit ; `publish` ferme le chantier.
+  const designe = await c.projets.publierLApercu(c.compte, a.project, arbre.empreinte);
   return fait({
-    green: true, draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree,
-    checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the draft and check.',
+    project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree,
+    preview_updated: designe.lu,
+    checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the preview and check.',
     prerendered: pre === null ? 'skipped: no browser on this vavi server, public pages need JavaScript to be read'
       : 'erreur' in pre ? `failed: ${pre.erreur.slice(0, 200)}` : { pages: pre.gardees, not_kept: pre.ecartees },
   });
@@ -438,8 +449,8 @@ export async function publierLApercu(c: Contexte, a: { project: string; work_ses
   const ferme = await c.projets.fermerChantier(c.compte, a.project, a.work_session, 'publie');
   if (!ferme.lu) return panne(ferme.pourquoi);
   return fait({
-    preview_url: urlDeLApercu(c, a.project), work_session: 'closed',
-    note: 'The preview now shows this version. It is not online for the public: only the person puts it online, with the Publish button of the vavi console.',
+    project: a.project, preview_url: urlDeLApercu(c, a.project), work_session: 'closed',
+    note: 'The work session is closed; the preview shows this version. It is not online for the public: only the person puts it online, with the Publish button.',
   });
 }
 

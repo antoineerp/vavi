@@ -13,6 +13,8 @@ import { LOT_AU_PLUS } from './les-limites';
 import { INSTRUCTIONS, lesPrompts, unPrompt, lesRessources, lesModelesDeRessources, uneRessource, type ContexteDesRessources } from '@/lib/consignes';
 import { appelerUnOutil, lesOutils } from './les-outils';
 import { estUnRefus, type Contexte } from './les-gestes';
+import { RESSOURCE_DE_LA_VUE, laRessourceDeLaVue, lesCadresPermis } from './la-vue';
+import { ecrireUnJetonDeVue } from './les-jetons';
 
 export const VERSION_DU_PROTOCOLE = '2025-06-18';
 const VERSIONS_ACCEPTEES = ['2025-06-18', '2025-03-26', '2024-11-05'];
@@ -41,7 +43,9 @@ async function repondre(r: Requete, ctx: ContexteDuServeur): Promise<ReponseRpc 
       const demandee = typeof p.protocolVersion === 'string' ? p.protocolVersion : VERSION_DU_PROTOCOLE;
       return resultat(id, {
         protocolVersion: VERSIONS_ACCEPTEES.includes(demandee) ? demandee : VERSION_DU_PROTOCOLE,
-        capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false, subscribe: false } },
+        capabilities: { tools: { listChanged: false }, prompts: { listChanged: false }, resources: { listChanged: false, subscribe: false },
+          // La vue de vavi sous la réponse de Claude (MCP Apps) : un hôte qui ne la connaît pas l'ignore.
+          extensions: { 'io.modelcontextprotocol/ui': {} } },
         serverInfo: { name: 'vavi', title: 'vavi', version: '0.1.0' },
         instructions: INSTRUCTIONS,
       });
@@ -65,6 +69,11 @@ async function repondre(r: Requete, ctx: ContexteDuServeur): Promise<ReponseRpc 
     case 'resources/list': return resultat(id, { resources: lesRessources() });
     case 'resources/templates/list': return resultat(id, { resourceTemplates: lesModelesDeRessources() });
     case 'resources/read': {
+      // La vue porte le jeton qui prouve qu'un clic vient de la personne : lue par l'hôte, elle n'est pas listée au modèle.
+      if (p.uri === RESSOURCE_DE_LA_VUE) {
+        const o = ctx.outils;
+        return resultat(id, laRessourceDeLaVue({ jeton: ecrireUnJetonDeVue(o.compte), cadres: lesCadresPermis(o.adresse, o.domaineDesApps ?? null) }));
+      }
       const u = await uneRessource(typeof p.uri === 'string' ? p.uri : '', ctx);
       return 'erreur' in u ? erreur(id, -32602, u.erreur) : resultat(id, u);
     }

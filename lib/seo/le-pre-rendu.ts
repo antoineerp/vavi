@@ -21,7 +21,9 @@ import { DOSSIER_DU_PRE_RENDU, FICHIER_DE_DECOUVERTE, MARQUE_DU_PRE_RENDU, TEXTE
 
 export const BASE_DU_PRE_RENDU = '/__vavi_base__/';
 
+interface RequeteInterceptee { request(): { url(): string }; continue(): Promise<void>; abort(code?: string): Promise<void> }
 interface PageDuNavigateur {
+  route(motif: string, h: (r: RequeteInterceptee) => unknown): Promise<unknown>;
   goto(url: string, o: { waitUntil: 'networkidle'; timeout: number }): Promise<unknown>;
   waitForFunction(f: () => boolean, a: null, o: { timeout: number }): Promise<unknown>;
   evaluate<R, A>(f: (a: A) => R, a: A): Promise<R>;
@@ -34,18 +36,37 @@ export interface UnNavigateur {
   close(): Promise<void>;
 }
 
-/** Chromium sur ce serveur, par Playwright ; `null` si l'un ou l'autre manque (le pré-rendu est alors sauté, et c'est dit). */
-export async function leNavigateurDuServeur(env: Readonly<Record<string, string | undefined>> = process.env): Promise<UnNavigateur | null> {
+/**
+ * Chromium sur ce serveur, par Playwright ; `null` si l'un ou l'autre manque, ou si son bac à sable ne démarre pas (le
+ * pré-rendu est alors sauté, et c'est dit). Le navigateur exécute le code d'une app écrit par Claude : il garde SON bac à
+ * sable (jamais `--no-sandbox`, que constructor-v13 passait), et il ne joint que l'hôte local et les hôtes permis (la
+ * base de l'app) : tout le reste passe par un mandataire qui n'existe pas (vague 0, audit du 24/11).
+ */
+export async function leNavigateurDuServeur(hotes: readonly string[], env: Readonly<Record<string, string | undefined>> = process.env): Promise<UnNavigateur | null> {
   try {
     // Le nom passe par une variable : le paquet du serveur se charge à l'exécution, jamais empaqueté par le build de vavi.
     const paquet = env.VAVI_PLAYWRIGHT ?? 'playwright';
     const { chromium } = createRequire(join(process.cwd(), 'package.json'))(paquet) as { chromium: { launch(o: object): Promise<UnNavigateur> } };
     const chemin = env.VAVI_CHROMIUM ?? (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined);
-    return await chromium.launch({ ...(chemin ? { executablePath: chemin } : {}), args: ['--no-sandbox'] });
-  } catch {
+    return await chromium.launch({ ...(chemin ? { executablePath: chemin } : {}), chromiumSandbox: true, args: argumentsDuNavigateur(hotes) });
+  } catch (e) {
+    console.error(`[pre-rendu] navigateur indisponible : ${String((e as Error)?.message ?? e).split('\n')[0]}`);
     return null;
   }
 }
+
+/** Le réseau du navigateur : un mandataire mort pour tout, sauf la boucle locale (contournée par Chromium d'office) et
+ * les hôtes permis. Les adresses IP écrites en dur et les WebSockets y passent aussi. PURE. */
+export const argumentsDuNavigateur = (hotes: readonly string[]): string[] =>
+  ['--proxy-server=http://127.0.0.1:9', `--proxy-bypass-list=${hotes.map((h) => new URL(h).host).join(';')}`];
+
+/** Une requête que la page du pré-rendu peut faire : le site servi en mémoire, ou un hôte permis. PURE. */
+export const requetePermise = (url: string, site: string, hotes: readonly string[]): boolean => {
+  try {
+    const o = new URL(url).origin;
+    return o === new URL(site).origin || hotes.some((h) => new URL(h).origin === o) || url.startsWith('data:');
+  } catch { return false; }
+};
 
 export interface PreRendu {
   /** Les fichiers à ajouter au dist. */
@@ -93,6 +114,7 @@ export async function preRendre(navigateur: UnNavigateur, dist: ReadonlyMap<stri
       // Mouvement réduit : une page gardée en pleine entrée garderait ses blocs à opacité nulle.
       const page = await navigateur.newPage({ reducedMotion: 'reduce', locale: o.app.langue });
       try {
+        await page.route('**/*', (r) => (requetePermise(r.request().url(), site, [o.env.supabaseUrl]) ? r.continue() : r.abort('blockedbyclient')));
         await page.goto(`${site}${BASE_DU_PRE_RENDU}${adresse.slice(1)}`, { waitUntil: 'networkidle', timeout: 20_000 });
         await page.waitForFunction(() => !document.querySelector('[data-etat="patience"]'), null, { timeout: 5_000 }).catch(() => undefined);
         const vu = await page.evaluate((marque: string) => {

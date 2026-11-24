@@ -15,7 +15,9 @@ export interface TextesDeLEditeur {
 
 type Choix = { readonly situation: string; readonly passages: string[] };
 
-export function EditeurDeTextes({ id, t }: { readonly id: string; readonly t: TextesDeLEditeur }) {
+/** `apercu` : l'adresse de l'aperçu, à son hôte (vague 0) ; les messages ne s'échangent qu'avec son origine. */
+export function EditeurDeTextes({ id, apercu, t }: { readonly id: string; readonly apercu: string; readonly t: TextesDeLEditeur }) {
+  const origine = new URL(apercu, typeof window === 'undefined' ? 'http://localhost' : window.location.href).origin;
   const cadre = useRef<HTMLIFrameElement>(null);
   const [actif, setActif] = useState(false);
   const [choix, setChoix] = useState<Choix | null>(null);
@@ -23,10 +25,10 @@ export function EditeurDeTextes({ id, t }: { readonly id: string; readonly t: Te
   const [occupe, setOccupe] = useState(false);
   const [cle, setCle] = useState(0);
 
-  const dire = (a: boolean) => cadre.current?.contentWindow?.postMessage({ type: 'EDITION_VISUELLE', actif: a }, window.location.origin);
+  const dire = (a: boolean) => cadre.current?.contentWindow?.postMessage({ type: 'EDITION_VISUELLE', actif: a }, origine);
   useEffect(() => {
     const ecouter = async (e: MessageEvent) => {
-      if (e.origin !== window.location.origin || e.source !== cadre.current?.contentWindow) return;
+      if (e.origin !== origine || e.source !== cadre.current?.contentWindow) return;
       const d = e.data as { type?: string; source?: string; image?: string } | null;
       if (d?.type === 'EDITION_DISPONIBLE' && actif) dire(true);
       if (d?.type !== 'EDITION_CIBLE') return;
@@ -38,7 +40,7 @@ export function EditeurDeTextes({ id, t }: { readonly id: string; readonly t: Te
     };
     window.addEventListener('message', ecouter);
     return () => window.removeEventListener('message', ecouter);
-  }, [actif, id, t]);
+  }, [actif, id, t, origine]);
 
   const basculer = () => { const a = !actif; setActif(a); setChoix(null); setMessage(a ? t.textesChoisir : null); dire(a); };
   const envoyer = async (f: FormData) => {
@@ -70,7 +72,7 @@ export function EditeurDeTextes({ id, t }: { readonly id: string; readonly t: Te
           </div>
         </form>
       )}
-      <iframe key={cle} ref={cadre} src={`/p/${id}/`} title="aperçu" style={{ width: '100%', height: '70vh', border: '1px solid currentColor', borderRadius: 8, marginTop: '0.75rem' }} />
+      <iframe key={cle} ref={cadre} src={apercu} title="aperçu" style={{ width: '100%', height: '70vh', border: '1px solid currentColor', borderRadius: 8, marginTop: '0.75rem' }} />
     </div>
   );
 }

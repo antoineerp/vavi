@@ -14,7 +14,7 @@ const CAMPAGNE = ['utm_source', 'utm_medium', 'utm_campaign'] as const;
 
 /**
  * Ce que le navigateur a envoyé, relu ; `null` : rien à compter (illisible, ou une page de l'aperçu, que l'adresse de la
- * page qui envoie dit : `Referer` sous `/p/`).
+ * page qui envoie dit : `Referer` sous `/p/`, ou à l'hôte `apercu-<projet>` de l'aperçu).
  */
 export function lireLaVisite(corps: string, referer: string | null, hoteDuServeur: string | null): Visite | null {
   if (corps.length > 4000) return null;
@@ -23,7 +23,7 @@ export function lireLaVisite(corps: string, referer: string | null, hoteDuServeu
   const x = (o && typeof o === 'object' ? o : {}) as Record<string, unknown>;
   const chemin = typeof x.chemin === 'string' && x.chemin.startsWith('/') ? x.chemin.slice(0, 300) : null;
   if (!chemin) return null;
-  try { if (referer && new URL(referer).pathname.startsWith('/p/')) return null; } catch { /* un referer illisible ne dit rien */ }
+  try { if (referer && (new URL(referer).pathname.startsWith('/p/') || new URL(referer).hostname.startsWith('apercu-'))) return null; } catch { /* un referer illisible ne dit rien */ }
   let referent: string | null = null;
   try {
     const h = typeof x.referent === 'string' && x.referent ? new URL(x.referent).hostname.toLowerCase() : null;

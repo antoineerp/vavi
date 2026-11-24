@@ -11,7 +11,7 @@ import { derive } from '@/squelette/poser';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { empreinteDuFichier } from '@/lib/projets/les-empreintes';
 import type { Construction } from '@/lib/atelier/construire';
-import { appelerUnOutil, lesOutils } from '@/lib/mcp/les-outils';
+import { appelerUnOutil, lesOutils, DEFINITIONS_DE_LA_VUE } from '@/lib/mcp/les-outils';
 import { GESTES_D_UNE_LONGUE_CONVERSATION, type Contexte, type Rendu } from '@/lib/mcp/les-gestes';
 import { servirLeMcp } from '@/lib/mcp/le-serveur';
 import { desProjetsEnMemoire } from '../aides/des-projets-en-memoire';
@@ -66,7 +66,7 @@ beforeEach(() => {
 
 describe('les outils', () => {
   it('sont exactement ceux que les consignes nomment, chacun avec son schéma', () => {
-    expect(lesOutils().map((o) => o.name).sort()).toEqual([...OUTILS].sort());
+    expect(lesOutils().map((o) => o.name).filter((n) => !Object.hasOwn(DEFINITIONS_DE_LA_VUE, n)).sort()).toEqual([...OUTILS].sort());
     for (const o of lesOutils()) expect(o.inputSchema).toMatchObject({ type: 'object' });
   });
 });
@@ -158,6 +158,9 @@ describe('on ne publie que le build vert de l’arbre courant', () => {
     c.prochain = vert();
     const b = await ok('build_preview', { project: w.project });
     expect(b.draft_url).toMatch(/^https:\/\/vavi\.test\/p\/[^/]+\/\?brouillon=[0-9a-f]{64}$/);
+    // Le build vert devient l'aperçu tout de suite (retour d'Antoine du 24/11) : la console le montre sans attendre `publish`.
+    expect(b).toMatchObject({ preview_url: expect.stringMatching(/^https:\/\/vavi\.test\/p\/[^/]+\/$/), preview_updated: true });
+    expect((await ok('get_project_state', { project: w.project })).preview_url).toBe(b.preview_url);
     expect(await ok('build_preview', { project: w.project })).toMatchObject({ rebuilt: false });
     expect(c.construits).toBe(2);
     expect(await ok('publish', w)).toMatchObject({ work_session: 'closed', note: expect.stringContaining('Publish button') });
