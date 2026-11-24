@@ -43,3 +43,9 @@ REVOKE ALL ON FUNCTION public.exec_sql(TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.create_app_schema(UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION public.exec_sql(TEXT) TO service_role;
 `;
+
+/** PURE — le schéma d'un projet, celui que `create_app_schema` pose (la même formule ; `test/relais/` les compare). */
+export function schemaDuProjet(projectId: string): string | null {
+  const id = projectId.toLowerCase();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id) ? `app_${id.slice(0, 20).replace(/-/g, '_')}` : null;
+}

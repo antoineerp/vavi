@@ -1,52 +1,25 @@
 /**
  * Une app posée par vavi se construit : le figé dérivé d'app.json, plus ce que Claude écrit (le chrome et une page),
- * passe `tsc` et `vite build`, et le build rend la page et ses faits. Sans cet essai, le gabarit copié pourrait ne plus
- * construire sans qu'aucun test le voie.
- *
- * Il installe les paquets de l'app (`npm ci`, son verrou) : il tourne quand `VAVI_BATIR=oui` (la CI le pose), sinon il
- * est dit sauté, jamais vert.
+ * passe `tsc` et `vite build` dans l'atelier, et le build rend la page et ses faits. Sans cet essai, le gabarit copié
+ * pourrait ne plus construire sans qu'aucun test le voie. Il tourne quand `VAVI_BATIR=oui` (la CI le pose).
  */
 import { describe, expect, it } from 'vitest';
-import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { construireLApp } from '@/lib/atelier/construire';
 import { ceQueLAppTire, poserLeFige } from '@/squelette/poser';
 import { unManifeste } from '../aides/un-manifeste';
 
-const CHROME = `import type { ChromeProps } from '@/briques/chrome';
-export default function Chrome({ children }: ChromeProps) {
-  return <><header>Essai</header><main>{children}</main></>;
-}
-`;
-const ACCUEIL = `import { PUBLIC } from '@/lib/acces';
-export const acces = PUBLIC;
-export default function Accueil() {
-  return <section><h1>Bienvenue</h1><p>Une page posée par Claude.</p></section>;
-}
-`;
+const CHROME = "import type { ChromeProps } from '@/briques/chrome';\nexport default function Chrome({ children }: ChromeProps) {\n  return <><header>Essai</header><main>{children}</main></>;\n}\n";
+const ACCUEIL = "import { PUBLIC } from '@/lib/acces';\nexport const acces = PUBLIC;\nexport default function Accueil() {\n  return <section><h1>Bienvenue</h1><p>Une page posée par Claude.</p></section>;\n}\n";
 
 describe.runIf(process.env.VAVI_BATIR === 'oui')('une app posée se construit', () => {
-  it('tsc puis vite build passent, et le build rend la page et ses faits', () => {
+  it('l’arbre que l’app tire passe tsc puis vite build, et le build rend la page et ses faits', async () => {
     const m = unManifeste({ nature: 'site', nom: 'Essai de build' });
     const arbre = poserLeFige(m);
     arbre.set('src/Chrome.tsx', CHROME);
     arbre.set('src/pages/index.tsx', ACCUEIL);
-    const dossier = mkdtempSync(join(tmpdir(), 'vavi-batir-'));
-    try {
-      for (const [chemin, contenu] of ceQueLAppTire(arbre, m)) {
-        mkdirSync(dirname(join(dossier, chemin)), { recursive: true });
-        writeFileSync(join(dossier, chemin), contenu);
-      }
-      const lancer = (cmd: string, args: string[]) => execFileSync(cmd, args, { cwd: dossier, stdio: 'pipe', encoding: 'utf8' });
-      lancer('npm', ['ci', '--no-audit', '--no-fund', '--loglevel=error']);
-      lancer('npx', ['tsc', '--noEmit']);
-      lancer('npx', ['vite', 'build']);
-      const index = readFileSync(join(dossier, 'dist', 'index.html'), 'utf8');
-      expect(index).toContain('<title>Essai de build</title>');
-      expect(existsSync(join(dossier, 'dist', 'faits.json'))).toBe(true);
-    } finally {
-      rmSync(dossier, { recursive: true, force: true });
-    }
+    const c = await construireLApp(ceQueLAppTire(arbre, m));
+    if (!c.construite) throw new Error(JSON.stringify(c.ecarts));
+    expect(c.dist.get('index.html')!.toString()).toContain('<title>Essai de build</title>');
+    expect(c.faits).not.toBeNull();
   }, 600_000);
 });
