@@ -6,8 +6,7 @@ import { leProjetServi, leSecretScelle } from '@/lib/projets/les-projets';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 import { ouvrirUnSecret } from '@/lib/mcp/les-jetons';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
-import { leJeton, ouvrirLaPorte, type DependancesDeLaPorte, type Plafonds, type Porte } from '@/lib/capacites/la-porte';
-import type { Capacite } from '@/lib/backend/app/manifeste';
+import { leJeton, ouvrirLaPorte, type DependancesDeLaPorte, type Plafonds, type Porte, type Service } from '@/lib/capacites/la-porte';
 
 function laPorteReelle(): DependancesDeLaPorte {
   const base = clientDeService();
@@ -37,7 +36,7 @@ function laPorteReelle(): DependancesDeLaPorte {
 }
 
 /** La porte d'une capacité pour cette requête. */
-export const laPorte = (requete: Request, projet: string, capacite: Capacite, plafonds: Plafonds): Promise<Porte> =>
+export const laPorte = (requete: Request, projet: string, capacite: Service, plafonds: Plafonds): Promise<Porte> =>
   ouvrirLaPorte(laPorteReelle(), projet, capacite, leJeton(requete.headers.get('authorization')), plafonds);
 
 /** Un secret du propriétaire, ouvert ; `null` : il ne l'a pas posé. */

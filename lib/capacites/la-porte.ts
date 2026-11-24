@@ -34,17 +34,23 @@ export type Porte = { readonly ouverte: true; readonly compte: string | null; re
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const refus = (statut: Refus['statut'], error: string, detail?: string): Refus => ({ ouverte: false, statut, corps: detail ? { error, detail } : { error } });
 
-export const derriereUnCompte = (c: Capacite): boolean => CAPACITES_DERRIERE_UN_COMPTE.includes(c);
+/**
+ * Ce que la porte garde : une capacité déclarée, ou les pièces jointes des lignes — pas une capacité (elles suivent
+ * les colonnes `fichier` d'app.json, que la base tient), toujours derrière un compte membre.
+ */
+export type Service = Capacite | 'pieces';
+
+export const derriereUnCompte = (c: Service): boolean => c === 'pieces' || CAPACITES_DERRIERE_UN_COMPTE.includes(c);
 
 /** Le jeton d'une requête : `Authorization: Bearer …`. */
 export const leJeton = (entete: string | null): string | null => /^Bearer\s+(\S+)$/i.exec(entete ?? '')?.[1] ?? null;
 
-export async function ouvrirLaPorte(d: DependancesDeLaPorte, projet: string, capacite: Capacite, jeton: string | null, p: Plafonds): Promise<Porte> {
+export async function ouvrirLaPorte(d: DependancesDeLaPorte, projet: string, capacite: Service, jeton: string | null, p: Plafonds): Promise<Porte> {
   if (!UUID.test(projet)) return refus(404, 'projet inconnu');
   const m = await d.leManifeste(projet);
   if (!m.lu) return refus(503, 'base indisponible');
   if (!m.valeur) return refus(404, 'projet inconnu');
-  if (!m.valeur.fonctions[capacite]) return refus(404, `cette app ne déclare pas la fonction ${capacite}`, `déclarez \`fonctions.${capacite}\` dans app.json`);
+  if (capacite !== 'pieces' && !m.valeur.fonctions[capacite]) return refus(404, `cette app ne déclare pas la fonction ${capacite}`, `déclarez \`fonctions.${capacite}\` dans app.json`);
   let compte: string | null = jeton ? await d.laPersonne(jeton) : null;
   if (derriereUnCompte(capacite)) {
     if (!compte) return refus(401, 'connectez-vous d’abord');
