@@ -18,10 +18,12 @@
     "@aws-sdk/client-s3": "3.741.0",
     "@supabase/ssr": "0.8.0",
     "@supabase/supabase-js": "2.46.1",
+    "astronomia": "4.2.0",
     "next": "15.5.25",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "0.0.1",
+    "suncalc": "2.0.0",
     "tz-lookup": "6.1.25",
     "zod": "3.23.8"
   },
