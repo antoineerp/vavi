@@ -43,15 +43,28 @@ export interface UnNavigateur {
  * base de l'app) : tout le reste passe par un mandataire qui n'existe pas (vague 0, audit du 24/11).
  */
 export async function leNavigateurDuServeur(hotes: readonly string[], env: Readonly<Record<string, string | undefined>> = process.env): Promise<UnNavigateur | null> {
+  const o = await ouvrirLeNavigateur(hotes, env);
+  return 'navigateur' in o ? o.navigateur : null;
+}
+
+/** Le navigateur, ou la raison pour laquelle il n'a pas démarré (dite au résultat de `build_preview` et au journal). */
+export async function ouvrirLeNavigateur(hotes: readonly string[], env: Readonly<Record<string, string | undefined>> = process.env):
+  Promise<{ readonly navigateur: UnNavigateur } | { readonly raison: string }> {
+  const paquet = env.VAVI_PLAYWRIGHT ?? 'playwright';
+  let chromium: { launch(o: object): Promise<UnNavigateur> };
   try {
     // Le nom passe par une variable : le paquet du serveur se charge à l'exécution, jamais empaqueté par le build de vavi.
-    const paquet = env.VAVI_PLAYWRIGHT ?? 'playwright';
-    const { chromium } = createRequire(join(process.cwd(), 'package.json'))(paquet) as { chromium: { launch(o: object): Promise<UnNavigateur> } };
-    const chemin = env.VAVI_CHROMIUM ?? (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined);
-    return await chromium.launch({ ...(chemin ? { executablePath: chemin } : {}), chromiumSandbox: true, args: argumentsDuNavigateur(hotes) });
+    ({ chromium } = createRequire(join(process.cwd(), 'package.json'))(paquet) as { chromium: typeof chromium });
   } catch (e) {
-    console.error(`[pre-rendu] navigateur indisponible : ${String((e as Error)?.message ?? e).split('\n')[0]}`);
-    return null;
+    return { raison: `Playwright not found (${paquet}): ${String((e as Error)?.message ?? e).split('\n')[0]!.slice(0, 200)}` };
+  }
+  try {
+    const chemin = env.VAVI_CHROMIUM ?? (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined);
+    return { navigateur: await chromium.launch({ ...(chemin ? { executablePath: chemin } : {}), chromiumSandbox: true, args: argumentsDuNavigateur(hotes) }) };
+  } catch (e) {
+    const raison = `Chromium did not start with its sandbox: ${String((e as Error)?.message ?? e).replace(/\s+/g, ' ').slice(0, 400)}`;
+    console.error(`[pre-rendu] navigateur indisponible : ${raison}`);
+    return { raison };
   }
 }
 

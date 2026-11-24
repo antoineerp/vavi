@@ -17,7 +17,7 @@ import { scellerUnSecret } from './les-jetons';
 import { avecUneMemoire, etatSurSupabase, type EtatDeLAcces } from './l-etat-de-l-acces';
 import { configurationPublique } from '@/lib/supabase/configuration';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
-import { leNavigateurDuServeur, preRendre } from '@/lib/seo/le-pre-rendu';
+import { ouvrirLeNavigateur, preRendre } from '@/lib/seo/le-pre-rendu';
 import type { ContexteDuServeur } from './le-serveur';
 import { abonnementsSurSupabase } from '@/lib/abonnements/sur-supabase';
 import { lEtatDuCompte, laVueDeLAbonnement, leDroitDePublier } from '@/lib/abonnements/l-abonnement';
@@ -59,9 +59,11 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
       async preRendre(projet, dist, m) {
         const publique = configurationPublique(process.env);
         const schema = schemaDuProjet(projet);
-        const navigateur = publique.lue && schema ? await leNavigateurDuServeur([publique.valeur.url]) : null;
-        if (!navigateur || !publique.lue || !schema) return null;
-        return preRendre(navigateur, dist, { env: { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet },
+        if (!publique.lue || !schema) return null;
+        const o = await ouvrirLeNavigateur([publique.valeur.url]);
+        // La raison remonte au résultat de `build_preview` (« failed: … ») : sans elle, rien ne dit pourquoi le pré-rendu manque.
+        if ('raison' in o) throw new Error(`no browser: ${o.raison}`);
+        return preRendre(o.navigateur, dist, { env: { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet },
           app: { nom: m.nom, description: m.description, langue: m.langues.principale, autres: m.langues.autres, editeur: m.editeur ?? null } });
       },
       permis: lesPaquetsDuGabarit(leGabarit()),
