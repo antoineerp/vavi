@@ -19,6 +19,10 @@ export const TEXTES = {
     textes: 'Modifier les textes', textesExplication: 'Cliquez sur un texte de l’aperçu, réécrivez-le, enregistrez. L’aperçu se reconstruit en une minute environ ; rien ne part en ligne avant « Publier ».',
     textesActif: 'Arrêter de modifier', textesChoisir: 'Cliquez sur le texte à changer.', textesPasIci: 'Ce texte ne se change pas ici (il vient du cadre de l’app ou d’une donnée) : demandez-le à Claude.',
     enregistrer: 'Enregistrer', annuler: 'Annuler', enCours: 'Enregistrement et reconstruction de l’aperçu…',
+    messages: 'Messages reçus', messagesVide: 'Aucun message pour l’instant. Les formulaires de votre site arrivent ici, et dans votre boîte de courriel.',
+    messagesSansCourriel: 'L’envoi par courriel n’est pas encore réglé sur vavi : vos messages sont gardés ici.', spam: 'classé indésirable',
+    courrielEchec: 'le courriel n’a pas pu partir', audience: 'Visites du site en ligne (30 jours)', audienceVide: 'Aucune visite comptée : seul le site en ligne compte, jamais l’aperçu, sans cookie.',
+    visites: 'visites', pagesVues: 'Pages', provenances: 'D’où l’on vient', campagnes: 'Campagnes',
     textesFait: 'Texte changé : l’aperçu est à jour.', textesRouge: 'Texte enregistré, mais l’aperçu n’a pas pu se reconstruire : revenez à la version d’avant, ou demandez à Claude.',
     textesRefus: {
       chantier_ouvert: 'Claude travaille sur ce projet en ce moment : réessayez quand il aura fini.', conflit: 'Le projet a changé entre-temps : rechargez la page.',
@@ -46,6 +50,10 @@ export const TEXTES = {
     textes: 'Edit the texts', textesExplication: 'Click a text in the preview, rewrite it, save. The preview rebuilds in about a minute; nothing goes online before "Publish".',
     textesActif: 'Stop editing', textesChoisir: 'Click the text to change.', textesPasIci: 'This text cannot be changed here (it comes from the app frame or from data): ask Claude.',
     enregistrer: 'Save', annuler: 'Cancel', enCours: 'Saving and rebuilding the preview…',
+    messages: 'Messages received', messagesVide: 'No message yet. Your site’s forms arrive here, and in your mailbox.',
+    messagesSansCourriel: 'Sending by e-mail is not set up on vavi yet: your messages are kept here.', spam: 'marked as spam',
+    courrielEchec: 'the e-mail could not be sent', audience: 'Visits of the online site (30 days)', audienceVide: 'No visit counted: only the online site counts, never the preview, without cookies.',
+    visites: 'visits', pagesVues: 'Pages', provenances: 'Where visitors come from', campagnes: 'Campaigns',
     textesFait: 'Text changed: the preview is up to date.', textesRouge: 'Text saved, but the preview could not rebuild: go back to the previous version, or ask Claude.',
     textesRefus: {
       chantier_ouvert: 'Claude is working on this project right now: try again when it is done.', conflit: 'The project changed meanwhile: reload the page.',

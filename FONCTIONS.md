@@ -15,7 +15,7 @@ dépendances déclarées.
 | Clé | Fonction | Module | Test | Dépend de | État | Lot |
 | --- | --- | --- | --- | --- | --- | --- |
 | socle | Configuration et auth Supabase (navigateur, serveur, service, session) | lib/supabase | test/supabase-configuration.test.ts | — | neuve | 1 |
-| gardes | Les gardes du dépôt (cette liste, la fermeture des imports) et l'écriture des migrations | scripts | test/fonctions.test.ts | relais, projets, vente | neuve | 1 |
+| gardes | Les gardes du dépôt (cette liste, la fermeture des imports) et l'écriture des migrations | scripts | test/fonctions.test.ts | relais, projets, vente, formulaires | neuve | 1 |
 | backend | Base par projet dérivée d'app.json : tables, RLS, cycles, journal, membres (SQL pur) | lib/backend | test/backend/ | — | reprise | 2 |
 | relais | Base de la plateforme : schéma par projet, pose de la base, relais navigateur → base sous la RLS (`voie_neuve_*`), agir pour un compte | lib/relais | test/relais/ | backend | reprise | 2 |
 | projets | Les projets d'un compte et les fichiers que Claude écrit, gardés tels quels (tables de la plateforme, écriture d'un lot en une transaction), l'arbre construit qu'ils donnent, le build désigné (aperçu, en ligne) | lib/projets | test/projets/ | backend, squelette | neuve | 5 |
@@ -32,11 +32,11 @@ dépendances déclarées.
 | domaines | Domaines personnalisés et leurs certificats (avec l’hébergement, décision du 24/11) | lib/domaines | test/domaines.test.ts | socle | à reprendre | 9 |
 | versions | Revenir à une version (outil `rollback`, « Revenir à cet état » de la console), en une version nouvelle, la base reposée si app.json change | lib/versions | test/versions/ | projets, relais | neuve | 6 |
 | contenus | Textes réécrits par la personne dans l'aperçu de la console, sans modèle (`data-texte`) : le passage désigné seul, relu au caractère près, en une version, l'aperçu rebâti (exception à la règle 4, décision du 24/11) | lib/contenus | test/contenus/ | squelette, projets | reprise | 6 |
-| formulaires | Formulaires jugés par la plateforme (anti-spam), mesure d'audience sans cookie | lib/formulaires | test/formulaires.test.ts | socle | à reprendre | 6 |
-| export | Export vers un hébergeur (OVH, Infomaniak, Netlify, Vercel) et GitHub | lib/export | test/export.test.ts | publication | à reprendre | 6 |
+| formulaires | Formulaires des apps jugés par la plateforme (leurre, texte tiré au hasard, preuve de visite, plafonds), gardés même en spam et transmis au propriétaire par courriel ; mesure d'audience sans cookie du site en ligne | lib/formulaires | test/formulaires/ | — | reprise | 6 |
+| export | Export honnête du code et des données (vers un hébergeur, GitHub, ou une archive), réservé aux offres payantes (décision du 24/11) | lib/export | test/export.test.ts | publication, abonnements | à reprendre | 8 |
 | tableau-de-bord | La console : connexion par lien, projets, aperçu et site en ligne, bouton « Publier » (la personne seule met en ligne), versions et « Revenir à cet état », secrets (noms seulement) | app/projets | test/tableau-de-bord.test.ts | socle, projets, versions, mcp | neuve | 6 |
 | automatisations | Automatisations : moteur, registre, tic | lib/automatisations | test/automatisations.test.ts | socle, backend, capacites | à reprendre | 7 |
 | connecteurs | Connecteurs (Google Drive, OneDrive, clés API) | lib/connecteurs | test/connecteurs.test.ts | socle | à reprendre | 7 |
 | agents | Agents de l'app, qui proposent seulement | lib/agents | test/agents.test.ts | socle, backend, capacites | à reprendre | 7 |
 | capacites | Capacités des apps (courriel, SMS, PDF, agenda, vision…), une par une | lib/capacites | test/capacites.test.ts | socle | à reprendre | 7 |
-| abonnements | Abonnements de la plateforme et quotas | lib/abonnements | test/abonnements.test.ts | socle | à reprendre | 8 |
+| abonnements | Abonnements de la plateforme et quotas : l'offre gratuite n'a que l'aperçu, « Publier » exige une offre payante (décision du 24/11) | lib/abonnements | test/abonnements.test.ts | socle | à reprendre | 8 |

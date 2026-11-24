@@ -2,6 +2,7 @@
  * Servir un projet depuis le magasin des builds : l'aperçu (`/p/<id>/`, le build désigné par `publish`, ou le brouillon
  * `?brouillon=<empreinte>` retenu par un cookie limité à l'aperçu) ou le site public (`/s/<id>/`, le build que la
  * personne a mis en ligne avec « Publier » ; jamais un brouillon). Le même dist sert les deux (`poserLEnvironnement`).
+ * Chaque page servie porte la preuve de sa visite (`lib/formulaires`), que l'envoi d'un formulaire présente.
  */
 import { configurationPublique } from '@/lib/supabase/configuration';
 import { clientDeService } from '@/lib/supabase/service';
@@ -12,6 +13,8 @@ import { servirLeSite } from '@/lib/seo/servir-le-site';
 import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { leBuildDesigne } from '@/lib/projets/les-projets';
+import { CHEMIN_DE_LA_PREUVE, DUREE_DE_LA_PREUVE_S, emettreLaPreuve, nomDeLaPreuve } from '@/lib/formulaires/le-jugement';
+import { secretDeLaPreuve } from './les-formulaires-reels';
 
 const leCookie = (requete: Request): string | null =>
   (requete.headers.get('cookie') ?? '').split(';').map((x) => x.trim()).find((x) => x.startsWith(`${COOKIE_DU_BROUILLON}=`))?.slice(COOKIE_DU_BROUILLON.length + 1) ?? null;
@@ -38,5 +41,10 @@ export async function servirUnProjet(requete: Request, brut: string, chemin: rea
   const entetes = new Headers({ 'content-type': r.type, 'cache-control': r.cache, 'x-content-type-options': 'nosniff', vary: 'cookie', ...r.entetes });
   if (choix.cookie === 'poser') entetes.append('set-cookie', `${COOKIE_DU_BROUILLON}=${choix.empreinte}; Path=${base}; HttpOnly; Secure; SameSite=Lax`);
   if (choix.cookie === 'effacer') entetes.append('set-cookie', `${COOKIE_DU_BROUILLON}=; Path=${base}; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
+  // Chaque page servie porte la preuve de sa visite (l'heure, signée), que seul l'envoi d'un formulaire reçoit.
+  const secret = secretDeLaPreuve();
+  if (secret && r.statut === 200 && r.type.startsWith('text/html')) {
+    entetes.append('set-cookie', `${nomDeLaPreuve(id)}=${await emettreLaPreuve(id, Date.now(), secret)}; Path=${CHEMIN_DE_LA_PREUVE}; Max-Age=${DUREE_DE_LA_PREUVE_S}; HttpOnly; Secure; SameSite=Lax`);
+  }
   return new Response(new Uint8Array(r.corps), { status: r.statut, headers: entetes });
 }
