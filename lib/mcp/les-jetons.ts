@@ -27,7 +27,7 @@ export interface Code { readonly client: string; readonly redirection: string; r
 /** `emis` : l'instant d'émission (ms), que la déconnexion de Claude compare ; absent sur un jeton d'avant le 24/11. */
 export interface Acces { readonly compte: string; readonly client: string; readonly emis?: number }
 
-type Piece = 'client' | 'code' | 'acces' | 'renouvellement' | `secret:${string}`;
+type Piece = 'client' | 'code' | 'acces' | 'renouvellement' | 'vue' | `secret:${string}`;
 const PREFIXE = 'vavi.';
 
 /** La clé des jetons, lue de l'environnement : absente ou mal formée, aucune pièce ne s'écrit ni ne se lit. */
@@ -148,4 +148,19 @@ export const scellerUnSecret = (projet: string, nom: string, valeur: string): st
 export function ouvrirUnSecret(projet: string, nom: string, scelle: unknown): Issue<string> {
   const o = desceller<{ valeur?: unknown }>(`secret:${projet}:${nom}`, scelle, Date.now());
   return o.lu && typeof o.valeur.valeur === 'string' ? lu(o.valeur.valeur) : pasLu('secret illisible');
+}
+
+/* ── LE JETON DE LA VUE (MCP Apps) ──────────────────────────────────────── */
+
+/**
+ * La preuve qu'un geste vient de la PERSONNE, dans la vue de vavi affichée par Claude.ai, et non du modèle : le jeton
+ * n'est posé que dans le HTML de la vue (`resources/read` de `ui://vavi/projet`, lu par l'hôte, jamais rendu au modèle).
+ * Lié au compte, valable 24 h. Sans lui, « mettre en ligne » est refusé (décision d'Antoine du 24/11 : Publier aussi
+ * dans Claude, cliqué par lui seul).
+ */
+export const DUREE_DU_JETON_DE_VUE_MS = 24 * 60 * 60_000;
+export const ecrireUnJetonDeVue = (compte: string, maintenant = Date.now()): string => sceller('vue', { compte }, maintenant + DUREE_DU_JETON_DE_VUE_MS);
+export function lireUnJetonDeVue(jeton: unknown, compte: string, maintenant = Date.now()): boolean {
+  const v = desceller<{ compte?: unknown }>('vue', jeton, maintenant);
+  return v.lu && v.valeur.compte === compte;
 }

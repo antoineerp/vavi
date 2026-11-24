@@ -20,7 +20,9 @@ import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { leNavigateurDuServeur, preRendre } from '@/lib/seo/le-pre-rendu';
 import type { ContexteDuServeur } from './le-serveur';
 import { abonnementsSurSupabase } from '@/lib/abonnements/sur-supabase';
-import { lEtatDuCompte, laVueDeLAbonnement } from '@/lib/abonnements/l-abonnement';
+import { lEtatDuCompte, laVueDeLAbonnement, leDroitDePublier } from '@/lib/abonnements/l-abonnement';
+import { boiteSurSupabase, lesVisites } from '@/lib/formulaires/sur-supabase';
+import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 
 const REFUS_PRECEDENTS = new Map<string, Refus>();
 const LANGUES_DES_COMPTES = new Map<string, string>();
@@ -70,6 +72,16 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
       async abonnement() {
         const e = await lEtatDuCompte({ ...abonnementsSurSupabase(base), maintenant: Date.now() }, compte);
         return e.lu ? laVueDeLAbonnement(e.valeur, `${adresseDeLaPlateforme()}/abonnement`) : null;
+      },
+      vue: {
+        async messages(projet) { const m = await boiteSurSupabase(base).lister(projet, 100); return m.lu ? m.valeur.length : null; },
+        async visites(projet) { const v = await lesVisites(base, projet, 30); return v.lu ? v.valeur.length : null; },
+        async droitDePublier(projet) {
+          const f = await projets.fichiers(compte, projet);
+          const m = f.lu ? leManifesteStocke(f.valeur.get('app.json')) : null;
+          const d = await leDroitDePublier({ ...abonnementsSurSupabase(base), maintenant: Date.now() }, compte, projet, m?.lu ? m.manifeste : null);
+          return !d.lu ? null : d.valeur.permis ? { permis: true } : { permis: false, pourquoi: d.valeur.detail };
+        },
       },
     },
   };

@@ -25,6 +25,7 @@ import { refuser, suiteDeRefus, paquetInconnu, type Refus } from '@/lib/consigne
 import { estUnFichierDEnvironnement, unSecretDans } from './les-secrets';
 import { lArbreDUnProjet } from '@/lib/projets/l-arbre-d-un-projet';
 import { revenirA } from '@/lib/versions/revenir';
+import type { LecturesDeLaVue } from './les-gestes-de-la-vue';
 
 export interface Contexte {
   readonly compte: string;
@@ -47,6 +48,8 @@ export interface Contexte {
   readonly refusPrecedents: Map<string, Refus>;
   /** L'abonnement du compte, tel que Claude le lit (l'offre, ce qu'elle publie, où la choisir) ; absent : non dit. */
   readonly abonnement?: () => Promise<Record<string, unknown> | null>;
+  /** Ce que la vue de vavi dans Claude lit en plus (messages, visites, droit de publier) ; absent : « — ». */
+  readonly vue?: LecturesDeLaVue;
 }
 
 export type Rendu = { readonly ok: true; readonly [champ: string]: unknown } | Refus;
@@ -388,7 +391,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   const deja = await c.projets.leBuild(c.compte, a.project, arbre.empreinte);
   if (deja.lu && deja.valeur?.vert) {
     const designe = await c.projets.publierLApercu(c.compte, a.project, arbre.empreinte);
-    return fait({ green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, rebuilt: false,
+    return fait({ project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, rebuilt: false,
       preview_updated: designe.lu, note: 'Nothing changed since the last green build.' });
   }
   // Des chemins relatifs : le même build sert l'aperçu, le brouillon et le site public (`poserLEnvironnement`).
@@ -422,7 +425,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   // vert) : la console et le lien montrent la dernière version qui se construit ; `publish` ferme le chantier.
   const designe = await c.projets.publierLApercu(c.compte, a.project, arbre.empreinte);
   return fait({
-    green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree,
+    project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree,
     preview_updated: designe.lu,
     checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the preview and check.',
     prerendered: pre === null ? 'skipped: no browser on this vavi server, public pages need JavaScript to be read'
@@ -446,7 +449,7 @@ export async function publierLApercu(c: Contexte, a: { project: string; work_ses
   const ferme = await c.projets.fermerChantier(c.compte, a.project, a.work_session, 'publie');
   if (!ferme.lu) return panne(ferme.pourquoi);
   return fait({
-    preview_url: urlDeLApercu(c, a.project), work_session: 'closed',
+    project: a.project, preview_url: urlDeLApercu(c, a.project), work_session: 'closed',
     note: 'The work session is closed; the preview shows this version. It is not online for the public: only the person puts it online, with the Publish button.',
   });
 }

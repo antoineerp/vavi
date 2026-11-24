@@ -11,7 +11,7 @@ import { derive } from '@/squelette/poser';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { empreinteDuFichier } from '@/lib/projets/les-empreintes';
 import type { Construction } from '@/lib/atelier/construire';
-import { appelerUnOutil, lesOutils } from '@/lib/mcp/les-outils';
+import { appelerUnOutil, lesOutils, DEFINITIONS_DE_LA_VUE } from '@/lib/mcp/les-outils';
 import { GESTES_D_UNE_LONGUE_CONVERSATION, type Contexte, type Rendu } from '@/lib/mcp/les-gestes';
 import { servirLeMcp } from '@/lib/mcp/le-serveur';
 import { desProjetsEnMemoire } from '../aides/des-projets-en-memoire';
@@ -66,7 +66,7 @@ beforeEach(() => {
 
 describe('les outils', () => {
   it('sont exactement ceux que les consignes nomment, chacun avec son schéma', () => {
-    expect(lesOutils().map((o) => o.name).sort()).toEqual([...OUTILS].sort());
+    expect(lesOutils().map((o) => o.name).filter((n) => !Object.hasOwn(DEFINITIONS_DE_LA_VUE, n)).sort()).toEqual([...OUTILS].sort());
     for (const o of lesOutils()) expect(o.inputSchema).toMatchObject({ type: 'object' });
   });
 });
