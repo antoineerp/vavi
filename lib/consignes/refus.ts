@@ -21,6 +21,7 @@ export const CODES_DE_REFUS = {
   fichier_du_cadre: 'This file belongs to the platform. Use the tool named in `fait` instead of writing it.',
   secret_dans_le_code: 'Remove the secret from the code. Store it with `set_secret`; the code calls the capability instead.',
   paquet_inconnu: 'Add the package first with `add_packages` (it checks it on the npm registry), then send the change again.',
+  erreur_masquee: 'Remove it and fix the type itself: give the real type, or `unknown` narrowed by a check. Read src/donnees/types.ts for the types of the tables.',
   build_rouge: 'Fix the errors one by one at the file and line given: `apply_changes` builds again.',
   build_perime: 'The project changed since the last build. Run `build_preview` again before publishing.',
   app_json_refuse: 'Fix app.json at the place given in `fait`, then send it again with `configure_backend`.',
@@ -48,6 +49,12 @@ export interface Refus {
   readonly arreter?: string;
 }
 
+/** Trois builds rouges de suite sur un projet, quelles que soient les erreurs : Claude s'empile des corrections. Remet
+ * l'arrêt du 24/11, disparu de main (doc « Les règles réelles », 25/11). */
+export const BUILDS_ROUGES_AVANT_L_ARRET = 3;
+export const ARRETER_APRES_LES_ROUGES =
+  'This is the third red build in a row on this project. Stop correcting: explain to the person in plain words what fails, and propose `rollback` to the last green version, or a smaller change.';
+
 export const ARRETER =
   'This is the second time in a row you get this same refusal. Stop, and explain the blockage to the person in plain words before trying anything else.';
 
@@ -67,5 +74,6 @@ const cleDuRefus = (r: Refus): string => `${r.code}|${r.fichier ?? ''}|${r.ligne
 
 /** Ajoute l'arrêt quand le refus répète, à l'identique, le précédent rendu sur ce chantier. */
 export function suiteDeRefus(precedent: Refus | null, present: Refus): Refus {
+  if (present.arreter) return present;
   return precedent && cleDuRefus(precedent) === cleDuRefus(present) ? { ...present, arreter: ARRETER } : present;
 }

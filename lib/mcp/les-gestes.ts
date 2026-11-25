@@ -24,7 +24,7 @@ import type { Construction } from '@/lib/atelier/construire';
 import type { Magasin } from '@/lib/publication/le-magasin';
 import type { PreRendu } from '@/lib/seo/le-pre-rendu';
 import { publierLeDist, racineDuBuild } from '@/lib/publication/publier';
-import { refuser, suiteDeRefus, paquetInconnu, type Refus } from '@/lib/consignes';
+import { refuser, suiteDeRefus, paquetInconnu, uneErreurMasquee, BUILDS_ROUGES_AVANT_L_ARRET, ARRETER_APRES_LES_ROUGES, type Refus } from '@/lib/consignes';
 import { estUnFichierDEnvironnement, unSecretDans } from './les-secrets';
 import { connecteurDuSecret, PREFIXE_DU_SECRET } from '@/lib/connecteurs/les-connecteurs';
 import { CHEMIN_DU_GABARIT, garderLeGabaritCourant, lArbreLu, laVersionFixee, leFichierDuGabarit } from '@/lib/projets/le-gabarit-du-projet';
@@ -58,6 +58,8 @@ export interface Contexte {
   readonly scellerUnSecret: (projet: string, nom: string, valeur: string) => string;
   /** Le dernier refus rendu, par compte et projet : le même deux fois de suite dit d'arrêter. */
   readonly refusPrecedents: Map<string, Refus>;
+  /** Les builds rouges de suite, par compte et projet ; absent : une mémoire du processus. */
+  readonly buildsRouges?: Map<string, number>;
   /** L'abonnement du compte, tel que Claude le lit (l'offre, ce qu'elle publie, où la choisir) ; absent : non dit. */
   readonly abonnement?: () => Promise<Record<string, unknown> | null>;
   /** Ce que la vue de vavi dans Claude lit en plus (messages, visites, droit de publier) ; absent : « — ». */
@@ -132,11 +134,26 @@ export function cheminRefuse(chemin: string, pourSupprimer = false): Refus | nul
  * s'exécutait au build. */
 export const dansLePerimetre = (chemin: string): boolean => /^(src|public)\/./.test(chemin);
 
-/** Ce qu'un texte ne doit pas porter : une clé secrète, un paquet ni du gabarit ni ajouté par `add_packages`. */
-function texteRefuse(permis: readonly string[], chemin: string, texte: string): Refus | null {
+/** Ce qu'un texte ne doit pas porter : une clé secrète, une erreur de types masquée, un paquet ni du gabarit ni ajouté
+ * par `add_packages`. */
+function texteRefuse(permis: readonly string[], chemin: string, texte: string, avant?: string): Refus | null {
   const secret = unSecretDans(texte);
   if (secret) return refuser('secret_dans_le_code', `${chemin} contains what looks like a secret (${secret.sorte}).`, { fichier: chemin, ligne: secret.ligne });
+  const masquee = uneErreurMasquee(chemin, texte, avant);
+  if (masquee) return masquee;
   return /\.(tsx?|jsx?|mjs)$/.test(chemin) ? paquetInconnu(chemin, texte, permis) : null;
+}
+
+const BUILDS_ROUGES = new Map<string, number>();
+/** Compte les builds rouges de suite d'un projet ; un vert remet à zéro. Rend le nombre de rouges de suite. */
+function compterLeBuild(c: Contexte, projet: string, vert: boolean): number {
+  const m = c.buildsRouges ?? BUILDS_ROUGES;
+  const cle = `${c.compte}|${projet}`;
+  if (vert) { m.delete(cle); return 0; }
+  const n = (m.get(cle) ?? 0) + 1;
+  m.set(cle, n);
+  if (m.size > 10_000) m.delete(m.keys().next().value!);
+  return n;
 }
 
 /** Les paquets qu'une page de CE projet peut importer : ceux du gabarit, plus ceux qu'`add_packages` a vérifiés. */
@@ -389,7 +406,7 @@ export async function appliquerDesChangements(c: Contexte, a: { project: string;
     }
     const nouveau = leNouveauTexte(ch.path, actuel, ch);
     if ('refuse' in nouveau) return nouveau;
-    const interdit = texteRefuse(permis, ch.path, nouveau.texte);
+    const interdit = texteRefuse(permis, ch.path, nouveau.texte, actuel);
     if (interdit) return interdit;
     taille += nouveau.texte.length;
     if (taille > MAX_ECRIT) return refuser('chemin_refuse', 'This call writes more than 2 MB of text.', { geste: 'Send the changes in several calls.' });
@@ -422,7 +439,7 @@ async function leBuildDuChangement(c: Contexte, id: string): Promise<Record<stri
     const { ok: _ok, project: _p, ...vert } = b as Record<string, unknown>;
     return vert;
   }
-  return { green: false, code: b.code, errors: b.fait, ...(b.fichier ? { file: b.fichier } : {}), ...(b.ligne ? { line: b.ligne } : {}), next: b.geste };
+  return { green: false, code: b.code, errors: b.fait, ...(b.fichier ? { file: b.fichier } : {}), ...(b.ligne ? { line: b.ligne } : {}), next: b.geste, ...(b.arreter ? { stop: b.arreter } : {}) };
 }
 
 export async function configurerLeBackend(c: Contexte, a: { project: string; work_session: string; app_json: unknown; read_fingerprint: string; why: string }): Promise<Rendu> {
@@ -553,6 +570,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   }
   const deja = await c.projets.leBuild(c.compte, a.project, arbre.empreinte);
   if (deja.lu && deja.valeur?.vert) {
+    compterLeBuild(c, a.project, true);
     const designe = await c.projets.publierLApercu(c.compte, a.project, arbre.empreinte);
     return fait({ project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, rebuilt: false,
       preview_updated: designe.lu, note: 'Nothing changed since the last green build.' });
@@ -567,8 +585,10 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
     await c.projets.enregistrerUnBuild(c.compte, a.project, { empreinte: arbre.empreinte, vert: false, ecarts: b.ecarts });
     const premier = b.ecarts[0];
     const liste = b.ecarts.slice(0, 15).map((e) => `${e.fichier ?? '?'}: ${e.fait}`).join(' | ');
-    return refuser('build_rouge', `The build failed at the ${b.etape === 'types' ? 'type check' : b.etape === 'build' ? 'bundling' : 'installation of the packages'} (${b.ecarts.length} error(s)): ${liste}`,
+    const rouges = compterLeBuild(c, a.project, false);
+    const r = refuser('build_rouge', `The build failed at the ${b.etape === 'types' ? 'type check' : b.etape === 'build' ? 'bundling' : 'installation of the packages'} (${b.ecarts.length} error(s)): ${liste}`,
       { ...(premier?.fichier ? { fichier: premier.fichier } : {}), ...(premier && ligneDe(premier.fait) ? { ligne: ligneDe(premier.fait) } : {}) });
+    return rouges >= BUILDS_ROUGES_AVANT_L_ARRET ? { ...r, arreter: ARRETER_APRES_LES_ROUGES } : r;
   }
   for (const [chemin, octets] of b.dist) {
     if (!TEXTES_DU_DIST.test(chemin)) continue;
@@ -602,6 +622,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   const temps = { build: b.duree, store: Date.now() - t0 };
   console.log(`[build_preview] ${a.project} build ${temps.build} ms, envoi ${temps.store} ms`);
   await c.projets.enregistrerUnBuild(c.compte, a.project, { empreinte: arbre.empreinte, vert: true, ecarts: [] });
+  compterLeBuild(c, a.project, true);
   // Un build vert DEVIENT l'aperçu (24/11, retour d'Antoine : la console disait « pas encore d'aperçu » après un build
   // vert) : la console et le lien montrent la dernière version qui se construit ; `publish` ferme le chantier.
   const designe = await c.projets.publierLApercu(c.compte, a.project, arbre.empreinte);

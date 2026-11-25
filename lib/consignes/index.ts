@@ -7,7 +7,8 @@ import { lePrompt, type LePrompt } from './prompts';
 import { laRessourceDesCapacites, lesPaquetsDuGabarit } from './paquets';
 
 export { OUTILS, type Outil } from './instructions';
-export { CODES_DE_REFUS, refuser, suiteDeRefus, type CodeDeRefus, type Refus } from './refus';
+export { CODES_DE_REFUS, refuser, suiteDeRefus, BUILDS_ROUGES_AVANT_L_ARRET, ARRETER_APRES_LES_ROUGES, type CodeDeRefus, type Refus } from './refus';
+export { uneErreurMasquee } from './les-erreurs-masquees';
 export { paquetInconnu, lesPaquetsDuGabarit } from './paquets';
 export { leGuide, GUIDE } from './guide';
 export { lesPrompts, LANGUES, type Langue } from './prompts';
