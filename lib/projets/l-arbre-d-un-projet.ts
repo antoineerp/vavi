@@ -8,7 +8,7 @@
  */
 import { lireLeManifeste, type Manifeste } from '@/lib/backend/app/manifeste';
 import { ceQueLAppTire, poserLeFige } from '@/squelette/poser';
-import { estFige } from '@/squelette/registre';
+import { estFige, POSES_PAR_UN_OUTIL } from '@/squelette/registre';
 import { empreinteDeLArbre } from '@/lib/projets/les-empreintes';
 
 export type ArbreDUnProjet =
@@ -31,6 +31,9 @@ export function lArbreDUnProjet(stockes: ReadonlyMap<string, string>): ArbreDUnP
   // Les fichiers de Claude, puis le figé par-dessus : un chemin du cadre est toujours celui que la plateforme pose.
   const complet = new Map([...stockes].filter(([c]) => !estFige(c)));
   for (const [c, t] of fige) complet.set(c, t);
+  // Ce que la plateforme pose pour la personne (son référencement, ses photos : « Gérer le contenu ») prend la place du
+  // fichier vide du gabarit ; Claude ne l'écrit jamais (`estFige` le lui refuse).
+  for (const c of POSES_PAR_UN_OUTIL) { const t = stockes.get(c); if (t !== undefined) complet.set(c, t); }
   const construit = ceQueLAppTire(complet, m.manifeste);
   return { lu: true, manifeste: m.manifeste, fige, construit, empreinte: empreinteDeLArbre(construit) };
 }
