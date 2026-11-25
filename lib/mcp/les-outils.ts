@@ -57,7 +57,7 @@ export const DEFINITIONS = {
   }),
   get_project_state: def({
     title: 'Read the state of a project', _meta: META_DE_LA_VUE, lecture: true, entree: z.object({ project: projet }),
-    description: 'Always call it first. The version, the open work session and its notes, your files with their fingerprints, the platform files to read first, the connectors the person plugged in, the state of the current build.',
+    description: 'Call it first on the project you change (a new site or app is a new project: `create_project`). The version, the open work session and its notes, your files with their fingerprints, the platform files to read first, the connectors the person plugged in, the state of the current build.',
     geste: (c, a) => g.lEtatDuProjet(c, a),
   }),
   read_files: def({
