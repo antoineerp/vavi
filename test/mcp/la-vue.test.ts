@@ -88,6 +88,19 @@ describe('la vue dans Claude', () => {
     expect(script).toContain("'ui/request-display-mode'");
   });
 
+  it('INCIDENT 25/11 — la fiche remplaçait l’aperçu : l’app s’affiche d’elle-même, les boutons seuls dans une barre fixe', async () => {
+    const ctx = { outils: c, langue: 'fr', gabaritPackageJson: GABARIT, noteDuChantier: async () => null } as ContexteDuServeur;
+    const r = await servirLeMcp({ jsonrpc: '2.0', id: 2, method: 'resources/read', params: { uri: RESSOURCE_DE_LA_VUE } }, ctx) as { result: { contents: { text: string }[] } };
+    const page = r.result.contents[0]!.text;
+    const script = page.slice(page.lastIndexOf('<script>') + 8, page.lastIndexOf('</script>'));
+    expect(script).toContain('if(f.app_html)ecrire(f.app_html)');
+    expect(script).toContain('attachShadow');
+    expect(script).toContain('position:fixed');
+    // L'écouteur des messages de l'hôte est reposé après chaque écriture (document.open l'efface).
+    expect(script).toMatch(/document\.close\(\);\s*window\.removeEventListener\('message',recevoir\);window\.addEventListener\('message',recevoir\)/);
+    expect(script).not.toMatch(/Dernières versions|Messages reçus|Essayer l’app ici/);
+  });
+
   it('INCIDENT 25/11 — Claude.ai refuse un <base> d’une autre origine : les fichiers de la page sont nommés en entier', () => {
     const a = 'https://vavi.test/p/x/';
     expect(lesFichiersEnEntier('<script type="module" crossorigin src="./assets/i.js"></script><link href="assets/i.css"><link href="/favicon.svg"><a href="https://ailleurs.test/">', a))
