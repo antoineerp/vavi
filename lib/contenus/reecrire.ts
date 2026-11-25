@@ -1,8 +1,8 @@
 /**
- * RÉÉCRIRE UN TEXTE DEPUIS LA CONSOLE — le geste de la personne, hors chantier : les passages désignés relus et
+ * RÉÉCRIRE UN TEXTE DEPUIS LA CONSOLE — le geste de la personne : les passages désignés relus et
  * remplacés (`les-textes.ts`), écrits en UNE version sur le fichier lu (empreinte attendue : jamais par-dessus un autre),
- * puis l'aperçu rebâti sans modèle et désigné s'il est vert. Pendant que Claude travaille (chantier ouvert), rien ne
- * s'écrit : ses fichiers bougent, et il les lit à la version près.
+ * puis l'aperçu rebâti sans modèle et désigné s'il est vert. Même pendant que Claude travaille (Antoine, 25/11 : « oui,
+ * toujours accepter ») : l'empreinte protège les deux côtés ; Claude, qui avait lu l'ancien fichier, reçoit `conflit` et relit.
  *
  * Neuf dans vavi. Remplace, pour vavi, la route `app/api/projects/[id]/contenus` de constructor-v13 (job de vérification).
  */
@@ -30,7 +30,6 @@ export async function lesTextesDUnElement(d: Pick<DependancesDeLaReecriture, 'co
 export async function reecrireUnTexte(d: DependancesDeLaReecriture, id: string, situation: string, apres: readonly string[]): Promise<Reecriture> {
   const p = await d.projets.lire(d.compte, id);
   if (!p.lu || !p.valeur) return { reecrit: false, pourquoi: 'panne' };
-  if (p.valeur.chantier) return { reecrit: false, pourquoi: 'chantier_ouvert' };
   const f = await d.projets.fichiers(d.compte, id);
   if (!f.lu) return { reecrit: false, pourquoi: 'panne' };
   const designes = lesPassagesDesignes(f.valeur, situation);
