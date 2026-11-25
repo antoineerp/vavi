@@ -6,6 +6,7 @@ import { peutOuvrir, type Acces } from './acces';
 import { APP } from './app';
 import { lArrivee } from './arrivee';
 import { langueCourante } from './langue';
+import { unMenuSeulementSIlChoisit } from './le-menu';
 import type { FaitDePage } from './faits';
 
 export interface EntreeDuMenu {
@@ -27,10 +28,11 @@ const auMenu = FAITS.pages.filter((p) => p.titre !== null && !p.chemin.includes(
  * publiques, même à qui est connecté (son espace s'ouvre par le compte) ; derrière un compte, ses écrans de travail.
  */
 export function menuPour(compte: boolean, roles: readonly string[], surface: EntreeDuMenu['surface']): readonly EntreeDuMenu[] {
-  return auMenu.filter((p) => peutOuvrir(acces(p), compte, roles)).map((p): EntreeDuMenu => ({
+  return unMenuSeulementSIlChoisit(auMenu.filter((p) => peutOuvrir(acces(p), compte, roles)).map((p): EntreeDuMenu => ({
     vers: p.chemin, libelle: titreDe(p) ?? p.chemin, icone: p.icone, surface: p.acces.nature === 'public' ? 'public' : 'travail',
-  })).filter((e) => e.surface === surface);
+  })).filter((e) => e.surface === surface));
 }
+
 
 /** Le titre d'une page dans la langue de la page (celle de l'app quand il n'y est pas traduit). */
 export function titreDe(p: FaitDePage): string | null {

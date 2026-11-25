@@ -4,13 +4,13 @@
  * bord de constructor, avec les seules fonctions qui marchent.
  */
 export type Langue = 'fr' | 'en';
-export type Ecran = '' | 'textes' | 'donnees' | 'messages' | 'visites' | 'fonctions' | 'contenu' | 'versions' | 'paiements' | 'confidentialite' | 'secrets';
+export type Ecran = '' | 'textes' | 'donnees' | 'messages' | 'visites' | 'fonctions' | 'contenu' | 'referencement' | 'versions' | 'paiements' | 'confidentialite' | 'secrets' | 'connecteurs';
 
 const NOMS: Record<Langue, Record<Ecran, string>> = {
   fr: { '': 'Vue d’ensemble', textes: 'Textes', donnees: 'Données', messages: 'Messages', visites: 'Visites', fonctions: 'Fonctions',
-    contenu: 'Apparence et référencement', versions: 'Versions', paiements: 'Paiements', confidentialite: 'Confidentialité', secrets: 'Clés secrètes' },
+    contenu: 'Apparence et titres', referencement: 'Référencement (SEO)', versions: 'Versions', paiements: 'Paiements', confidentialite: 'Confidentialité', secrets: 'Clés secrètes', connecteurs: 'Connecteurs' },
   en: { '': 'Overview', textes: 'Texts', donnees: 'Data', messages: 'Messages', visites: 'Visits', fonctions: 'Functions',
-    contenu: 'Appearance and search', versions: 'Versions', paiements: 'Payments', confidentialite: 'Privacy', secrets: 'Secret keys' },
+    contenu: 'Appearance and titles', referencement: 'Search (SEO)', versions: 'Versions', paiements: 'Payments', confidentialite: 'Privacy', secrets: 'Secret keys', connecteurs: 'Connectors' },
 };
 
 export interface Rubrique { readonly titre: string; readonly ecrans: readonly { readonly ecran: Ecran; readonly nom: string }[] }
@@ -20,9 +20,9 @@ export function leMenu(langue: Langue, o: { readonly vend: boolean }): readonly 
   const n = NOMS[langue];
   const e = (xs: readonly Ecran[]) => xs.map((ecran) => ({ ecran, nom: n[ecran] }));
   return [
-    { titre: langue === 'fr' ? 'Projet' : 'Project', ecrans: e(['', 'textes', 'contenu', 'versions']) },
+    { titre: langue === 'fr' ? 'Projet' : 'Project', ecrans: e(['', 'textes', 'contenu', 'referencement', 'versions']) },
     { titre: langue === 'fr' ? 'Activité' : 'Activity', ecrans: e(['donnees', 'messages', 'visites', ...(o.vend ? ['paiements' as const] : [])]) },
-    { titre: langue === 'fr' ? 'Réglages' : 'Settings', ecrans: e(['fonctions', 'secrets', 'confidentialite']) },
+    { titre: langue === 'fr' ? 'Réglages' : 'Settings', ecrans: e(['fonctions', 'connecteurs', 'secrets', 'confidentialite']) },
   ];
 }
 

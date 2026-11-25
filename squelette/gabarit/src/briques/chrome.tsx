@@ -2,7 +2,8 @@
  * Ce que le cadre tend au chrome de l'agent (`src/Chrome.tsx`) : le menu de la personne et la commande du compte.
  * Le chrome est à l'agent : en-tête, menu, pied. Il monte `<CommandeDuCompte />` et rend chaque entrée de `menu` ;
  * une app qui vend monte aussi `<LienDuPanier />` ; une app à plusieurs langues, `<ChoixDeLaLangue />` ; la vitrine
- * ferme sur `<PiedDePage />`.
+ * ferme sur `<PiedDePage />`. Un `menu` vide (une app d'une seule page) : l'en-tête ne porte que la marque, sans barre de
+ * navigation ni bouton de menu au téléphone.
  *
  * Ce qu'il remplace : le compte et le panier écrits en texte (« Se connecter », « Panier ») ; un pied laissé à l'écriture
  * de chaque app, réduit à une ligne ; et, sur la vitrine, les écrans de travail d'une personne connectée listés au menu.

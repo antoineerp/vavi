@@ -35,9 +35,14 @@ export async function servirUnProjet(requete: Request, brut: string, chemin: rea
   if (!designe.lu) return new Response('la base de vavi n’a pas répondu', { status: 503 });
   if (designe.valeur === 'inconnu') return new Response('projet inconnu', { status: 404 });
   // LE SITE EN LIGNE SE MET EN PAUSE quand l'abonnement de son propriétaire a fini sa grâce (rien n'est effacé ; l'aperçu reste).
+  // La balise Google Search Console du propriétaire va sur le site en ligne ; tant que la migration des réglages n'est pas
+  // posée, la colonne manque : on relit sans elle.
+  let verificationGoogle: string | null = null;
   if (lequel === 'en_ligne' && designe.valeur) {
-    const p = await clientDeService().from('vavi_projets').select('proprietaire').eq('id', id).maybeSingle<{ proprietaire: string }>();
+    let p = await clientDeService().from('vavi_projets').select('proprietaire, verification_google').eq('id', id).maybeSingle<{ proprietaire: string; verification_google?: string | null }>();
+    if (p.error && /verification_google/.test(p.error.message)) p = await clientDeService().from('vavi_projets').select('proprietaire').eq('id', id).maybeSingle<{ proprietaire: string }>();
     if (p.data && !(await leSiteDuProprietaireEstServi(p.data.proprietaire))) return enPause();
+    verificationGoogle = p.data?.verification_google ?? null;
   }
   // À son hôte (vague 0), l'app est servie à la racine ; sans domaine des apps, sous `/p/` ou `/s/` de la console.
   const hote = requete.headers.get('host');
@@ -49,7 +54,7 @@ export async function servirUnProjet(requete: Request, brut: string, chemin: rea
     ? leBuildAServir({ page: cheminDansLeDist(chemin) === 'index.html', demande: new URL(requete.url).searchParams.get('brouillon'), cookie: leCookie(requete), designe: designe.valeur })
     : { empreinte: designe.valeur, cookie: 'garder' as const };
   const r = await servirLeSite(magasin.magasin, choix.empreinte ? racineDuBuild(id, choix.empreinte) : null, chemin,
-    { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, base, projet: id, console: adresseDeLaPlateforme() }, lequel, racinePublique);
+    { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, base, projet: id, console: adresseDeLaPlateforme() }, lequel, racinePublique, verificationGoogle);
   const entetes = new Headers({ 'content-type': r.type, 'cache-control': r.cache, 'x-content-type-options': 'nosniff', vary: 'cookie', ...r.entetes });
   // Les fichiers de l'app (code, styles, images), publics, se chargent d'une autre origine : la vue de vavi dans Claude
   // exécute l'aperçu (essai du 24/11). Jamais une page : elle porte la preuve de visite et le cookie du brouillon.

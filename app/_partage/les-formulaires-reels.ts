@@ -23,9 +23,14 @@ export function laReceptionReelle(): DependancesDeLaReception {
   return {
     boite: boiteSurSupabase(base), courrier: leCourrierDeLaPlateforme(), maintenant: Date.now(),
     async proprietaireDe(projet) {
-      const p = await base.from('vavi_projets').select('nom, proprietaire').eq('id', projet).maybeSingle<{ nom: string; proprietaire: string }>();
+      // L'adresse choisie dans la console (`courriel_des_messages`), sinon celle du compte. Tant que la migration des
+      // réglages n'est pas posée, la colonne manque : on relit sans elle, et le courriel du compte sert.
+      let p = await base.from('vavi_projets').select('nom, proprietaire, courriel_des_messages').eq('id', projet)
+        .maybeSingle<{ nom: string; proprietaire: string; courriel_des_messages?: string | null }>();
+      if (p.error && /courriel_des_messages/.test(p.error.message)) p = await base.from('vavi_projets').select('nom, proprietaire').eq('id', projet).maybeSingle<{ nom: string; proprietaire: string }>();
       if (p.error) return { lu: false, pourquoi: p.error.message };
       if (!p.data) return { lu: true, valeur: null };
+      if (p.data.courriel_des_messages) return { lu: true, valeur: { nom: p.data.nom, courriel: p.data.courriel_des_messages } };
       const u = await base.auth.admin.getUserById(p.data.proprietaire);
       return { lu: true, valeur: { nom: p.data.nom, courriel: u.data.user?.email ?? null } };
     },

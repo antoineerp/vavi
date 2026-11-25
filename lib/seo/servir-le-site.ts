@@ -11,6 +11,7 @@ import type { Magasin } from '@/lib/publication/le-magasin';
 import { cheminDansLeDist, poserLEnvironnement, servirUnDist, type EnvDeLApp, type Reponse } from '@/lib/publication/servir';
 import { estUneAdresseDeLApp, FICHIER_DE_DECOUVERTE, FICHIERS_DE_DECOUVERTE, fichierDeDecouverte, laPageServie, lireLaDecouverte, ROBOTS_DE_L_APERCU, type Decouverte } from './la-decouverte';
 import { BASE_DU_PRE_RENDU, fichierDuPreRendu } from './le-pre-rendu';
+import { avecLaVerificationGoogle } from './la-note';
 
 export type ReponseDuSite = Reponse & { readonly entetes: Readonly<Record<string, string>> };
 const avec = (r: Reponse, entetes: Record<string, string> = {}): ReponseDuSite => ({ ...r, entetes });
@@ -22,10 +23,11 @@ async function lire(magasin: Magasin, cle: string): Promise<Buffer | null> {
 
 /**
  * `racinePublique` : l'adresse absolue du site en ligne, sans `/` final (`https://<vavi>/s/<id>`). `racine` : la clé du
- * build dans le magasin, `null` sans build.
+ * build dans le magasin, `null` sans build. `verificationGoogle` : le jeton Search Console du propriétaire, posé sur les
+ * pages du site en ligne (jamais sur l'aperçu).
  */
 export async function servirLeSite(magasin: Magasin, racine: string | null, segments: readonly string[], env: EnvDeLApp,
-  lequel: 'apercu' | 'en_ligne', racinePublique: string): Promise<ReponseDuSite> {
+  lequel: 'apercu' | 'en_ligne', racinePublique: string, verificationGoogle: string | null = null): Promise<ReponseDuSite> {
   const nom = segments.join('/');
   if (lequel === 'apercu') {
     if (nom === 'robots.txt') return avec(enTexte(200, 'text/plain; charset=utf-8', ROBOTS_DE_L_APERCU), { 'x-robots-tag': 'noindex' });
@@ -44,10 +46,12 @@ export async function servirLeSite(magasin: Magasin, racine: string | null, segm
   const adresse = `/${segments.flatMap((s) => s.split('/')).filter(Boolean).join('/')}`;
   const pre = d ? await lire(magasin, `${racine}/${fichierDuPreRendu(adresse)}`) : null;
   if (pre && d) {
-    const html = laPageServie(poserLEnvironnement(pre.toString('utf8').split(BASE_DU_PRE_RENDU).join(env.base), env), racinePublique, adresse, d);
+    const html = avecLaVerificationGoogle(laPageServie(poserLEnvironnement(pre.toString('utf8').split(BASE_DU_PRE_RENDU).join(env.base), env), racinePublique, adresse, d), verificationGoogle);
     return avec({ statut: 200, type: 'text/html; charset=utf-8', cache: 'no-store', corps: Buffer.from(html, 'utf8') });
   }
-  const r = await servirUnDist(magasin, racine, segments, env);
+  const servi = await servirUnDist(magasin, racine, segments, env);
+  const r = verificationGoogle && servi.statut === 200 && servi.type.startsWith('text/html')
+    ? { ...servi, corps: Buffer.from(avecLaVerificationGoogle(servi.corps.toString('utf8'), verificationGoogle), 'utf8') } : servi;
   // Une adresse qui n'est aucune page de l'app : la coquille la dit introuvable, et le code le dit aux robots.
   return avec(d && d.routes.length > 0 && r.statut === 200 && !estUneAdresseDeLApp(adresse, d.routes) ? { ...r, statut: 404 } : r);
 }

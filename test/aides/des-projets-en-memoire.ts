@@ -4,11 +4,11 @@
  * version par geste, un seul chantier ouvert, un geste exige le chantier ouvert.
  */
 import { randomUUID } from 'node:crypto';
-import type { Build, Chantier, Projet, Projets, Version } from '@/lib/projets/les-projets';
+import type { Build, Chantier, Projet, Projets, Reglages, Version } from '@/lib/projets/les-projets';
 import { arbreRejoue, empreinteDuFichier } from '@/lib/projets/les-empreintes';
 
 interface Etat { proprietaire: string; nom: string; fichiers: Map<string, string>; versions: (Version & { ecritsTextes: Record<string, string> })[];
-  chantier: { -readonly [K in keyof Chantier]: Chantier[K] } | null; builds: Map<string, Build>; apercu: string | null; enLigne: string | null; secrets: Map<string, string>; base: string | null }
+  chantier: { -readonly [K in keyof Chantier]: Chantier[K] } | null; builds: Map<string, Build>; apercu: string | null; enLigne: string | null; secrets: Map<string, string>; base: string | null; reglages?: Reglages }
 
 export function desProjetsEnMemoire(): Projets & { readonly etats: Map<string, Etat> } {
   const etats = new Map<string, Etat>();
@@ -67,5 +67,8 @@ export function desProjetsEnMemoire(): Projets & { readonly etats: Map<string, E
     async nomsDesSecrets(compte, id) { const e = sien(compte, id); return e ? lu([...e.secrets.keys()].sort()) : pasLu('projet inconnu'); },
     async marquerLaBase(compte, id, nom) { const e = sien(compte, id); if (e) { e.base = new Date().toISOString(); e.nom = nom; } return lu(true as const); },
     async poserUnSecret(compte, id, nom, valeur) { sien(compte, id)?.secrets.set(nom, valeur); return lu(true as const); },
+    async retirerUnSecret(compte, id, nom) { sien(compte, id)?.secrets.delete(nom); return lu(true as const); },
+    async reglages(compte, id) { const e = sien(compte, id); return e ? lu(e.reglages ?? { courrielDesMessages: null, verificationGoogle: null }) : pasLu('projet inconnu'); },
+    async regler(compte, id, r) { const e = sien(compte, id); if (!e) return pasLu('projet inconnu'); e.reglages = { courrielDesMessages: null, verificationGoogle: null, ...e.reglages, ...r }; return lu(true as const); },
   };
 }

@@ -73,7 +73,14 @@ export interface Projets {
   nomsDesSecrets(compte: string, projet: string): Promise<Issue<readonly string[]>>;
   marquerLaBase(compte: string, projet: string, nom: string): Promise<Issue<true>>;
   poserUnSecret(compte: string, projet: string, nom: string, valeurChiffree: string): Promise<Issue<true>>;
+  retirerUnSecret(compte: string, projet: string, nom: string): Promise<Issue<true>>;
+  /** Les réglages du projet ; illisibles tant que leur migration (20261125110000) n'est pas posée. */
+  reglages(compte: string, projet: string): Promise<Issue<Reglages>>;
+  regler(compte: string, projet: string, r: Partial<Reglages>): Promise<Issue<true>>;
 }
+
+/** Les réglages d'un projet que la personne pose dans la console. `null` : rien de posé (le courriel du compte sert). */
+export interface Reglages { readonly courrielDesMessages: string | null; readonly verificationGoogle: string | null }
 
 interface LigneDeProjet { id: string; nom: string; version: number; apercu_empreinte: string | null; en_ligne_empreinte: string | null; en_ligne_le: string | null; base_posee_le: string | null; modifie_le: string }
 interface LigneDeChantier { id: string; projet: string; intention: string; version_de_depart: number; ouvert_le: string; dernier_geste_le: string; gestes: number; fait: string[]; reste: string | null }
@@ -165,6 +172,19 @@ export function projetsSurSupabase(base: SupabaseClient): Projets {
         ? lu({ ouvert: false, autre: { id: d.chantier_ouvert.id, intention: d.chantier_ouvert.intention, ouvertLe: d.chantier_ouvert.ouvert_le, dernierGesteLe: d.chantier_ouvert.dernier_geste_le } })
         : lu({ ouvert: true, chantier: String(d.chantier), repris: Boolean(d.repris) });
     },
+    async reglages(compte, id) {
+      const refus = await aLui(compte, id);
+      if (refus) return pasLu(refus);
+      const r = await base.from('vavi_projets').select('courriel_des_messages, verification_google').eq('id', id)
+        .maybeSingle<{ courriel_des_messages: string | null; verification_google: string | null }>();
+      return r.error ? pasLu(r.error.message) : lu({ courrielDesMessages: r.data?.courriel_des_messages ?? null, verificationGoogle: r.data?.verification_google ?? null });
+    },
+    async regler(compte, id, x) {
+      const refus = await aLui(compte, id);
+      if (refus) return pasLu(refus);
+      const maj = { ...('courrielDesMessages' in x ? { courriel_des_messages: x.courrielDesMessages } : {}), ...('verificationGoogle' in x ? { verification_google: x.verificationGoogle } : {}) };
+      return ok(await base.from('vavi_projets').update(maj).eq('id', id));
+    },
     async fermerChantier(compte, id, chantier, issue) {
       const refus = await aLui(compte, id);
       if (refus) return pasLu(refus);
@@ -206,6 +226,11 @@ export function projetsSurSupabase(base: SupabaseClient): Projets {
       const refus = await aLui(compte, id);
       if (refus) return pasLu(refus);
       return ok(await base.from('vavi_secrets').upsert({ projet: id, nom, valeur, modifie_le: new Date().toISOString() }));
+    },
+    async retirerUnSecret(compte, id, nom) {
+      const refus = await aLui(compte, id);
+      if (refus) return pasLu(refus);
+      return ok(await base.from('vavi_secrets').delete().eq('projet', id).eq('nom', nom));
     },
   };
 }

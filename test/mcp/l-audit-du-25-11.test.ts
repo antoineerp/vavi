@@ -12,7 +12,7 @@ import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { appelerUnOutil } from '@/lib/mcp/les-outils';
 import type { Contexte } from '@/lib/mcp/les-gestes';
 import { unSecretDans } from '@/lib/mcp/les-secrets';
-import { typesDesTables, FONCTIONS_PAS_ENCORE_SERVIES, CE_QUE_CLAUDE_FAIT_DANS_LA_PAGE, lesFonctionsAFaireDansLaPage } from '@/squelette/les-types-des-tables';
+import { typesDesTables, FONCTIONS_PAS_ENCORE_SERVIES, CE_QUE_CLAUDE_FAIT_DANS_LA_PAGE, lesFonctionsAFaireDansLaPage, ceQueClaudeEnFait } from '@/squelette/les-types-des-tables';
 import { desProjetsEnMemoire } from '../aides/des-projets-en-memoire';
 import { unMagasinEnMemoire } from '../aides/un-magasin-en-memoire';
 import { NOTES, lu } from '../donnees/une-app';
@@ -60,10 +60,12 @@ describe('l’audit du 25/11', () => {
     const r = await creer({ ...NOTES, fonctions: { pdf: true, connecteur: true } });
     expect(r.not_available_yet).toMatch(/pdf: .*build it yourself.*jspdf/);
     expect(r.not_available_yet).not.toMatch(/pdf[^.]*not available yet/);
-    expect(r.not_available_yet).toMatch(/connecteur: needs a secret key/);
+    expect(ceQueClaudeEnFait(['telephone'])).toMatch(/telephone: needs a secret key/);
+    // Le connecteur est servi depuis le 25/11 (Connecteurs de la console, `/api/external/<projet>/call`).
+    expect(r.not_available_yet).not.toMatch(/connecteur/);
     const ressource = laRessourceDesCapacites([], lesFonctionsAFaireDansLaPage(FONCTIONS_PAS_ENCORE_SERVIES));
     expect(ressource).not.toMatch(/Do not promise them/);
-    expect(ressource).toMatch(/Waiting for vavi.*connecteur, telephone/);
+    expect(ressource).toMatch(/Waiting for vavi.*telephone/);
   });
 
   it('chaque paquet nommé pour le faire dans la page est dans le gabarit', () => {

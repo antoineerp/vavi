@@ -4,6 +4,9 @@
  * connecté (Supabase), puis passe par les fonctions de la plateforme, qui vérifient que le projet est à lui. Le résultat
  * revient à la page par son adresse (`?fait=`), jamais une valeur secrète.
  */
+import { leJetonGoogle } from '@/lib/seo/la-note';
+import { completerLeModele, MODELES_DE_CONNECTEURS } from '@/lib/connecteurs/l-acces';
+import { enSecret, FORME_DU_NOM, lireUnConnecteur, PREFIXE_DU_SECRET, secretDuConnecteur } from '@/lib/connecteurs/les-connecteurs';
 import { redirect } from 'next/navigation';
 import { laConsole } from '@/app/_partage/la-console';
 import { mettreLApercuEnLigne } from '@/lib/projets/la-mise-en-ligne';
@@ -50,6 +53,26 @@ export async function claudeAFini(id: string, ecran = '') {
   retour(id, r.lu ? { fait: 'claude_a_fini' } : { erreur: 'panne' }, ecran);
 }
 
+/** L'adresse qui reçoit les messages des formulaires ; vide : celle du compte. */
+export async function reglerLeCourriel(id: string, formulaire: FormData) {
+  if (!ID.test(id)) redirect('/projets');
+  const brut = String(formulaire.get('courriel') ?? '').trim();
+  if (brut && (brut.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(brut))) retour(id, { erreur: 'courriel_mal_forme' }, 'messages');
+  const c = await laConsole(`/projets/${id}/messages`);
+  const r = await c.projets.regler(c.compte, id, { courrielDesMessages: brut || null });
+  retour(id, r.lu ? { fait: 'courriel' } : { erreur: 'panne' }, 'messages');
+}
+
+/** La balise Google Search Console : collée entière ou son seul contenu ; vide, elle est retirée. */
+export async function reglerGoogle(id: string, formulaire: FormData) {
+  if (!ID.test(id)) redirect('/projets');
+  const jeton = leJetonGoogle(String(formulaire.get('google') ?? '').slice(0, 1000));
+  if (jeton === false) retour(id, { erreur: 'google_mal_forme' }, 'referencement');
+  const c = await laConsole(`/projets/${id}/referencement`);
+  const r = await c.projets.regler(c.compte, id, { verificationGoogle: jeton || null });
+  retour(id, r.lu ? { fait: 'google' } : { erreur: 'panne' }, 'referencement');
+}
+
 export async function revenir(id: string, version: number) {
   if (!ID.test(id) || !Number.isInteger(version) || version < 1) redirect('/projets');
   const c = await laConsole(`/projets/${id}`);
@@ -63,9 +86,39 @@ export async function poserUnSecret(id: string, formulaire: FormData) {
   const nom = String(formulaire.get('nom') ?? '').trim();
   const valeur = String(formulaire.get('valeur') ?? '');
   if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(nom) || valeur.length === 0 || valeur.length > 8000) retour(id, { erreur: 'secret_mal_forme' }, 'secrets');
+  if (nom.startsWith(PREFIXE_DU_SECRET)) retour(id, { erreur: 'secret_d_un_connecteur' }, 'secrets');
   const c = await laConsole(`/projets/${id}`);
   const r = await c.projets.poserUnSecret(c.compte, id, nom, scellerUnSecret(id, nom, valeur));
   retour(id, r.lu ? { fait: 'secret', nom } : { erreur: 'panne' }, 'secrets');
+}
+
+/** Branche un connecteur : un modèle complété (`modele`), ou « autre logiciel ». Gardé comme un secret scellé. */
+export async function brancherUnConnecteur(id: string, modele: string, formulaire: FormData) {
+  if (!ID.test(id)) redirect('/projets');
+  const champ = (n: string): string => String(formulaire.get(n) ?? '').slice(0, 4000).trim();
+  let brut: Record<string, unknown>;
+  if (modele === 'autre') {
+    brut = { nom: champ('nom'), libelle: champ('libelle'), baseUrl: champ('baseUrl'), cle: champ('cle'), acces: { forme: champ('forme') || 'bearer', ...(champ('entete') ? { entete: champ('entete') } : {}) } };
+  } else {
+    const m = MODELES_DE_CONNECTEURS.find((x) => x.id === modele);
+    if (!m) redirect(`/projets/${id}/connecteurs`);
+    const complet = completerLeModele(m, Object.fromEntries(m.champs.map((x) => [x.id, champ(x.id)])), champ('cle'));
+    if (!complet.ok) return retour(id, { erreur: 'connecteur_mal_forme', detail: complet.raison }, 'connecteurs');
+    brut = { nom: m.nomDansLApp, libelle: m.nom, ...complet.valeur };
+  }
+  const lu = lireUnConnecteur(brut);
+  if (!lu.ok) return retour(id, { erreur: 'connecteur_mal_forme', detail: lu.raison }, 'connecteurs');
+  const c = await laConsole(`/projets/${id}/connecteurs`);
+  const nom = secretDuConnecteur(lu.valeur.nom);
+  const r = await c.projets.poserUnSecret(c.compte, id, nom, scellerUnSecret(id, nom, enSecret(lu.valeur)));
+  retour(id, r.lu ? { fait: 'connecteur', nom: lu.valeur.nom } : { erreur: 'panne' }, 'connecteurs');
+}
+
+export async function retirerUnConnecteur(id: string, nom: string) {
+  if (!ID.test(id) || !FORME_DU_NOM.test(nom)) redirect('/projets');
+  const c = await laConsole(`/projets/${id}/connecteurs`);
+  const r = await c.projets.retirerUnSecret(c.compte, id, secretDuConnecteur(nom));
+  retour(id, r.lu ? { fait: 'retire', nom } : { erreur: 'panne' }, 'connecteurs');
 }
 
 /** Les passages d'un élément cliqué dans l'aperçu (`data-texte`), lus dans le fichier d'aujourd'hui. */

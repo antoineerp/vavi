@@ -217,3 +217,24 @@ export function laMigrationDeLaMiseEnLigne(): string {
     '',
   ].join('\n');
 }
+
+/**
+ * LES RÉGLAGES D'UN PROJET (25/11, demande d'Antoine) : l'adresse qui reçoit les messages des formulaires (sinon celle du
+ * compte), la balise de propriété Google Search Console. La console les écrit par la clé de service, jamais le navigateur.
+ */
+export const CHEMIN_DE_LA_MIGRATION_DES_REGLAGES = 'supabase/migrations/20261125110000_les_reglages_du_projet.sql';
+
+export const SQL_DES_REGLAGES = `
+ALTER TABLE public.vavi_projets ADD COLUMN IF NOT EXISTS courriel_des_messages TEXT CHECK (courriel_des_messages IS NULL OR (length(courriel_des_messages) <= 254 AND courriel_des_messages ~ '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$'));
+ALTER TABLE public.vavi_projets ADD COLUMN IF NOT EXISTS verification_google TEXT CHECK (verification_google IS NULL OR verification_google ~ '^[A-Za-z0-9_-]{10,100}$');
+`;
+
+export function laMigrationDesReglages(): string {
+  return [
+    '-- LES RÉGLAGES D\'UN PROJET — écrit par scripts/ecrire-la-migration-du-socle.ts depuis lib/projets/le-sql-des-projets.ts.',
+    '-- Ne pas modifier à la main : modifier la source, puis relancer le script.',
+    SQL_DES_REGLAGES.trim(),
+    '',
+  ].join('\n');
+}
+
