@@ -26,6 +26,11 @@ export default async function Page() {
         <div className="ligne"><span style={{ flex: 1 }}>{t.premierTexte}…</span><Copier texte={t.premierTexte} libelle={t.copier} fait={t.copie} /></div>
       </div>
       <div className="carte">
+        <label>{t.preference}</label>
+        <div className="ligne"><span style={{ flex: 1 }}>{t.preferenceTexte}</span><Copier texte={t.preferenceTexte} libelle={t.copier} fait={t.copie} /></div>
+        <p className="attenue">{t.preferenceOu}</p>
+      </div>
+      <div className="carte">
         <label>{t.adresse}</label>
         <div className="ligne"><code style={{ fontSize: '1rem', wordBreak: 'break-all' }}>{adresse}</code><Copier texte={adresse} libelle={t.copier} fait={t.copie} /></div>
         <p className="attenue">{t.secours}</p>

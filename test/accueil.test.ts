@@ -9,7 +9,8 @@ import { CENTIMES_D_UN_PROJET_EN_PLUS, OFFRES } from '@/lib/abonnements/les-offr
 import { TEXTES } from '@/app/_partage/textes';
 
 const ADRESSE = 'https://vavi.test/api/mcp';
-const page = laPageDAccueil(TEXTES.fr.commencer.premierTexte, ADRESSE, 'https://vavi.test');
+const T = { premier: TEXTES.fr.commencer.premierTexte, preference: TEXTES.fr.commencer.preferenceTexte };
+const page = laPageDAccueil(T, ADRESSE, 'https://vavi.test');
 
 describe('la page d’accueil', () => {
   it('le bouton « Ajouter vavi à Claude » ouvre le connecteur rempli ; l’adresse et le premier message se copient', () => {
@@ -17,6 +18,7 @@ describe('la page d’accueil', () => {
     expect(page.match(/>Ajouter vavi à Claude</g)?.length).toBeGreaterThanOrEqual(3);
     expect(page).toContain(`<code id="adresse-mcp">${ADRESSE}</code>`);
     expect(page).toContain('data-copier="premier-message"');
+    expect(page).toContain(`<code id="preference">${T.preference}</code>`);
     expect(page).not.toMatch(/__[A-Z_]+__/);
   });
 
@@ -41,6 +43,6 @@ describe('la page d’accueil', () => {
   });
 
   it('un texte avec des signes HTML ne casse pas la page', () => {
-    expect(laPageDAccueil('a "b" <c> & d', ADRESSE, 'https://vavi.test')).toContain('a &quot;b&quot; &lt;c&gt; &amp; d');
+    expect(laPageDAccueil({ premier: 'a "b" <c> & d', preference: 'x' }, ADRESSE, 'https://vavi.test')).toContain('a &quot;b&quot; &lt;c&gt; &amp; d');
   });
 });
