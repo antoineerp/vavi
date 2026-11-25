@@ -100,3 +100,22 @@ button.petit, .bouton.petit { padding: 0.4rem 0.9rem; font-size: 0.95rem; }
 .bloc-claude p { margin: 0; max-width: 60ch; }
 button.danger { color: var(--alerte); border-color: color-mix(in oklab, var(--alerte) 45%, transparent); }
 @media (max-width: 640px) { .barre { padding: 0.6rem 1rem; } .barre-courriel { display: none; } .barre-droite { flex-wrap: nowrap; gap: 0.6rem; font-size: 0.9rem; } .barre-droite button.petit { padding: 0.35rem 0.7rem; font-size: 0.85rem; } .tete-de-page h1 { font-size: 1.6rem; } }
+/* La barre du compte, la même sur toutes les pages (Antoine, 25/11 : tout se rejoint par le même menu). */
+.barre-menu { display: flex; gap: 0.25rem; margin-left: 1.5rem; }
+.barre-menu a { padding: 0.4rem 0.8rem; border-radius: 999px; color: var(--attenue); text-decoration: none; font-weight: 600; }
+.barre-menu a:hover { color: var(--texte); background: var(--menu); }
+.barre-menu a.actif { color: var(--accent); background: var(--accent-doux); }
+.projet > .barre + .projet-haut { position: static; }
+@media (max-width: 760px) { .barre { flex-wrap: wrap; } .barre-menu { order: 3; width: 100%; margin-left: 0; overflow-x: auto; } .barre-menu a { white-space: nowrap; } }
+/* Mon compte */
+.chiffres-du-compte { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin: 0 0 1.5rem; }
+.chiffre-du-compte { background: var(--surface); border: 1px solid var(--bord); border-radius: 16px; padding: 1.1rem 1.25rem; display: flex; flex-direction: column; gap: 0.25rem; }
+.chiffre-du-compte strong { font-size: 1.5rem; letter-spacing: -0.01em; }
+.chiffre-du-compte span { font-size: 0.9rem; }
+.carte-offre { background: var(--surface); border: 1px solid var(--bord); border-radius: 16px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.carte-offre.choisie { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.carte-offre .prix { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+.carte-offre form { margin-top: auto; display: flex; flex-direction: column; gap: 0.5rem; }
+.tableau-simple { width: 100%; border-collapse: collapse; }
+.tableau-simple th, .tableau-simple td { text-align: left; padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--bord); font-size: 0.95rem; }
+.tableau-simple th { color: var(--attenue); font-weight: 600; font-size: 0.85rem; }

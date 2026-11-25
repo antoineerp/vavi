@@ -5,6 +5,9 @@ import { TEXTES } from '@/app/_partage/textes';
 import { laLangue } from '@/app/_partage/la-langue';
 import { adresseMcp, lienDInstallation } from '@/lib/mcp/l-adresse';
 import { Copier } from './copier';
+import { BarreDuCompte } from '@/app/_partage/la-barre-du-compte';
+import { LogoVavi } from '@/app/_partage/le-logo';
+import { compteConnecte } from '@/lib/supabase/serveur';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +15,14 @@ export default async function Page() {
   const langue = await laLangue();
   const t = TEXTES[langue].commencer;
   const adresse = adresseMcp();
+  // Publique : connecté, la barre du compte ; sinon le logo et le lien pour se connecter ou créer son compte.
+  const c = await compteConnecte().catch(() => ({ connecte: false as const }));
   return (
+    <div className="accueil-console">
+    {c.connecte ? <BarreDuCompte langue={langue} courriel={c.utilisateur.email ?? ''} ici="commencer" /> : (
+      <header className="barre"><Link href="/" className="marque" aria-label="vavi"><LogoVavi /> vavi</Link>
+        <nav className="barre-droite"><Link href="/connexion">{langue === 'fr' ? 'Se connecter ou créer son compte' : 'Sign in or create your account'}</Link></nav></header>
+    )}
     <main className="console" style={{ maxWidth: 720 }}>
       <h1>{t.titre}</h1>
       <p>{t.intro}</p>
@@ -39,5 +49,6 @@ export default async function Page() {
       <p className="attenue">{t.bloque}</p>
       <p className="attenue"><Link href="/confidentialite">{t.confidentialite}</Link></p>
     </main>
+    </div>
   );
 }

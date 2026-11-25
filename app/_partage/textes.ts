@@ -61,7 +61,7 @@ export const TEXTES = {
     registreTraceurs: 'Traceurs posés', registreSansBandeau: 'Tous sont essentiels : aucun bandeau de consentement n’est exigé.', registreBandeau: 'Un traceur non essentiel est posé : un bandeau de consentement est exigé.',
     registreSousTraitants: 'Sous-traitants', registreDroits: 'Chaque personne connectée télécharge ses données et efface son compte depuis la page Confidentialité de l’app.',
     abonnement: {
-      titre: 'Mon abonnement', parMois: 'TTC par mois', choisir: 'Choisir', changer: 'Changer le nombre de projets',
+      titre: 'Mon compte', parMois: 'TTC par mois', choisir: 'Choisir', changer: 'Changer le nombre de projets',
       essai: 'Vous êtes sur l’essai gratuit : l’aperçu seulement. Rien ne se publie avant d’avoir choisi une offre.',
       actif: (o: string, n: number, d: string) => `Offre ${o} : ${n} projet(s) en ligne au plus. Prochain renouvellement le ${d}.`,
       resilieLe: (o: string, d: string) => `Offre ${o}, résiliée : vos sites restent en ligne jusqu’au ${d}, puis se mettent en pause.`,
@@ -142,7 +142,7 @@ export const TEXTES = {
     registreTraceurs: 'Trackers set', registreSansBandeau: 'All are essential: no consent banner is required.', registreBandeau: 'A non-essential tracker is set: a consent banner is required.',
     registreSousTraitants: 'Processors', registreDroits: 'Every signed-in person downloads their data and erases their account from the app’s Privacy page.',
     abonnement: {
-      titre: 'My subscription', parMois: 'per month, VAT included', choisir: 'Choose', changer: 'Change the number of projects',
+      titre: 'My account', parMois: 'per month, VAT included', choisir: 'Choose', changer: 'Change the number of projects',
       essai: 'You are on the free trial: preview only. Nothing is published before you choose an offer.',
       actif: (o: string, n: number, d: string) => `${o} offer: up to ${n} project(s) online. Next renewal on ${d}.`,
       resilieLe: (o: string, d: string) => `${o} offer, cancelled: your sites stay online until ${d}, then pause.`,

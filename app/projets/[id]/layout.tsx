@@ -1,5 +1,5 @@
 /**
- * La mise en page d'un projet dans la console : la barre du haut (le projet, son aperçu, « Gérer le contenu ») et le menu
+ * La mise en page d'un projet dans la console : la barre du compte (la même que partout), la barre du projet (le projet, son aperçu, « Gérer le contenu ») et le menu
  * latéral des écrans qui agissent (`la-navigation.ts`), comme le tableau de bord de constructor (Antoine, 25/11).
  */
 import type { ReactNode } from 'react';
@@ -8,7 +8,7 @@ import { notFound } from 'next/navigation';
 import { adresseDeLApp } from '@/app/_partage/l-adresse-des-apps';
 import { laConsole } from '@/app/_partage/la-console';
 import { TEXTES } from '@/app/_partage/textes';
-import { LogoVavi } from '@/app/_partage/le-logo';
+import { BarreDuCompte } from '@/app/_partage/la-barre-du-compte';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 import { laBoutique } from '@/lib/vente/la-boutique';
 import { BarreLaterale } from './la-barre-laterale';
@@ -30,8 +30,8 @@ export default async function MiseEnPage({ children, params }: { children: React
   const projet = p.lu ? p.valeur : null;
   return (
     <div className="projet">
+      <BarreDuCompte langue={c.langue} courriel={c.courriel} ici="projets" />
       <header className="projet-haut">
-        <Link href="/projets" className="marque" aria-label="vavi"><LogoVavi taille={26} /></Link>
         <Link href="/projets" className="projet-retour">{t.retour}</Link>
         <strong className="projet-nom">{projet?.nom ?? '…'}</strong>
         {projet && <span className="attenue">{t.version} {projet.version}</span>}

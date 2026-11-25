@@ -4,7 +4,7 @@ import { laConsole } from '@/app/_partage/la-console';
 import { TEXTES } from '@/app/_partage/textes';
 import { LogoVavi } from '@/app/_partage/le-logo';
 import { adresseDeLApp } from '@/app/_partage/l-adresse-des-apps';
-import { seDeconnecter } from '@/app/_partage/se-deconnecter';
+import { BarreDuCompte } from '@/app/_partage/la-barre-du-compte';
 import type { Projet } from '@/lib/projets/les-projets';
 import { retirerClaude } from './retirer-claude';
 
@@ -32,14 +32,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ c
   const date = (iso: string) => new Date(iso).toLocaleDateString(c.langue === 'fr' ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'long' });
   return (
     <div className="accueil-console">
-      <header className="barre">
-        <Link href="/projets" className="marque" aria-label="vavi"><LogoVavi /> vavi</Link>
-        <nav className="barre-droite" aria-label={m.compte}>
-          <Link href="/abonnement">{t.abonnement.titre}</Link>
-          <span className="attenue barre-courriel">{c.courriel}</span>
-          <form action={seDeconnecter}><button type="submit" className="discret petit">{t.deconnexion}</button></form>
-        </nav>
-      </header>
+      <BarreDuCompte langue={c.langue} courriel={c.courriel} ici="projets" />
       <main className="console large">
         <div className="tete-de-page">
           <div><h1>{t.mesProjets}</h1><p className="attenue">{m.sousTitre}</p></div>

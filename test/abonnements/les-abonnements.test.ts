@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHmac } from 'node:crypto';
 import { lEtat, lEtatAvecLOffert, lePeutPublier, leSiteEstServi, leMontant, laGrille, laReductionDuPaiement, GRILLE_DU_CODE, type Abonnement, type Reduction } from '@/lib/abonnements/les-offres';
-import { lEvenement, ouvrirLePaiement } from '@/lib/abonnements/stripe-billing';
-import { choisirUneOffre, laVueDeLAbonnement, recevoirUnEvenement, type DependancesDesAbonnements } from '@/lib/abonnements/l-abonnement';
+import { lEvenement, lesFactures, ouvrirLePaiement } from '@/lib/abonnements/stripe-billing';
+import { choisirUneOffre, laVueDeLAbonnement, lesFacturesDuCompte, ouvrirLePortailDuCompte, recevoirUnEvenement, type DependancesDesAbonnements } from '@/lib/abonnements/l-abonnement';
 import { CHEMIN_DE_LA_MIGRATION_DES_ABONNEMENTS, laMigrationDesAbonnements } from '@/lib/abonnements/le-sql-des-abonnements';
 
 const COMPTE = 'aaaaaaaa-0000-4000-8000-00000000000a';
@@ -145,5 +145,39 @@ describe('le webhook des abonnements', () => {
     expect(await choisirUneOffre(x, COMPTE, 'gratuit', 0)).toEqual({ refus: 'offre_inconnue' });
     expect(await choisirUneOffre(x, COMPTE, 'site', 99)).toEqual({ refus: 'offre_inconnue' });
     expect(x.resiliations).toEqual([]);
+  });
+});
+
+describe('Mon compte : les factures et la page de Stripe (25/11 : « voir les données financières de son compte »)', () => {
+  const stripe = (reponse: unknown, ok = true) => {
+    const appels: { url: string; body?: string }[] = [];
+    const appel = async (url: string, init: { body?: string }) => { appels.push({ url, body: init.body }); return { ok, json: async () => reponse }; };
+    return { appel, appels };
+  };
+  it('lit les factures de Stripe, la plus récente d’abord ; un lien qui n’est pas de Stripe n’est pas gardé', async () => {
+    const { appel, appels } = stripe({ data: [
+      { number: 'A-1', created: 1_700_000_000, amount_paid: 1900, status: 'paid', currency: 'eur', hosted_invoice_url: 'https://invoice.stripe.com/i/1', invoice_pdf: 'https://pay.stripe.com/p/1' },
+      { number: 'A-2', created: 1_702_000_000, amount_paid: 0, amount_due: 4900, status: 'open', currency: 'eur', hosted_invoice_url: 'https://ailleurs.example/x', invoice_pdf: null },
+      { pas: 'une facture' },
+    ] });
+    const r = await lesFactures(appel, 'sk_test_x', 'cus_ABCDEF12');
+    expect(appels[0]!.url).toBe('https://api.stripe.com/v1/invoices?customer=cus_ABCDEF12&limit=24');
+    expect(r).toEqual({ lu: true, valeur: [
+      { numero: 'A-2', le: new Date(1_702_000_000_000).toISOString(), centimes: 4900, devise: 'EUR', statut: 'open', lien: null, pdf: null },
+      { numero: 'A-1', le: new Date(1_700_000_000_000).toISOString(), centimes: 1900, devise: 'EUR', statut: 'paid', lien: 'https://invoice.stripe.com/i/1', pdf: 'https://pay.stripe.com/p/1' },
+    ] });
+    expect(await lesFactures(appel, 'sk_test_x', 'cus_&x=1')).toMatchObject({ lu: false });
+    expect(await lesFactures(stripe({ error: { message: 'non' } }, false).appel, 'sk', 'cus_ABCDEF12')).toEqual({ lu: false, pourquoi: 'non' });
+  });
+  it('un compte qui n’a jamais payé n’a aucune facture (ce n’est pas une panne) ; le portail s’ouvre sur son client Stripe seulement', async () => {
+    const { appel, appels } = stripe({ url: 'https://billing.stripe.com/session/x' });
+    const sans = { cle: 'sk', stripe: appel, lAbonnement: async () => ({ lu: true as const, valeur: null }) };
+    expect(await lesFacturesDuCompte(sans, 'c')).toEqual({ lu: true, valeur: [] });
+    const avec = { ...sans, lAbonnement: async () => ({ lu: true as const, valeur: { offre: 'site' as const, projetsEnPlus: 0, statut: 'active', finDePeriode: null, impayeDepuis: null, resilieALaFin: false, client: 'cus_ABCDEF12', abonnement: 'sub_ABCDEF12' } }),
+      adresseDeLaPage: 'https://vavi.test/abonnement', journal: () => undefined } as unknown as DependancesDesAbonnements;
+    expect(await ouvrirLePortailDuCompte(avec, 'c')).toEqual({ url: 'https://billing.stripe.com/session/x' });
+    expect(appels.at(-1)!.body).toBe('customer=cus_ABCDEF12&return_url=https%3A%2F%2Fvavi.test%2Fabonnement');
+    expect(await ouvrirLePortailDuCompte({ ...avec, lAbonnement: sans.lAbonnement } as DependancesDesAbonnements, 'c')).toEqual({ refus: 'aucun_abonnement' });
+    expect(await ouvrirLePortailDuCompte({ ...avec, cle: null } as DependancesDesAbonnements, 'c')).toEqual({ refus: 'non_configure' });
   });
 });

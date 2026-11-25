@@ -134,3 +134,45 @@ export function lEvenement(type: string, objet: Record<string, unknown>): Lectur
   if (type === 'invoice.payment_failed') return { forme: 'impaye', client: idDe(objet.customer), abonnement: idDe(objet.subscription ?? (objet.parent as { subscription_details?: { subscription?: unknown } } | undefined)?.subscription_details?.subscription) };
   return { forme: 'sans_objet' };
 }
+
+/** Une facture de l'abonnement à vavi, telle que Stripe la garde (le montant en centimes). */
+export interface Facture {
+  readonly numero: string | null; readonly le: string; readonly centimes: number; readonly devise: string;
+  /** `paid`, `open` (à régler), `void`, `uncollectible`, `draft`. */
+  readonly statut: string;
+  /** La page de la facture chez Stripe (la régler, la télécharger) ; `null` : pas encore émise. */
+  readonly lien: string | null;
+  readonly pdf: string | null;
+}
+
+const CLIENT = /^cus_[A-Za-z0-9]{6,64}$/;
+const httpsDeStripe = (x: unknown): string | null => (typeof x === 'string' && /^https:\/\/([a-z0-9-]+\.)*stripe\.com\//.test(x) ? x : null);
+
+/** PURE — les factures lues dans la réponse de Stripe, la plus récente d'abord ; ce qui n'en a pas la forme est laissé. */
+export function lesFacturesLues(d: unknown): Facture[] {
+  const lignes = (d as { data?: unknown })?.data;
+  if (!Array.isArray(lignes)) return [];
+  return lignes.flatMap((f: Record<string, unknown>) => {
+    const centimes = typeof f.amount_paid === 'number' && f.status === 'paid' ? f.amount_paid : f.amount_due ?? f.total;
+    if (typeof f.created !== 'number' || typeof centimes !== 'number' || typeof f.status !== 'string') return [];
+    return [{ numero: typeof f.number === 'string' ? f.number : null, le: new Date(f.created * 1000).toISOString(), centimes,
+      devise: typeof f.currency === 'string' ? f.currency.toUpperCase() : 'EUR', statut: f.status, lien: httpsDeStripe(f.hosted_invoice_url), pdf: httpsDeStripe(f.invoice_pdf) }];
+  }).sort((a, b) => b.le.localeCompare(a.le));
+}
+
+/** Les factures d'un client Stripe de vavi (les 24 dernières). */
+export async function lesFactures(appel: AppelStripe, cle: string, client: string): Promise<{ readonly lu: true; readonly valeur: readonly Facture[] } | { readonly lu: false; readonly pourquoi: string }> {
+  if (!CLIENT.test(client)) return { lu: false, pourquoi: 'client inconnu' };
+  const r = await appel(`https://api.stripe.com/v1/invoices?customer=${client}&limit=24`, { method: 'GET', headers: { authorization: `Bearer ${cle}` } });
+  const d = await r.json().catch(() => null);
+  return r.ok ? { lu: true, valeur: lesFacturesLues(d) } : { lu: false, pourquoi: String((d as { error?: { message?: unknown } } | null)?.error?.message ?? 'Stripe n’a pas répondu') };
+}
+
+/** La page de Stripe où la personne change sa carte, retrouve et télécharge ses factures. */
+export async function ouvrirLePortail(appel: AppelStripe, cle: string, client: string, retour: string): Promise<{ readonly ouvert: true; readonly url: string } | { readonly ouvert: false; readonly pourquoi: string }> {
+  if (!CLIENT.test(client)) return { ouvert: false, pourquoi: 'client inconnu' };
+  const r = await appel('https://api.stripe.com/v1/billing_portal/sessions', { method: 'POST', headers: { authorization: `Bearer ${cle}`, 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ customer: client, return_url: retour }).toString() });
+  const d = (await r.json().catch(() => ({}))) as { url?: unknown; error?: { message?: unknown } };
+  return r.ok && typeof d.url === 'string' ? { ouvert: true, url: d.url } : { ouvert: false, pourquoi: String(d.error?.message ?? 'Stripe n’a rendu aucune page') };
+}

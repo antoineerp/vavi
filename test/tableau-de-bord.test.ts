@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { TEXTES } from '@/app/_partage/textes';
 import { lEtatDeLaMiseEnLigne } from '@/lib/projets/la-mise-en-ligne';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { leMenu } from '@/app/projets/[id]/la-navigation';
 
@@ -36,3 +36,12 @@ describe('la console', () => {
   });
 });
 
+
+describe('INCIDENT 25/11 — des écrans dispersés : chaque page du compte porte la même barre, qui mène aux autres', () => {
+  it('Mes projets, Mon compte, chaque projet et Commencer montent `BarreDuCompte` ; elle mène aux trois', () => {
+    const lire = (f: string) => readFileSync(join(__dirname, '..', f), 'utf8');
+    for (const f of ['app/projets/page.tsx', 'app/abonnement/page.tsx', 'app/projets/[id]/layout.tsx', 'app/commencer/page.tsx']) expect(lire(f), f).toContain('<BarreDuCompte');
+    const barre = lire('app/_partage/la-barre-du-compte.tsx');
+    for (const vers of ["'/projets'", "'/abonnement'", "'/commencer'"]) expect(barre).toContain(vers);
+  });
+});

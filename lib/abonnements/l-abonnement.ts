@@ -11,7 +11,7 @@ import { verifierLaSignature, type AppelStripe } from '@/lib/vente/stripe';
 import type { Manifeste } from '@/lib/backend/app/manifeste';
 import { lEtat, lEtatAvecLOffert, lePeutPublier, laReductionDuPaiement, estUneOffre, PROJETS_EN_PLUS_AU_PLUS, type Abonnement, type DroitDePublier, type EtatDeLAbonnement,
   type Grille, type Offert, type Reduction } from './les-offres';
-import { lEvenement, ouvrirLePaiement, resilier, type MiseAJour } from './stripe-billing';
+import { lEvenement, lesFactures, ouvrirLePaiement, ouvrirLePortail, resilier, type Facture, type MiseAJour } from './stripe-billing';
 
 type Issue<T> = { readonly lu: true; readonly valeur: T } | { readonly lu: false; readonly pourquoi: string };
 
@@ -128,6 +128,26 @@ export async function resilierLAbonnement(d: DependancesDesAbonnements, compte: 
   const f = await resilier(d.stripe, d.cle, a.valeur.abonnement, true);
   if (f) { d.journal(`[abonnements] ${compte.slice(0, 8)} — résiliation refusée : ${f}`); return { fait: false, pourquoi: 'stripe' }; }
   return { fait: true };
+}
+
+/** La console : les factures du compte ; aucun client Stripe encore (jamais payé) : aucune facture, ce n'est pas une panne. */
+export async function lesFacturesDuCompte(d: Pick<DependancesDesAbonnements, 'cle' | 'stripe' | 'lAbonnement'>, compte: string): Promise<Issue<readonly Facture[]>> {
+  const a = await d.lAbonnement(compte);
+  if (!a.lu) return a;
+  if (!a.valeur?.client) return { lu: true, valeur: [] };
+  if (!d.cle) return { lu: false, pourquoi: 'non_configure' };
+  return lesFactures(d.stripe, d.cle, a.valeur.client);
+}
+
+/** La console : « Moyen de paiement et factures » ouvre la page de Stripe du compte. */
+export async function ouvrirLePortailDuCompte(d: DependancesDesAbonnements, compte: string): Promise<{ readonly url: string } | { readonly refus: 'non_configure' | 'panne' | 'aucun_abonnement' | 'stripe' }> {
+  if (!d.cle) return { refus: 'non_configure' };
+  const a = await d.lAbonnement(compte);
+  if (!a.lu) return { refus: 'panne' };
+  if (!a.valeur?.client) return { refus: 'aucun_abonnement' };
+  const p = await ouvrirLePortail(d.stripe, d.cle, a.valeur.client, d.adresseDeLaPage);
+  if (!p.ouvert) { d.journal(`[abonnements] ${compte.slice(0, 8)} — portail refusé : ${p.pourquoi}`); return { refus: 'stripe' }; }
+  return { url: p.url };
 }
 
 /** Ce que Claude lit de l'abonnement du compte, dans les réponses des outils. */
