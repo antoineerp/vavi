@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { configurationPublique, cleDeService } from '@/lib/supabase/configuration';
 import { lesReglagesDuMagasin } from '@/lib/publication/les-reglages-du-magasin';
 import { leDomaineDesApps } from '@/lib/publication/les-adresses-des-apps';
-import { lEtatDeLaCle } from '@/lib/comptes/les-jetons';
+import { lEtatDeLaCle, laRaisonDeLaCle } from '@/lib/comptes/les-jetons';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +15,7 @@ export async function GET() {
   const manque = [...vital, ...(magasin.lu ? [] : magasin.manque)];
   // Sans Supabase le serveur ne sert rien (503, la vérification de santé de l'hébergeur le voit) ; sans magasin il
   // sert la console mais ni aperçu ni publication : dit dans `manque`, sans arrêter la machine.
+  const etatDeLaCle = await lEtatDeLaCle(process.env, publique.lue ? publique.valeur.url : null);
   return NextResponse.json({
     ok: manque.length === 0,
     version: process.env.VAVI_VERSION ?? 'inconnue',
@@ -22,6 +23,8 @@ export async function GET() {
     // Où les apps sont servies : à leur hôte (le domaine des apps), ou encore sous /p/ et /s/ de la console (à éviter).
     apps: leDomaineDesApps(process.env) ? 'a_leur_hote' : 'sous_la_console',
     // La clé qui signe les connexions des comptes d'app (`lib/comptes`) : `publiee` quand Supabase la reconnaît.
-    cle_des_comptes: await lEtatDeLaCle(process.env, publique.lue ? publique.valeur.url : null),
+    cle_des_comptes: etatDeLaCle,
+    // Illisible : la forme vue et ce qui manque, jamais la clé.
+    ...(etatDeLaCle === 'illisible' ? { cle_des_comptes_pourquoi: laRaisonDeLaCle(process.env.VAVI_CLE_DES_COMPTES) } : {}),
   }, { status: vital.length === 0 ? 200 : 503 });
 }
