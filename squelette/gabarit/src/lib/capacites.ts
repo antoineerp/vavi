@@ -1,5 +1,5 @@
 /**
- * Ce que la plateforme fait pour l'app, quand une page l'appelle : envoyer un courriel ou un SMS, composer un PDF, lire un
+ * Ce que la plateforme fait pour l'app, quand une page l'appelle : demander à l'IA, envoyer un courriel ou un SMS, composer un PDF, lire un
  * fichier, trouver un lieu, chercher dans des textes, appeler un logiciel branché, lire un agenda, calculer le ciel,
  * ranger un document au coffre de l'organisation, lire les photos de l'appareil, en monter un film.
  * `capacites` n'offre que les fonctions qu'app.json déclare : en appeler une autre ne compile pas. Rien ici ne porte de
@@ -58,6 +58,17 @@ export interface CielDUneDate {
 }
 
 const TOUTES = {
+  ia: {
+    /** La réponse du modèle, en texte, sur la clé Anthropic du propriétaire ; sans clé posée, un refus le dit. */
+    completer: async (o: { readonly prompt: string; readonly system?: string; readonly maxTokens?: number; readonly images?: readonly string[] }) =>
+      lu(await appelerLaPlateforme<{ readonly text: string }>('ai/<projet>/complete', o), (d) => d.text),
+    /**
+     * Une DONNÉE à la forme d'un JSON Schema d'objet (`schema`), jamais de la prose à relire. `images` : au plus 6 photos
+     * en `data:`, réduites. Pour enregistrer une ligne proposée, `<ProposerParLIA>` (`@/briques/IA`).
+     */
+    structurer: async <T extends Record<string, unknown>>(o: { readonly prompt: string; readonly schema: Record<string, unknown>; readonly description?: string; readonly system?: string; readonly maxTokens?: number; readonly images?: readonly string[] }) =>
+      lu(await appelerLaPlateforme<{ readonly data: T }>('ai/<projet>/complete', o), (d) => d.data),
+  },
   courriel: {
     /** Envoie un message par l'expéditeur du propriétaire ; sans expéditeur configuré, un refus le dit. */
     envoyer: (o: { readonly a: string; readonly sujet: string; readonly texte: string }) =>

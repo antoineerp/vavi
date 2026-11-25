@@ -57,13 +57,13 @@ describe('l’audit du 25/11', () => {
   // INCIDENT 25/11 (Antoine : « il faut que Claude fasse tout ce que vavi ne fait pas ») : un PDF demandé était annoncé
   // « pas encore disponible » à la personne, alors que Claude peut le faire dans la page.
   it('ce que vavi ne sert pas, Claude le fait lui-même dans la page ; seul ce qui demande une clé attend', async () => {
-    const r = await creer({ ...NOTES, fonctions: { pdf: true, ia: true } });
+    const r = await creer({ ...NOTES, fonctions: { pdf: true, connecteur: true } });
     expect(r.not_available_yet).toMatch(/pdf: .*build it yourself.*jspdf/);
     expect(r.not_available_yet).not.toMatch(/pdf[^.]*not available yet/);
-    expect(r.not_available_yet).toMatch(/ia: needs a secret key/);
+    expect(r.not_available_yet).toMatch(/connecteur: needs a secret key/);
     const ressource = laRessourceDesCapacites([], lesFonctionsAFaireDansLaPage(FONCTIONS_PAS_ENCORE_SERVIES));
     expect(ressource).not.toMatch(/Do not promise them/);
-    expect(ressource).toMatch(/Waiting for vavi.*ia, connecteur, telephone/);
+    expect(ressource).toMatch(/Waiting for vavi.*connecteur, telephone/);
   });
 
   it('chaque paquet nommé pour le faire dans la page est dans le gabarit', () => {
