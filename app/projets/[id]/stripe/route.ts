@@ -1,7 +1,7 @@
 /**
  * GET /projets/<id>/stripe — ouvrir (ou reprendre) l'inscription Stripe du propriétaire : le compte relié du projet,
  * créé prérempli la première fois (`lib/stripe-connect`), puis l'adresse de l'inscription hébergée par Stripe. Stripe y
- * revient (`?stripe=retour`), ou ici quand l'adresse a expiré.
+ * revient sur l’écran des paiements (`?stripe=retour`), ou ici quand l'adresse a expiré.
  */
 import { adresseDeLApp } from '@/app/_partage/l-adresse-des-apps';
 import { redirect } from 'next/navigation';
@@ -23,12 +23,15 @@ export async function GET(_r: Request, { params }: { params: Promise<{ id: strin
   const m = f.lu ? leManifesteStocke(f.valeur.get('app.json')) : null;
   const b = m?.lu ? laBoutique(m.manifeste) : null;
   const cle = process.env[CLE_DE_VAVI]?.trim();
-  if (!p.lu || !p.valeur || !b || !cle) redirect(`/projets/${id}?erreur=${!cle ? 'stripe_non_relie' : 'panne'}`);
+  if (!p.lu || !p.valeur || !b || !cle) redirect(`/projets/${id}/paiements?erreur=${!cle ? 'stripe_non_relie' : 'panne'}`);
   const adresse = adresseDeLaPlateforme();
   const d = { appel: (u: string, i: { method: 'POST' | 'GET'; headers: Record<string, string>; body?: string }) => fetch(u, i), cle, comptes: comptesSurSupabase(c.base) };
   const compte = await leCompteDuProjet(d, id, { courriel: c.courriel || null, pays: b.pays, site: adresseDeLApp(id, 'en_ligne'), nom: p.valeur.nom });
-  if (!compte.lu) { console.error(`[stripe] ${id.slice(0, 8)} compte non ouvert : ${compte.pourquoi}`); redirect(`/projets/${id}?erreur=stripe_refuse`); }
-  const lien = await lInscription(d, compte.valeur, `${adresse}/projets/${id}?stripe=retour`, `${adresse}/projets/${id}/stripe`);
-  if (!lien.lu) { console.error(`[stripe] ${id.slice(0, 8)} inscription non ouverte : ${lien.pourquoi}`); redirect(`/projets/${id}?erreur=stripe_refuse`); }
+  // Un refus revient sur l'écran des paiements, avec ce que Stripe en dit (Antoine, 25/11 : il retombait sur la vue
+  // d'ensemble, sans savoir pourquoi).
+  const refuse = (pourquoi: string): never => redirect(`/projets/${id}/paiements?erreur=stripe_refuse&detail=${encodeURIComponent(pourquoi.slice(0, 240))}`);
+  if (!compte.lu) { console.error(`[stripe] ${id.slice(0, 8)} compte non ouvert : ${compte.pourquoi}`); return refuse(compte.pourquoi); }
+  const lien = await lInscription(d, compte.valeur, `${adresse}/projets/${id}/paiements?stripe=retour`, `${adresse}/projets/${id}/stripe`);
+  if (!lien.lu) { console.error(`[stripe] ${id.slice(0, 8)} inscription non ouverte : ${lien.pourquoi}`); return refuse(lien.pourquoi); }
   redirect(lien.valeur);
 }

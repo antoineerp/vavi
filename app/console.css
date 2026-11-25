@@ -49,10 +49,11 @@ select, textarea { padding: 0.5rem 0.6rem; border: 1px solid var(--bord); border
 .bouton.pastille { background: var(--vert-doux); color: var(--vert); border-color: var(--vert); }
 .projet-corps { display: grid; grid-template-columns: 250px minmax(0, 1fr); flex: 1; }
 .projet-menu { background: var(--menu); border-right: 1px solid var(--bord); padding: 1rem 0.75rem; display: flex; flex-direction: column; gap: 1rem; }
-.projet-menu-titre { text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.75rem; font-weight: 700; color: var(--attenue); margin: 0 0.6rem 0.35rem; }
-.projet-menu a { display: block; padding: 0.55rem 0.75rem; border-radius: 10px; color: var(--texte); text-decoration: none; }
+.projet-menu-titre { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.8rem; font-weight: 800; color: var(--texte); margin: 0 0.6rem 0.3rem; }
+.projet-menu a { display: block; padding: 0.4rem 0.75rem; border-radius: 10px; font-size: 0.9rem; color: var(--attenue); text-decoration: none; }
+.projet-menu a:hover { color: var(--texte); }
 .projet-menu a:hover { background: var(--surface); }
-.projet-menu a.actif { background: var(--surface); font-weight: 600; box-shadow: 0 1px 2px rgba(16, 35, 63, 0.08); }
+.projet-menu a.actif { background: var(--surface); color: var(--texte); font-weight: 600; box-shadow: 0 1px 2px rgba(16, 35, 63, 0.08); }
 .projet-contenu { min-width: 0; }
 .projet-contenu .console { max-width: 1000px; margin: 0; padding: 1.75rem 2rem 4rem; }
 @media (max-width: 760px) {
