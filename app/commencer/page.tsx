@@ -32,6 +32,7 @@ export default async function Page() {
       </div>
       <p>{t.ensuite} <Link href="/projets">{TEXTES[langue].mesProjets}</Link></p>
       <p className="attenue">{t.bloque}</p>
+      <p className="attenue"><Link href="/confidentialite">{t.confidentialite}</Link></p>
     </main>
   );
 }
