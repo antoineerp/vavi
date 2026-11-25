@@ -28,6 +28,9 @@ export const ERREURS: Record<string, { fr: string; en: string }> = {
   nature: { fr: 'votre offre publie des sites vitrines ; une boutique ou une app demande l’offre Boutique ou app.', en: 'your offer publishes showcase sites; a shop or an app needs the Shop or app offer.' },
   export_reserve: { fr: 'l’export est réservé aux offres payantes.', en: 'export is for paid offers only.' },
   quota: { fr: 'votre offre a déjà tous ses projets en ligne : ajoutez-lui un projet.', en: 'your offer already has all its projects online: add a project to it.' },
+<<<<<<< HEAD
   courriel_mal_forme: { fr: 'cette adresse de courriel ne se lit pas.', en: 'this e-mail address cannot be read.' },
+=======
+>>>>>>> 3faab1bc6afce178c75275a5fec037a989886da5
   secret_mal_forme: { fr: 'le nom s’écrit en MAJUSCULES_ET_SOULIGNÉS, et la valeur ne peut pas être vide.', en: 'the name is UPPER_CASE_WITH_UNDERSCORES and the value cannot be empty.' },
 };
