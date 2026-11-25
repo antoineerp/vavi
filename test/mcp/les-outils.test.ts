@@ -176,8 +176,10 @@ describe('on ne publie que le build vert de l’arbre courant', () => {
     c.prochain = { construite: false, etape: 'types', duree: 3, ecarts: [{ fichier: 'src/pages/index.tsx', fait: "ligne 4 : Type 'string' is not assignable to type 'number'. (TS2322)" }] };
     expect(await refus('build_preview', { project: w.project })).toMatchObject({ code: 'build_rouge', fichier: 'src/pages/index.tsx', ligne: 4 });
     expect((await refus('publish', w)).code).toBe('build_rouge');
-    await ok('apply_changes', { ...w, why: 'corrigé', changes: [{ path: 'src/pages/index.tsx', content: 'export default function A() { return null; }' }] });
     c.prochain = vert();
+    // apply_changes construit dans sa réponse (25/11, « comme Lovable ») : le changement arrive vert, avec l'aperçu.
+    expect(await ok('apply_changes', { ...w, why: 'corrigé', changes: [{ path: 'src/pages/index.tsx', content: 'export default function A() { return null; }' }] }))
+      .toMatchObject({ build: { green: true, preview_updated: true } });
     const b = await ok('build_preview', { project: w.project });
     expect(b.draft_url).toMatch(/^https:\/\/vavi\.test\/p\/[^/]+\/\?brouillon=[0-9a-f]{64}$/);
     // Le build vert devient l'aperçu tout de suite (retour d'Antoine du 24/11) : la console le montre sans attendre `publish`.
@@ -191,8 +193,16 @@ describe('on ne publie que le build vert de l’arbre courant', () => {
   it('un changement après le build vert rend le build périmé', async () => {
     const w = await unChantier();
     await ok('build_preview', { project: w.project });
-    await ok('apply_changes', { ...w, why: 'encore', changes: [{ path: 'src/pages/index.tsx', content: 'x' }] });
+    await ok('apply_changes', { ...w, why: 'encore', build: false, changes: [{ path: 'src/pages/index.tsx', content: 'x' }] });
     expect((await refus('publish', w)).code).toBe('build_perime');
+  });
+  it('INCIDENT 25/11 (8 versions sans build) : apply_changes construit et rend les erreurs à leur fichier et leur ligne ; les fichiers restent écrits', async () => {
+    const w = await unChantier();
+    c.prochain = { construite: false, etape: 'types', duree: 3, ecarts: [{ fichier: 'src/pages/index.tsx', fait: "ligne 2 : Cannot find name 'x'. (TS2304)" }] };
+    const r = await ok('apply_changes', { ...w, why: 'essai', changes: [{ path: 'src/pages/index.tsx', content: 'export default function A() { return x; }' }] });
+    expect(r.build).toMatchObject({ green: false, code: 'build_rouge', file: 'src/pages/index.tsx', line: 2 });
+    const f = await ok('read_files', { project: w.project, paths: ['src/pages/index.tsx'] });
+    expect((f.files as { content: string }[])[0]!.content).toContain('return x');
   });
 });
 

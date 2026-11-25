@@ -21,7 +21,7 @@ export const CODES_DE_REFUS = {
   fichier_du_cadre: 'This file belongs to the platform. Use the tool named in `fait` instead of writing it.',
   secret_dans_le_code: 'Remove the secret from the code. Store it with `set_secret`; the code calls the capability instead.',
   paquet_inconnu: 'Add the package first with `add_packages` (it checks it on the npm registry), then send the change again.',
-  build_rouge: 'Fix the errors one by one at the file and line given, then run `build_preview` again.',
+  build_rouge: 'Fix the errors one by one at the file and line given: `apply_changes` builds again.',
   build_perime: 'The project changed since the last build. Run `build_preview` again before publishing.',
   app_json_refuse: 'Fix app.json at the place given in `fait`, then send it again with `configure_backend`.',
   projet_inconnu: 'Call `list_projects` and use one of the project ids it returns.',
