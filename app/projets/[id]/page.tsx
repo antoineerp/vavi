@@ -64,6 +64,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     <main className="console">
       <div className="ligne" style={{ justifyContent: 'space-between' }}><Link href="/projets">{t.retour}</Link><form action={seDeconnecter}><button type="submit" className="discret">{t.deconnexion}</button></form></div>
       <div className="entete"><h1>{projet.nom}</h1><span className="attenue">{t.version} {projet.version}</span></div>
+      <nav className="ligne"><Link className="bouton discret" href={`/projets/${id}/donnees`}>{c.langue === 'fr' ? 'Données de l’app' : 'App data'}</Link></nav>
       {message && <div className="carte" role="status">{message}{q.erreur && ['aucune_offre', 'suspendu', 'nature', 'quota', 'export_reserve'].includes(q.erreur) && <> <Link href="/abonnement">{t.abonnement.titre}</Link></>}</div>}
       {projet.chantier && <div className="carte"><strong>{t.travailEnCours}</strong> : {projet.chantier.intention} <span className="attenue">({t.depuis} {date(projet.chantier.ouvertLe)})</span></div>}
 
