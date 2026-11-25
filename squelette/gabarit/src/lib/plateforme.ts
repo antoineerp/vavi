@@ -3,7 +3,7 @@
  * L'adresse de la plateforme, le projet et son jeton sont injectés par le serveur qui sert l'app ; la session de la
  * personne s'y joint quand elle en a une. Rend la réponse lue, ou un refus qui dit pourquoi et le geste qui le lève.
  */
-import { supabase } from './supabase';
+import { jetonValable } from './comptes';
 import { langueCourante } from './langue';
 import { libellesPour } from './libelles';
 import type { Resultat } from './resultat';
@@ -42,7 +42,7 @@ async function envoyer(chemin: string, corps: unknown): Promise<Resultat<Respons
   const entetes: Record<string, string> = formulaire ? {} : { 'Content-Type': 'application/json' };
   if (typeof window !== 'undefined' && window.__PROJECT_TOKEN__) entetes['X-Constructor-Project-Token'] = window.__PROJECT_TOKEN__;
   try {
-    const jeton = (await supabase?.auth.getSession())?.data.session?.access_token;
+    const jeton = await jetonValable();
     if (jeton) entetes.Authorization = `Bearer ${jeton}`;
   } catch { /* sans session : la plateforme décide de l'accès */ }
   try {

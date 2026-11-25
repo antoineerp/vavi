@@ -8,7 +8,7 @@ import { lireLeManifeste } from '@/lib/backend/app/manifeste';
 import { laMigrationDuSocle } from '@/lib/relais/le-socle-de-la-base';
 import { poserLaBase, type AppelDeLaBase } from '@/lib/relais/poser-la-base';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
-import { demarrer, POSTGRES_PRESENT, type UnPostgres } from '../aides/un-postgres';
+import { demarrer, POSTGRES_PRESENT, type UnPostgres, enComptesDeLApp } from '../aides/un-postgres';
 
 const lu = lireLeManifeste({
   version: 1, nature: 'app', nom: 'Demandes', description: 'Les demandes d’une équipe.', langues: { principale: 'fr' },
@@ -64,6 +64,7 @@ describe.runIf(POSTGRES_PRESENT)('le socle et le relais, sur un PostgreSQL réel
     pg = demarrer('vavi-le-socle', 55741);
     pg.admin(`insert into auth.users (id, email, email_confirmed_at) values ('${MOI}', 'moi@a.fr', now()), ('${ELLE}', 'elle@a.fr', now()), ('${AUTRE}', 'autre@b.fr', now());`);
     pg.admin(laMigrationDuSocle());
+    pg.admin(enComptesDeLApp(S, [ELLE, AUTRE]));
     const pose = await poserLaBase(commeLaPlateforme(pg), PROJET, m, MOI);
     if (!pose.posee) throw new Error(pose.motif);
   }, 60_000);

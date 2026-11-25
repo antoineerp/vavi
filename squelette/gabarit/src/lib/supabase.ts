@@ -9,6 +9,7 @@
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SCHEMA, BASE_BRANCHEE } from './env';
+import { jetonValable } from './comptes';
 
 const CLE_DE_L_ESSAI = `vavi-essai-${SCHEMA ?? ''}`;
 /** Le choix « tous mes rôles », gardé pour qu'il ne redevienne pas un seul rôle à la lecture suivante. */
@@ -53,7 +54,8 @@ const avecLEssai: typeof fetch = (entree, init) => {
 
 export const supabase: SupabaseClient | null = BASE_BRANCHEE
   ? createClient(SUPABASE_URL as string, SUPABASE_ANON_KEY as string, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: `sb-auth-${SCHEMA}` },
+      // La session est celle du compte de l'app, tenu par vavi (`comptes.ts`) : la base lit son jeton, jamais `supabase.auth`.
+      accessToken: async () => (await jetonValable()) ?? null,
       global: { fetch: avecLEssai },
     })
   : null;

@@ -13,7 +13,7 @@
  * Pur : le SQL est dérivé d'app.json et des noms de rôles, déjà validés.
  */
 import { rolesDesClients, type Manifeste } from '../app/manifeste';
-import { tableau } from './sql';
+import { cite, tableau } from './sql';
 
 type Fonction = (nom: string, params: string, retour: string, corps: string, plpgsql?: boolean) => string[];
 
@@ -56,7 +56,7 @@ export function sqlDesGestesDesEspaces(m: Manifeste, s: string, fn: Fonction): s
       `  if not (p_role = any(${tableau(invitables)})) then raise exception 'le rôle % n''est pas celui d''un client invité', p_role using errcode = '22023'; end if;`,
       "  if v_email !~ '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$' then raise exception 'adresse invalide' using errcode = '22023'; end if;",
       `  ${existe}`,
-      '  select id into v_compte from auth.users where lower(email) = v_email;',
+      `  v_compte := public.vavi_compte_par_courriel(${cite(s)}, v_email);`,
       '  if v_compte is not null then',
       `    insert into ${s}.membres (compte_id, email, role, organisation_id) values (v_compte, v_email, p_role, p_client) on conflict do nothing;`,
       "    return 'donne';", '  end if;',

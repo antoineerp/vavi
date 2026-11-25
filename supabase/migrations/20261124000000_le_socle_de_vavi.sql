@@ -37,6 +37,56 @@ GRANT EXECUTE ON FUNCTION public.create_app_schema(UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION public.exec_sql(TEXT) TO service_role;
 
 
+-- ── les comptes des apps
+CREATE TABLE IF NOT EXISTS public.vavi_comptes_d_app (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  schema_de_l_app TEXT NOT NULL CHECK (schema_de_l_app ~ '^app_[a-z0-9_]{1,59}$'),
+  email TEXT NOT NULL CHECK (email = lower(email) AND length(email) <= 254 AND email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'),
+  mot_de_passe TEXT,
+  confirme_le TIMESTAMPTZ,
+  cree_le TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (schema_de_l_app, email)
+);
+CREATE TABLE IF NOT EXISTS public.vavi_codes_d_app (
+  empreinte TEXT PRIMARY KEY,
+  compte UUID NOT NULL REFERENCES public.vavi_comptes_d_app(id) ON DELETE CASCADE,
+  nature TEXT NOT NULL CHECK (nature IN ('confirmer', 'entrer', 'mot_de_passe')),
+  expire_le TIMESTAMPTZ NOT NULL,
+  utilise_le TIMESTAMPTZ
+);
+CREATE TABLE IF NOT EXISTS public.vavi_sessions_d_app (
+  empreinte TEXT PRIMARY KEY,
+  compte UUID NOT NULL,
+  expire_le TIMESTAMPTZ NOT NULL,
+  cree_le TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS vavi_sessions_d_app_compte ON public.vavi_sessions_d_app (compte);
+ALTER TABLE public.vavi_comptes_d_app ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vavi_codes_d_app ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vavi_sessions_d_app ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.vavi_comptes_d_app, public.vavi_codes_d_app, public.vavi_sessions_d_app FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.vavi_comptes_d_app, public.vavi_codes_d_app, public.vavi_sessions_d_app TO service_role;
+
+-- L'adresse d'un compte : celle de son app, sinon celle de la console (le propriétaire).
+CREATE OR REPLACE FUNCTION public.vavi_courriel_du_compte(p_compte UUID) RETURNS TEXT
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT coalesce((SELECT c.email FROM public.vavi_comptes_d_app c WHERE c.id = p_compte), (SELECT lower(u.email) FROM auth.users u WHERE u.id = p_compte))
+$$;
+-- L'adresse est-elle confirmée ? Une invitation ne se donne qu'à une adresse confirmée, dans cette app.
+CREATE OR REPLACE FUNCTION public.vavi_courriel_confirme(p_compte UUID) RETURNS BOOLEAN
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT coalesce((SELECT c.confirme_le IS NOT NULL FROM public.vavi_comptes_d_app c WHERE c.id = p_compte), (SELECT u.email_confirmed_at IS NOT NULL FROM auth.users u WHERE u.id = p_compte), false)
+$$;
+-- Le compte CONFIRMÉ de cette adresse dans cette app, et seulement dans elle : un compte de la console ou d'une autre
+-- app n'y est rien, et une adresse non confirmée ne reçoit pas un rôle donné à son nom (l'invitation l'attend).
+CREATE OR REPLACE FUNCTION public.vavi_compte_par_courriel(p_schema TEXT, p_email TEXT) RETURNS UUID
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
+  SELECT c.id FROM public.vavi_comptes_d_app c WHERE c.schema_de_l_app = p_schema AND c.email = lower(btrim(p_email)) AND c.confirme_le IS NOT NULL
+$$;
+REVOKE ALL ON FUNCTION public.vavi_courriel_du_compte(UUID), public.vavi_courriel_confirme(UUID), public.vavi_compte_par_courriel(TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.vavi_courriel_du_compte(UUID), public.vavi_courriel_confirme(UUID), public.vavi_compte_par_courriel(TEXT, TEXT) TO service_role;
+
+
 -- ── l’origine des comptes
 -- L'ORIGINE DES COMPTES (12/10, propriétaire : « chaque application doit être complètement isolée des autres, et encore
 -- plus de Constructor ») — UNE liste de comptes sert la plateforme et toutes les apps (un projet Supabase) ; ce que
@@ -87,6 +137,10 @@ BEGIN
   IF to_regclass(format('%I.membres', p_schema)) IS NOT NULL THEN
     EXECUTE format('SELECT EXISTS (SELECT 1 FROM %I.membres WHERE compte_id = $1)', p_schema) INTO v_oui USING v_compte;
     IF v_oui THEN RETURN true; END IF;
+  END IF;
+  -- Un compte d'app (25/11) est né dans son app et n'en rejoint aucune autre.
+  IF EXISTS (SELECT 1 FROM public.vavi_comptes_d_app c WHERE c.id = v_compte) THEN
+    RETURN EXISTS (SELECT 1 FROM public.vavi_comptes_d_app c WHERE c.id = v_compte AND c.schema_de_l_app = p_schema);
   END IF;
   SELECT o.origine INTO v_origine FROM public.origine_des_comptes o WHERE o.compte = v_compte;
   IF v_origine = p_schema THEN RETURN true; END IF;

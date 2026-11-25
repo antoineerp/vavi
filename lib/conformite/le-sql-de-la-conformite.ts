@@ -42,7 +42,7 @@ DECLARE
 BEGIN
   IF v_compte IS NULL THEN RAISE EXCEPTION 'mes données : sans session' USING ERRCODE = '42501'; END IF;
   PERFORM public.voie_neuve_schema(p_schema);
-  SELECT lower(u.email) INTO v_email FROM auth.users u WHERE u.id = v_compte;
+  v_email := public.vavi_courriel_du_compte(v_compte);
   FOR v_table, v_oid IN ${TABLES_A_PROPRIETAIRE('owner_id')} LOOP
     EXECUTE format('SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY t.id::text), ''[]''::jsonb) FROM %I.%I t WHERE t.owner_id = $1', p_schema, v_table)
       INTO v_lignes USING v_compte;
@@ -80,7 +80,7 @@ DECLARE
 BEGIN
   IF p_compte IS NULL THEN RAISE EXCEPTION 'effacement : quel compte ?' USING ERRCODE = '22023'; END IF;
   PERFORM public.voie_neuve_schema(p_schema);
-  SELECT lower(u.email) INTO v_email FROM auth.users u WHERE u.id = p_compte;
+  v_email := public.vavi_courriel_du_compte(p_compte);
   FOR v_table, v_oid IN ${TABLES_A_PROPRIETAIRE('owner_id')} LOOP
     -- Une commande facturée reste (obligation comptable), détachée du compte.
     IF ${A_LA_COLONNE('vente_facture')} THEN
@@ -106,7 +106,9 @@ BEGIN
   IF v_email IS NOT NULL AND to_regclass(format('%I.membres_invitations', p_schema)) IS NOT NULL THEN
     EXECUTE format('DELETE FROM %I.membres_invitations WHERE lower(email) = $1', p_schema) USING v_email;
   END IF;
-  -- Le compte lui-même, s'il est né ici : ailleurs, il n'existait que pour cette app.
+  -- Le compte lui-même, s'il est né ici : ailleurs, il n'existait que pour cette app. Un compte d'app (25/11) est de son app.
+  DELETE FROM public.vavi_comptes_d_app WHERE id = p_compte AND schema_de_l_app = p_schema;
+  IF FOUND THEN v_compte_efface := true; END IF;
   IF EXISTS (SELECT 1 FROM public.origine_des_comptes o WHERE o.compte = p_compte AND o.origine = p_schema) THEN
     DELETE FROM public.origine_des_comptes WHERE compte = p_compte;
     DELETE FROM auth.users WHERE id = p_compte;

@@ -11,7 +11,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { lireLeManifeste } from '@/lib/backend/app/manifeste';
 import { sqlDeLaBase } from '@/lib/backend/pipeline/la-base';
-import { demarrer, POSTGRES_PRESENT, type UnPostgres } from '../aides/un-postgres';
+import { demarrer, POSTGRES_PRESENT, type UnPostgres, enComptesDeLApp } from '../aides/un-postgres';
 import { DIRECTION } from '../aides/un-manifeste';
 
 const texte = [{ nom: 'texte', libelle: 'Texte', type: 'texte' }];
@@ -49,7 +49,7 @@ describe.runIf(POSTGRES_PRESENT)('les droits des lignes, sur un PostgreSQL réel
   const touche = (compte: string, sql: string): string => n(compte, `with u as (${sql} returning 1) select count(*) from u;`);
   beforeAll(() => {
     pg = demarrer('les-droits-des-lignes', 55793);
-    pg.admin(`insert into auth.users (id, email) values ('${MOI}','moi@a.fr'),('${MEM}','mem@a.fr'),('${CLA}','cla@a.fr'),('${CLB}','clb@a.fr'); create schema ${S};`);
+    pg.admin(`insert into auth.users (id, email) values ('${MOI}','moi@a.fr'),('${MEM}','mem@a.fr'),('${CLA}','cla@a.fr'),('${CLB}','clb@a.fr'); create schema ${S};\n${enComptesDeLApp(S, [MEM, CLA, CLB])}`);
     for (const g of sqlDeLaBase(m, { schema: S, proprietaire: MOI })) pg.admin(`begin;\nset search_path to '';\n${g.sql}\ncommit;`);
     n(MOI, `select ${S}.attribuer_un_role('mem@a.fr','membre');`);
     for (const c of [MEM, CLA, CLB]) n(c, `select ${S}.rejoindre();`);

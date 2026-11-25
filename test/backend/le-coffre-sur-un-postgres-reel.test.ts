@@ -10,7 +10,7 @@ import { lireLeManifeste, type Manifeste } from '@/lib/backend/app/manifeste';
 import { sqlDeLaBase } from '@/lib/backend/pipeline/la-base';
 import { FONCTIONS_DU_COFFRE_POUR_L_APP } from '@/lib/relais/le-relais';
 import { FONCTIONS_DU_COFFRE_POUR_LA_PLATEFORME } from '@/lib/relais/la-plateforme-pour-un-compte';
-import { demarrer, POSTGRES_PRESENT, type UnPostgres } from '../aides/un-postgres';
+import { demarrer, POSTGRES_PRESENT, type UnPostgres, enComptesDeLApp } from '../aides/un-postgres';
 
 const lu = lireLeManifeste({
   version: 1, nature: 'app', nom: 'Dossiers', description: 'Les dossiers d’un cabinet et de ses clients.', langues: { principale: 'fr' },
@@ -50,7 +50,8 @@ describe.runIf(POSTGRES_PRESENT)('le coffre de l’organisation dans la voie D, 
   beforeAll(() => {
     pg = demarrer('voie-d-le-coffre', 55738);
     pg.admin(`insert into auth.users values ('${MOI}', 'moi@c.fr'), ('${COLL}', 'coll@c.fr'), ('${CLA}', 'a@x.fr'), ('${CLB}', 'b@y.fr'), ('${SANS}', 'sans@z.fr');
-create schema ${S};`);
+create schema ${S};
+${enComptesDeLApp(S, [COLL, CLA, CLB, SANS])}`);
     for (const g of sqlDeLaBase(m, { schema: S, proprietaire: MOI })) pg.admin(`begin;\nset search_path to '';\n${g.sql}\ncommit;`);
     pg.comme(MOI, `select ${S}.rejoindre(); select ${S}.attribuer_un_role('coll@c.fr', 'collaborateur'); select ${S}.attribuer_un_role('a@x.fr', 'client'); select ${S}.attribuer_un_role('b@y.fr', 'client');`);
     for (const c of [COLL, CLA, CLB, SANS]) pg.comme(c, `select ${S}.rejoindre();`);

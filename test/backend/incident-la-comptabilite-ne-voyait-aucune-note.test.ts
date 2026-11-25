@@ -7,7 +7,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { lireLeManifeste } from '@/lib/backend/app/manifeste';
 import { sqlDeLaBase } from '@/lib/backend/pipeline/la-base';
-import { demarrer, POSTGRES_PRESENT, type UnPostgres } from '../aides/un-postgres';
+import { demarrer, POSTGRES_PRESENT, type UnPostgres, enComptesDeLApp } from '../aides/un-postgres';
 import { DIRECTION } from '../aides/un-manifeste';
 
 const manifeste = (notes: Record<string, unknown>) => lireLeManifeste({
@@ -37,7 +37,7 @@ describe.runIf(POSTGRES_PRESENT)('la comptabilité voit et rembourse toutes les 
   const n = (compte: string | null, sql: string): string => { const r = pg.comme(compte, sql); if (!r.ok) throw new Error(r.sortie); return r.sortie; };
   beforeAll(() => {
     pg = demarrer('la-comptabilite', 55794);
-    pg.admin(`insert into auth.users (id, email) values ('${MOI}','moi@a.fr'),('${SA}','sa@a.fr'),('${SB}','sb@a.fr'),('${CPT}','cpt@a.fr'); create schema ${S};`);
+    pg.admin(`insert into auth.users (id, email) values ('${MOI}','moi@a.fr'),('${SA}','sa@a.fr'),('${SB}','sb@a.fr'),('${CPT}','cpt@a.fr'); create schema ${S};\n${enComptesDeLApp(S, [SA, SB, CPT])}`);
     for (const g of sqlDeLaBase(lu.manifeste, { schema: S, proprietaire: MOI })) pg.admin(`begin;\nset search_path to '';\n${g.sql}\ncommit;`);
     n(MOI, `select ${S}.attribuer_un_role('sa@a.fr','salarie'); select ${S}.attribuer_un_role('sb@a.fr','salarie'); select ${S}.attribuer_un_role('cpt@a.fr','compta');`);
     for (const c of [SA, SB, CPT]) n(c, `select ${S}.rejoindre();`);

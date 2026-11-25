@@ -8,7 +8,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { lireLeManifeste, type Manifeste } from '@/lib/backend/app/manifeste';
 import { sqlDeLaBase } from '@/lib/backend/pipeline/la-base';
-import { demarrer, POSTGRES_PRESENT, type UnPostgres } from '../aides/un-postgres';
+import { demarrer, POSTGRES_PRESENT, type UnPostgres, enComptesDeLApp } from '../aides/un-postgres';
 
 const lu = lireLeManifeste({
   version: 1, nature: 'app', nom: 'Notes de frais', description: 'Les notes de frais d’une entreprise.', langues: { principale: 'fr' },
@@ -54,7 +54,8 @@ describe.runIf(POSTGRES_PRESENT)('la base d’une app, sur un PostgreSQL réel',
   beforeAll(() => {
     pg = demarrer('voie-d-la-base', 55731);
     pg.admin(`insert into auth.users values ('${MOI}', 'moi@a.fr'), ('${SALA}', 'sala@a.fr'), ('${SALB}', 'salb@a.fr'), ('${GER}', 'ger@b.fr');
-create schema ${S};`);
+create schema ${S};
+${enComptesDeLApp(S, [SALA, SALB, GER])}`);
     poser(pg);
   }, 60_000);
   afterAll(() => pg?.arreter());
@@ -167,7 +168,7 @@ create schema ${S};`);
   });
 
   it('qui s’inscrit gère l’organisation qu’il fonde : il y invite, et voit ce que son équipe crée, rien de l’autre', () => {
-    pg.admin(`insert into auth.users values ('${SALG}', 'salg@b.fr');`);
+    pg.admin(`insert into auth.users values ('${SALG}', 'salg@b.fr');\n${enComptesDeLApp(S, [SALG])}`);
     expect(pg.comme(GER, `select ${S}.attribuer_un_role('salg@b.fr', 'salarie');`).sortie).toBe('donne');
     expect(pg.comme(SALG, `select ${S}.rejoindre();`).sortie).toBe('{salarie}');
     pg.comme(SALG, `insert into ${S}.note (objet, montant) values ('Hôtel', 120);`);

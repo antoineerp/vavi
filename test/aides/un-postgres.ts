@@ -6,6 +6,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, rmSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
+import { SQL_DES_COMPTES_DES_APPS } from '@/lib/relais/les-comptes-des-apps';
 
 export interface UnPostgres {
   /** Exécute en administrateur (la pose de la plateforme). */
@@ -43,6 +44,8 @@ create role authenticated nologin; create role anon nologin; create role service
 grant usage on schema auth to authenticated, anon, service_role;
 grant select on auth.users to service_role;
 grant execute on function auth.uid() to authenticated, anon, service_role;`);
+  // Les fonctions des apps lisent les adresses par la plateforme (`vavi_courriel_du_compte`…), posée avant toute app.
+  psql(SQL_DES_COMPTES_DES_APPS);
   const essayer = (sql: string): { ok: boolean; sortie: string } => {
     try { return { ok: true, sortie: psql(sql) }; } catch (e) { return { ok: false, sortie: String((e as { stderr?: string }).stderr ?? e) }; }
   };
@@ -56,3 +59,10 @@ grant execute on function auth.uid() to authenticated, anon, service_role;`);
     arreter() { try { su(`${BIN}/pg_ctl -D ${base}/data -m fast stop`); } catch { /* déjà arrêté */ } rmSync(base, { recursive: true, force: true }); },
   };
 }
+
+/**
+ * Les comptes d'une app (25/11 : chaque app a les siens, `lib/relais/les-comptes-des-apps.ts`) : ces comptes de test,
+ * posés dans `auth.users`, deviennent des comptes de cette app, leur adresse confirmée. Le propriétaire reste celui de la console.
+ */
+export const enComptesDeLApp = (schema: string, ids: readonly string[]): string =>
+  `insert into public.vavi_comptes_d_app (id, schema_de_l_app, email, confirme_le) select id, '${schema}', lower(email), now() from auth.users where id = any(array[${ids.map((i) => `'${i}'`).join(',')}]::uuid[]) on conflict do nothing;`;

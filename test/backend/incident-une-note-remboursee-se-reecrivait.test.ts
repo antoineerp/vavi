@@ -20,7 +20,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { lireLeManifeste, type Manifeste } from '@/lib/backend/app/manifeste';
 import { sqlDeLaBase } from '@/lib/backend/pipeline/la-base';
-import { demarrer, POSTGRES_PRESENT, type UnPostgres } from '../aides/un-postgres';
+import { demarrer, POSTGRES_PRESENT, type UnPostgres, enComptesDeLApp } from '../aides/un-postgres';
 
 const NOTES = {
   version: 1, nature: 'app', nom: 'Notes de frais', description: 'Les notes de frais, de la saisie au remboursement.', langues: { principale: 'fr' },
@@ -92,7 +92,7 @@ describe.runIf(POSTGRES_PRESENT)('2 — la base réelle de l’app tient la note
 
   beforeAll(() => {
     pg = demarrer('voie-d-integrite', 55751);
-    pg.admin(`insert into auth.users values ('${RESPONSABLE}', 'resp@a.fr'), ('${SALARIE}', 'sal@a.fr');\ncreate schema ${S};`);
+    pg.admin(`insert into auth.users values ('${RESPONSABLE}', 'resp@a.fr'), ('${SALARIE}', 'sal@a.fr');\ncreate schema ${S};\n${enComptesDeLApp(S, [SALARIE])}`);
     for (const g of sqlDeLaBase(lu(NOTES), { schema: S, proprietaire: RESPONSABLE })) pg.admin(`begin;\nset search_path to '';\n${g.sql}\ncommit;`);
     expect(responsable(`select ${S}.attribuer_un_role('sal@a.fr', 'salarie');`).sortie).toBe('donne');
   });
