@@ -28,7 +28,7 @@ export function paquetInconnu(fichier: string, texte: string, permis: readonly s
     const paquet = spec ? paquetDeLImport(spec) : null;
     if (!paquet || permis.includes(paquet)) continue;
     const ligne = texte.slice(0, m.index).split('\n').length + (m[0].startsWith('\n') ? 1 : 0);
-    return refuser('paquet_inconnu', `The package "${paquet}" is not part of the vavi template.`, { fichier, ligne });
+    return refuser('paquet_inconnu', `The package "${paquet}" is neither in the vavi template nor added to this app.`, { fichier, ligne, geste: `Add it first with \`add_packages\` ({ name: "${paquet}" }), then send this change again.` });
   }
   return null;
 }
@@ -43,8 +43,10 @@ export function laRessourceDesCapacites(permis: readonly string[], pasEncore: re
   return [
     '# What you can use in a vavi app',
     '',
-    'Packages of the locked template (exact versions are fixed by vavi; importing any other package is refused):',
+    'Packages of the locked template (exact versions are fixed by vavi):',
     ...permis.map((p) => `- ${p}`),
+    '',
+    'Any other npm package: add it first with `add_packages` (checked on the npm registry: exact version, not deprecated, no install script, 30 MB at most), then import it. You know the npm ecosystem: pick a maintained, pure JavaScript package rather than writing a hard calculation yourself.',
     '',
     'Capabilities that vavi provides (declared in app.json `fonctions`) are typed in `src/lib/capacites.ts`: read it with `read_files` before calling one.',
     'Outside software (`fonctions.connecteur`): the person plugs it in the vavi console (project → Connectors: n8n, Algolia, Cloudinary, Cal.com, another Supabase project, or any API with a key). The page calls it by its name, `capacites.connecteur.appeler(\'<name>\', { chemin, methode, corps })`, never by an address; the plugged-in names are in `get_project_state` (`connectors`). If none is plugged in yet, build the page anyway and tell the person where to plug it in.',

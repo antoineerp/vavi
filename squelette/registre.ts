@@ -33,7 +33,7 @@ const MONTRES = [
 
 const DERIVES = ['app.json', 'src/donnees/types.ts', 'src/styles/tokens.css', 'index.html', 'package.json'] as const;
 
-export const POSES_PAR_UN_OUTIL = ['src/images.json', 'src/referencement.json'] as const;
+export const POSES_PAR_UN_OUTIL = ['src/images.json', 'src/referencement.json', 'vavi-paquets.json'] as const;
 
 function fichiersDu(dossier: string): string[] {
   return readdirSync(dossier).flatMap((n) => {
