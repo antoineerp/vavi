@@ -4,12 +4,13 @@ import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 import { laBoutique } from '@/lib/vente/la-boutique';
 import { CLE_DE_VAVI, lEtatDuCompte } from '@/lib/stripe-connect/le-compte';
 import { comptesSurSupabase } from '@/lib/stripe-connect/sur-supabase';
-import { leProjet } from '../le-projet';
+import { leProjet, ERREURS } from '../le-projet';
 
 export const dynamic = 'force-dynamic';
 
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { id } = await params;
+  const q = await searchParams;
   const { c, t } = await leProjet(id, 'paiements');
   const f = await c.projets.fichiers(c.compte, id);
   const m = f.lu ? leManifesteStocke(f.valeur.get('app.json')) : null;
@@ -20,6 +21,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   return (
     <main className="console">
       <h1>{t.encaisser}</h1>
+      {q.erreur && <div className="carte" role="alert">{t.erreur} {ERREURS[q.erreur]?.[c.langue] ?? q.erreur}{q.detail ? <> <span className="attenue">Stripe : « {q.detail} »</span></> : null}</div>}
       <div className="carte">
         <p>{t.encaisserExplication}</p>
         {!cleStripe ? <p className="attenue">{t.stripeNonRelie}</p>

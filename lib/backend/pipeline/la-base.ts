@@ -198,10 +198,12 @@ function lisible(m: Manifeste, s: string, t: Table, l: string): string {
   const org = dansSonOrganisation(m, s, l);
   const siens = `${l}.owner_id = auth.uid()`;
   const ecritParLeDehors = t.ecriture.some((r) => rolesDuDehors(m).includes(r));
+  const entiere = (t.lectureEntiere ?? []).filter((r) => roles.includes(r));
   const parAppartenance = {
     publique: parRole(m, s, roles, l, 'true', 'true'),
     organisation: parRole(m, s, roles, l, org, ecritParLeDehors ? siens : org),
-    personnelle: roles.length ? `(${s}.a_un_role(${tableau(roles)}) and (${siens} or ${s}.encadre(${l}.owner_id) or (${s}.gere_l_organisation() and ${org})))` : 'false',
+    // Qui gère l'organisation, ou qui la lit en entier (`lectureEntiere` : une comptabilité), voit toutes ses lignes.
+    personnelle: roles.length ? `(${s}.a_un_role(${tableau(roles)}) and (${siens} or ${s}.encadre(${l}.owner_id) or ((${s}.gere_l_organisation()${entiere.length ? ` or ${s}.a_un_role(${tableau(entiere)})` : ''}) and ${org})))` : 'false',
     rattachee: roles.length ? `(${s}.a_un_role(${tableau(roles)}) and ${s}.${t.parent}_lisible(${l}.${colonneDeLaMere(t)}))` : 'false',
   }[t.appartenance];
   const auteurs = ecrivains(m, t);

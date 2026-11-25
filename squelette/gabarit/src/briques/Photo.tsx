@@ -1,5 +1,5 @@
 /**
- * Une photo de l'app, servie à la bonne taille. `nom` : une image posée par `chercher_images` ou `poser_l_image_jointe`. `prioritaire` : la photo
+ * Une photo de l'app, servie à la bonne taille. `nom` : une image posée par `search_images`. `prioritaire` : la photo
  * du haut de la page, chargée tout de suite ; les autres attendent d'approcher de l'écran. Celle que le propriétaire a
  * fournie dans l'aperçu se montre à la place ; `data-image` la désigne à l'aperçu.
  */

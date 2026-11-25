@@ -9,6 +9,9 @@ describe('le menu', () => {
   it('vide pour une seule page, entier dès qu’il y a un choix', () => {
     expect(unMenuSeulementSIlChoisit([{ vers: '/' }])).toEqual([]);
     expect(unMenuSeulementSIlChoisit([])).toEqual([]);
-    expect(unMenuSeulementSIlChoisit([{ vers: '/' }, { vers: '/contact' }])).toHaveLength(2);
+    expect(unMenuSeulementSIlChoisit([{ vers: '/' }, { vers: '/contact' }, { vers: '/tarifs' }])).toHaveLength(2);
+  });
+  it('sans l’accueil, où mène la marque (Antoine, 25/11)', () => {
+    expect(unMenuSeulementSIlChoisit([{ vers: '/' }, { vers: '/contact' }])).toEqual([{ vers: '/contact' }]);
   });
 });

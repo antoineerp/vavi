@@ -124,6 +124,7 @@ export const Table = z.object({
   parent: Identifiant.optional(),
   lecture: z.array(Identifiant),
   ecriture: z.array(Identifiant).describe('les rôles qui créent et modifient ses lignes ; `visiteur` : une personne sans compte y envoie une ligne (une demande, avec son fichier), que la plateforme garde au nom du propriétaire, et la page lui montre aussitôt ce que la base en a calculé'),
+  lectureEntiere: z.array(Identifiant).optional().describe('table `personnelle` : les rôles de `lecture` qui voient TOUTES les lignes de l’organisation, pas seulement les leurs et celles des personnes qu’ils encadrent (une comptabilité, une direction) ; un rôle qui fait une transition sur les lignes des autres sans les encadrer y figure'),
   identite: z.array(Identifiant).optional().describe('les champs qui, ensemble, identifient une ligne'),
   cycle: z.object({
     etats: z.array(Identifiant).min(2),
@@ -295,6 +296,11 @@ export const Manifeste = z.object({
     if (m.vente?.remise) lireLaRemise(m.vente.remise, m.tables, ctx);
   } else if (m.vente) {
     ctx.addIssue({ code: 'custom', message: '`vente` ne se déclare que pour une app à panier' });
+  }
+  for (const t of m.tables.filter((x) => x.lectureEntiere?.length)) {
+    if (t.appartenance !== 'personnelle') ctx.addIssue({ code: 'custom', message: `la table ${t.nom} : \`lectureEntiere\` ne se déclare que sur une table \`personnelle\` (ailleurs, la lecture suit déjà l’organisation)` });
+    for (const r of t.lectureEntiere!.filter((x) => !t.lecture.includes(x))) ctx.addIssue({ code: 'custom', message: `la table ${t.nom} : ${r} est dans \`lectureEntiere\` sans être dans \`lecture\`` });
+    for (const r of t.lectureEntiere!.filter((x) => m.organisations === 'une' && m.roles.some((r) => r.nom === x && (r.obtenu === 'inscription' || r.obtenu === 'paiement')))) ctx.addIssue({ code: 'custom', message: `la table ${t.nom} : ${r} s’obtient par inscription ou paiement, il n’est le collègue de personne et ne lit pas les lignes des autres` });
   }
   for (const t of m.tables) {
     for (const r of [...t.lecture, ...t.ecriture]) {

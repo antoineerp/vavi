@@ -57,7 +57,7 @@ export const DEFINITIONS = {
   }),
   get_project_state: def({
     title: 'Read the state of a project', _meta: META_DE_LA_VUE, lecture: true, entree: z.object({ project: projet }),
-    description: 'Always call it first. The version, the open work session and its notes, your files with their fingerprints, the platform files to read first, the connectors the person plugged in, the state of the current build.',
+    description: 'Call it first on the project you change (a new site or app is a new project: `create_project`). The version, the open work session and its notes, your files with their fingerprints, the platform files to read first, the connectors the person plugged in, the state of the current build.',
     geste: (c, a) => g.lEtatDuProjet(c, a),
   }),
   read_files: def({
@@ -94,6 +94,21 @@ export const DEFINITIONS = {
     entree: z.object({ project: projet, name: z.string().regex(/^[A-Z][A-Z0-9_]{1,63}$/).describe('e.g. ANTHROPIC_API_KEY'), value: z.string().min(1).max(8000) }),
     description: 'Stores a secret key of the project, encrypted. The value is never shown again and never goes into the code.',
     geste: (c, a) => g.poserUnSecret(c, a),
+  }),
+  get_design_guide: def({
+    title: 'Read the design guide', lecture: true, entree: z.object({ project: projet }),
+    description: 'Call it before writing or redesigning pages. What the pages of this app must be (sections, compositions, photos, the final check), the design rules for its kind and what it carries, and examples of successful designs of its kind, as images: compose each page at their level, never copying their brand, texts or images.',
+    geste: (c, a) => g.leGuideDuDesign(c, a),
+  }),
+  search_images: def({
+    title: 'Find real photos', lecture: false,
+    entree: z.object({ project: projet, work_session: chantier, images: z.array(z.object({
+      name: z.string().regex(/^[a-z][a-z0-9_]{0,40}$/).describe('The name a page shows it by: `<Photo nom="…" />`.'),
+      subject: z.string().min(3).max(120).describe('What the photo shows, in concrete English words: a place, a material, a gesture, an object.'),
+      alt: z.string().min(3).max(200).describe('The alternative text, in the language of the app.'),
+    })).min(1).max(8) }),
+    description: 'Finds a real photo for each subject in the platform photo bank and sets it under its name (src/images.json, which you never write). A page shows it with `<Photo nom="…" />` from `@/briques/Photo`; photo credits are served by the platform. Never write an image address yourself.',
+    geste: (c, a) => g.chercherDesImages(c, a),
   }),
   build_preview: def({
     title: 'Build the preview', _meta: META_DE_LA_VUE, lecture: false, entree: z.object({ project: projet }),

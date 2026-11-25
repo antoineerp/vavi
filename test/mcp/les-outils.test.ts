@@ -242,3 +242,27 @@ describe('le serveur MCP', () => {
     expect(JSON.stringify(prompts)).toContain('Démarrer un projet');
   });
 });
+
+describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {
+  it('get_design_guide rend le guide de la vitrine, les règles de sa nature, et les exemples en images', async () => {
+    const { project } = await unChantier();
+    const r = await servirLeMcp({ jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'get_design_guide', arguments: { project } } },
+      { outils: c, langue: 'fr', gabaritPackageJson: GABARIT, noteDuChantier: async () => null }) as { result: { content: { type: string; mimeType?: string }[]; structuredContent: Record<string, unknown> } };
+    const s = r.result.structuredContent;
+    expect((s.guide as string[]).join(' ')).toMatch(/six real sections.*search_images/);
+    expect((s.rules as string[]).some((t) => t.includes('search_images'))).toBe(true);
+    expect((s.rules as string[]).some((t) => t.includes('`verifier`'))).toBe(false);
+    expect(s._images).toBeUndefined();
+    expect(r.result.content.filter((x) => x.type === 'image').length).toBeGreaterThan(0);
+  });
+  it('search_images pose la photo du sujet dans src/images.json, que Claude n’écrit pas ; sans banque, il le dit', async () => {
+    const { project, work_session } = await unChantier();
+    expect((await refus('search_images', { project, work_session, images: [{ name: 'salle', subject: 'cafe interior', alt: 'La salle' }] })).code).toBe('plateforme_en_panne');
+    (c as { banque?: unknown }).banque = { chercher: async () => [{ source: 'https://images.unsplash.com/p', largeur: 2000, hauteur: 1400, decrit: 'a cozy cafe interior', auteur: 'A', profil: '', banque: 'Unsplash', lienBanque: '' }], signaler: async () => undefined };
+    const r = await ok('search_images', { project, work_session, images: [{ name: 'salle', subject: 'cafe interior', alt: 'La salle' }] });
+    expect(r.images).toEqual(['salle: set (the bank sees: a cozy cafe interior).']);
+    const f = await ok('read_files', { project, paths: ['src/images.json'] });
+    expect(JSON.stringify(f.files)).toContain('images.unsplash.com/p?w=640');
+    expect((await refus('apply_changes', { project, work_session, why: 'écrire les photos', changes: [{ path: 'src/images.json', content: '{}' }] })).code).toBe('fichier_du_cadre');
+  });
+});

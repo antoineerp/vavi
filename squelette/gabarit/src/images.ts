@@ -1,4 +1,4 @@
-/** Les photos de l'app, posées par l'outil `chercher_images` dans `images.json`. Un nom absent ne compile pas. */
+/** Les photos de l'app, posées par l'outil `search_images` dans `images.json`. Un nom absent ne compile pas. */
 import images from './images.json';
 
 export interface ImageDeLApp {
