@@ -3,7 +3,7 @@
  * la session de la console). Avec un domaine des apps, chaque app a son hôte ; la console n'y passe jamais.
  */
 import { describe, expect, it } from 'vitest';
-import { laDecision, lAdresseDeLApp, lAppDeLHote, leDomaineDesApps } from '@/lib/publication/les-adresses-des-apps';
+import { CORS_DES_APPS, estUneRouteDesApps, laDecision, lAdresseDeLApp, lAppDeLHote, leDomaineDesApps } from '@/lib/publication/les-adresses-des-apps';
 import { leRetour } from '@/lib/vente/la-vente';
 import { poserLEnvironnement } from '@/lib/publication/servir';
 
@@ -51,5 +51,16 @@ describe('les adresses des apps', () => {
   it('l’app reçoit l’origine de la console, seule à pouvoir demander l’édition', () => {
     const html = poserLEnvironnement('<html><head></head></html>', { supabaseUrl: 'https://x', cleAnonyme: 'k', schema: 's', base: '/', projet: P, console: o.console });
     expect(html).toContain('window.__VAVI_CONSOLE__="https://console.vavi.test"');
+  });
+});
+
+describe('INCIDENT 25/11 — les routes que l’app appelle', () => {
+  it('comptent l’IA, la lecture de fichiers et les connecteurs (servis aussi à l’hôte de l’app), jamais la console', () => {
+    for (const c of ['/api/ai/x/complete', '/api/file/x/parse', '/api/external/x/call', '/api/comptes/x/entrer']) expect(estUneRouteDesApps(c)).toBe(true);
+    for (const c of ['/api/mcp', '/api/oauth/jeton', '/api/abonnements/x', '/projets/x']) expect(estUneRouteDesApps(c)).toBe(false);
+  });
+  it('répondent à toute origine, sans cookie', () => {
+    expect(CORS_DES_APPS['access-control-allow-origin']).toBe('*');
+    expect(Object.keys(CORS_DES_APPS)).not.toContain('access-control-allow-credentials');
   });
 });

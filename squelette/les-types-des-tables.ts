@@ -72,7 +72,7 @@ function typesDuJournal(t: Table): string {
  * compile pas s'il les appelle — et l'outil qui reçoit app.json dit à Claude comment le faire lui-même dans la page (`CE_QUE_CLAUDE_FAIT_DANS_LA_PAGE`). Une fonction sort
  * de cette liste le jour où sa route est servie.
  */
-export const FONCTIONS_PAS_ENCORE_SERVIES = ['pdf', 'lecture', 'recherche', 'telephone', 'agenda'] as const;
+export const FONCTIONS_PAS_ENCORE_SERVIES = ['pdf', 'recherche', 'telephone', 'agenda'] as const;
 
 /**
  * Ce que Claude fait LUI-MÊME dans la page quand vavi ne sert pas la fonction (Antoine, 25/11 : « il faut que Claude fasse
@@ -81,7 +81,6 @@ export const FONCTIONS_PAS_ENCORE_SERVIES = ['pdf', 'lecture', 'recherche', 'tel
  */
 export const CE_QUE_CLAUDE_FAIT_DANS_LA_PAGE: Readonly<Record<(typeof FONCTIONS_PAS_ENCORE_SERVIES)[number], string | null>> = {
   pdf: 'generate the PDF in the page with `jspdf` (tables: `jspdf-autotable`), from the rows the page already reads',
-  lecture: 'read the file in the page: CSV with `papaparse`, Excel with `read-excel-file/browser` (write Excel with `write-excel-file/browser`)',
   recherche: 'search in the page, over the rows it reads from the tables (filter, sort, highlight)',
   agenda: 'show the calendar with `react-day-picker` and `date-fns`, the dates kept in a declared table (a sync with an outside calendar waits for vavi)',
   telephone: null,

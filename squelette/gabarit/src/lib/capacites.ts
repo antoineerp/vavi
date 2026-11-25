@@ -84,8 +84,8 @@ const TOUTES = {
   },
   lecture: {
     /**
-     * Le texte d'un fichier (PDF, Word, tableur, texte) ; pour un tableur, aussi ses `entetes`. Rien n'est gardé. Les
-     * lignes d'un tableur entrent dans une table par `<Importer>` (`@/briques/Importer`), jamais une à une.
+     * Le texte réel d'un fichier (PDF, Word .docx, PowerPoint .pptx, CSV, texte). Rien n'est gardé. Un tableur Excel se
+     * lit dans la page (`read-excel-file/browser`) ; ses lignes entrent dans une table par `<Importer>`, jamais une à une.
      */
     lire: async (fichier: Blob, nom?: string) => {
       const f = new FormData();

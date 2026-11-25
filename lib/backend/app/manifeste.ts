@@ -173,7 +173,7 @@ export const Fonctions = z.object({
   ia: z.boolean().default(false),
   courriel: Capacite('une page envoie un courriel à une adresse, par l’expéditeur du propriétaire (une automatisation qui prévient n’en a pas besoin)'),
   pdf: Capacite('une page compose un document PDF que la personne télécharge'),
-  lecture: Capacite('une page lit le texte ou la grille d’un fichier que la personne choisit (PDF, Word, tableur) pour s’en servir ; un fichier à garder est un champ `fichier`'),
+  lecture: Capacite('une page lit le texte d’un fichier que la personne choisit (PDF, Word .docx, PowerPoint .pptx, CSV, texte) pour s’en servir, `capacites.lecture.lire` ; un tableur Excel se lit dans la page (`read-excel-file/browser`) ; un fichier à garder est un champ `fichier`'),
   lieu: Capacite('une page trouve une adresse : ses coordonnées et son fuseau horaire'),
   recherche: Capacite('une page rend des textes cherchables par le sens et y cherche, chaque passage rendu avec sa source'),
   connecteur: Capacite('une page appelle un logiciel que le propriétaire a branché, sous son nom'),

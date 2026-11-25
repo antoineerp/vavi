@@ -71,7 +71,7 @@ describe('l’audit du 25/11', () => {
   it('chaque paquet nommé pour le faire dans la page est dans le gabarit', () => {
     const permis = lesPaquetsDuGabarit(readFileSync(join(process.cwd(), 'squelette', 'gabarit', 'package.json'), 'utf8'));
     const nommes = Object.values(CE_QUE_CLAUDE_FAIT_DANS_LA_PAGE).flatMap((t) => [...(t ?? '').matchAll(/`([^`]+)`/g)].map((m) => m[1]!.replace(/\/browser$/, '')));
-    expect(nommes.length).toBeGreaterThan(4);
+    expect(nommes.length).toBeGreaterThan(3);
     for (const p of nommes) expect(permis).toContain(p);
   });
 
