@@ -33,14 +33,16 @@ export function paquetInconnu(fichier: string, texte: string, permis: readonly s
   return null;
 }
 
-export function laRessourceDesCapacites(permis: readonly string[]): string {
+/** `pasEncore` : les fonctions qu'app.json sait déclarer mais que vavi ne sert pas encore (`squelette`) : jamais promises. */
+export function laRessourceDesCapacites(permis: readonly string[], pasEncore: readonly string[] = []): string {
   return [
     '# What you can use in a vavi app',
     '',
     'Packages of the locked template (exact versions are fixed by vavi; importing any other package is refused):',
     ...permis.map((p) => `- ${p}`),
     '',
-    'Capabilities (e-mail, SMS, PDF, AI, search…) are typed in `src/lib/capacites.ts`: read it with `read_files` before calling one.',
+    'Capabilities that vavi provides (declared in app.json `fonctions`) are typed in `src/lib/capacites.ts`: read it with `read_files` before calling one.',
+    ...(pasEncore.length ? [`Not provided by vavi yet, even if app.json can declare them: ${pasEncore.join(', ')}. Do not promise them to the person; say this part is not available yet.`] : []),
     'Tables and columns are typed from app.json in `src/donnees/types.ts`: a column that is not declared does not compile.',
   ].join('\n');
 }

@@ -27,6 +27,8 @@ export interface ContexteDesRessources {
   readonly gabaritPackageJson: string;
   /** La note du chantier ouvert d'un projet (fait, reste à faire), ou null s'il n'y en a pas ; vient de lib/projets. */
   readonly noteDuChantier: (projetId: string) => Promise<string | null>;
+  /** Les fonctions qu'app.json sait déclarer mais que vavi ne sert pas encore ; vient de squelette. */
+  readonly fonctionsPasEncoreServies?: readonly string[];
 }
 
 const NOTE = /^vavi:\/\/projet\/([^/]+)\/chantier$/;
@@ -46,7 +48,7 @@ export function lesModelesDeRessources() {
 
 export async function uneRessource(uri: string, ctx: ContexteDesRessources): Promise<{ contents: { uri: string; mimeType: string; text: string }[] } | { erreur: string }> {
   if (uri === 'vavi://capacites') {
-    return { contents: [{ uri, mimeType: 'text/markdown', text: laRessourceDesCapacites(lesPaquetsDuGabarit(ctx.gabaritPackageJson)) }] };
+    return { contents: [{ uri, mimeType: 'text/markdown', text: laRessourceDesCapacites(lesPaquetsDuGabarit(ctx.gabaritPackageJson), ctx.fonctionsPasEncoreServies) }] };
   }
   const m = NOTE.exec(uri);
   if (m) {

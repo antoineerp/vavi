@@ -58,16 +58,23 @@ export async function publierLeDist(magasin: Magasin, racine: string, dist: Read
     return { fichiers: dist.size, envoyes: 0, sautes: dist.size, empreinte, dejaEnLigne: true };
   }
   let envoyes = 0, sautes = 0;
-  for (const [chemin, octets] of dist) {
-    if (chemin === 'index.html') continue;
-    const cle = `${racine}/${chemin}`;
-    if (chemin.startsWith('assets/')) {
-      const t = await magasin.tete(cle);
-      if (t !== 'absent' && t.taille === octets.length) { sautes++; continue; }
+  // Huit envois à la fois (25/11 : un aller-retour au magasin par fichier, l'un après l'autre, comptait dans l'attente de
+  // la personne) ; l'entrée part toujours la dernière : tant qu'elle n'est pas posée, l'ancienne version reste servie.
+  const fichiers = [...dist].filter(([chemin]) => chemin !== 'index.html');
+  let suivant = 0;
+  const envoyer = async (): Promise<void> => {
+    while (suivant < fichiers.length) {
+      const [chemin, octets] = fichiers[suivant++]!;
+      const cle = `${racine}/${chemin}`;
+      if (chemin.startsWith('assets/')) {
+        const t = await magasin.tete(cle);
+        if (t !== 'absent' && t.taille === octets.length) { sautes++; continue; }
+      }
+      await magasin.poser(cle, octets, { type: typeDe(chemin), cache: cachePour(chemin) });
+      envoyes++;
     }
-    await magasin.poser(cle, octets, { type: typeDe(chemin), cache: cachePour(chemin) });
-    envoyes++;
-  }
+  };
+  await Promise.all(Array.from({ length: Math.min(8, fichiers.length) }, envoyer));
   await magasin.poser(cleDeLEntree, index, { type: typeDe('index.html'), cache: cachePour('index.html'), meta: { [META_DE_L_EMPREINTE]: empreinte } });
   return { fichiers: dist.size, envoyes: envoyes + 1, sautes, empreinte, dejaEnLigne: false };
 }

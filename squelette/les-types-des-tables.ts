@@ -66,6 +66,19 @@ function typesDuJournal(t: Table): string {
   ].join('\n');
 }
 
+/**
+ * Les fonctions qu'app.json sait déclarer mais que vavi ne sert pas encore : aucune route de la plateforme ne leur répond
+ * (audit du 25/11 : l'app les appelait et recevait une erreur à l'écran). Elles ne sont pas offertes à l'app — son code ne
+ * compile pas s'il les appelle — et l'outil qui reçoit app.json le dit à Claude, qui le dit à la personne. Une fonction sort
+ * de cette liste le jour où sa route est servie.
+ */
+export const FONCTIONS_PAS_ENCORE_SERVIES = ['ia', 'pdf', 'lecture', 'recherche', 'connecteur', 'telephone', 'agenda'] as const;
+const servie = (c: string): boolean => !(FONCTIONS_PAS_ENCORE_SERVIES as readonly string[]).includes(c);
+
+/** Les fonctions déclarées dans app.json que vavi ne sert pas encore. PURE. */
+export const lesFonctionsPasEncoreServies = (m: Manifeste): string[] =>
+  FONCTIONS_PAS_ENCORE_SERVIES.filter((c) => (m.fonctions as Record<string, unknown>)[c] === true);
+
 export function typesDesTables(m: Manifeste): string {
   const tables = tablesDeLaBase(m);
   return [
@@ -73,7 +86,7 @@ export function typesDesTables(m: Manifeste): string {
     `export type LanguePrincipale = ${JSON.stringify(m.langues.principale)};`,
     `export type AutreLangue = ${m.langues.autres.length ? m.langues.autres.map((l) => JSON.stringify(l)).join(' | ') : 'never'};`,
     // Les fonctions de la plateforme qu'app.json déclare : `capacites` de `@/lib/capacites` n'offre qu'elles.
-    `export type CapaciteDeclaree = ${CAPACITES.filter((c) => m.fonctions[c]).map((c) => JSON.stringify(c)).join(' | ') || 'never'};`,
+    `export type CapaciteDeclaree = ${CAPACITES.filter((c) => m.fonctions[c] && servie(c)).map((c) => JSON.stringify(c)).join(' | ') || 'never'};`,
     `export type RolePaye = ${m.roles.filter((r) => r.obtenu === 'paiement').map((r) => JSON.stringify(r.nom)).join(' | ') || 'never'};`,
     `export type NomDAgent = ${m.agents.length ? m.agents.map((a) => JSON.stringify(a.nom)).join(' | ') : 'never'};`,
     `export type NomDIndicateur = ${m.indicateurs.length ? m.indicateurs.map((i) => JSON.stringify(i.nom)).join(' | ') : 'never'};`,

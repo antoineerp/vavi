@@ -38,12 +38,23 @@ export interface SecretTrouve { readonly sorte: string; readonly ligne: number }
 
 const ligneDe = (texte: string, index: number): number => texte.slice(0, index).split('\n').length;
 
+/**
+ * Un exemple à remplir n'est pas une clé (audit du 25/11) : `sk-ant-xxxxxxxxxxxxxxxxxxxxxxxx`, `sk_test_XXXXXXXXXXXX`, le
+ * texte d'aide d'un champ où la personne colle SA clé. Une vraie clé est tirée au hasard : passé son préfixe, elle compte
+ * bien plus de 8 signes différents.
+ */
+const estUnExemple = (cle: string): boolean => new Set(cle.replace(/^[a-z]+[-_](?:[a-z]+[-_])?/i, '').replace(/[-_]/g, '')).size <= 8;
+
 /** Le premier secret d'un texte, sa sorte et sa ligne ; `null` s'il n'y en a pas. */
 export function unSecretDans(texte: string): SecretTrouve | null {
   let premier: SecretTrouve & { index: number } | null = null;
   for (const { sorte, motif } of MOTIFS) {
-    const m = motif.exec(texte);
-    if (m && (!premier || m.index < premier.index)) premier = { sorte, ligne: ligneDe(texte, m.index), index: m.index };
+    const tous = new RegExp(motif.source, 'g');
+    for (const m of texte.matchAll(tous)) {
+      if (sorte !== 'private key' && estUnExemple(m[0])) continue;
+      if (!premier || m.index! < premier.index) premier = { sorte, ligne: ligneDe(texte, m.index!), index: m.index! };
+      break;
+    }
   }
   const service = jetonDeService(texte);
   if (service !== null && (!premier || service < premier.index)) premier = { sorte: 'Supabase service_role key', ligne: ligneDe(texte, service), index: service };

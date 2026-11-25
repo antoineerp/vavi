@@ -69,6 +69,8 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         return preRendre(o.navigateur, dist, { env: { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet },
           app: { nom: m.nom, description: m.description, langue: m.langues.principale, autres: m.langues.autres, editeur: m.editeur ?? null } });
       },
+      // Après la réponse de l'outil : le serveur de vavi est un processus qui dure (Fly), le travail va au bout.
+      enArrierePlan(nom, travail) { void travail().catch((e: unknown) => console.error(`[arrière-plan] ${nom} : ${(e as Error)?.message ?? e}`)); },
       permis: lesPaquetsDuGabarit(leGabarit()),
       adresse: adresseDeLaPlateforme(),
       domaineDesApps: leDomaineDesApps(process.env),
