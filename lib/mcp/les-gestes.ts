@@ -413,19 +413,24 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
     if (s) return refuser('secret_dans_le_code', `The built app would ship what looks like a secret (${s.sorte}) in ${chemin}.`, { fichier: chemin });
   }
   // Les pages publiques, rendues en visiteur, s'ajoutent au dist à côté de la coquille : lisibles sans JavaScript.
+  // Le temps de chaque étape est dit (25/11 : « très long pour un mot » — mesurer avant d'accélérer).
+  const t0 = Date.now();
   const pre = await c.preRendre(a.project, b.dist, arbre.manifeste).catch((e: unknown) => ({ erreur: String((e as Error)?.message ?? e) }));
   const dist = pre && 'fichiers' in pre ? new Map([...b.dist, ...pre.fichiers]) : b.dist;
+  const t1 = Date.now();
   try {
     await publierLeDist(c.magasin, racineDuBuild(a.project, arbre.empreinte), dist);
   } catch (e) {
     return refuser('plateforme_en_panne', `The build is green but could not be stored (${(e as Error).message}).`);
   }
+  const temps = { build: b.duree, prerender: t1 - t0, store: Date.now() - t1 };
+  console.log(`[build_preview] ${a.project} build ${temps.build} ms, pré-rendu ${temps.prerender} ms, envoi ${temps.store} ms`);
   await c.projets.enregistrerUnBuild(c.compte, a.project, { empreinte: arbre.empreinte, vert: true, ecarts: [] });
   // Un build vert DEVIENT l'aperçu (24/11, retour d'Antoine : la console disait « pas encore d'aperçu » après un build
   // vert) : la console et le lien montrent la dernière version qui se construit ; `publish` ferme le chantier.
   const designe = await c.projets.publierLApercu(c.compte, a.project, arbre.empreinte);
   return fait({
-    project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree,
+    project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree, timings_ms: temps,
     preview_updated: designe.lu,
     checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the preview and check.',
     prerendered: pre === null ? 'skipped: no browser on this vavi server, public pages need JavaScript to be read'

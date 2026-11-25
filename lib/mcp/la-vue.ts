@@ -1,7 +1,9 @@
 /**
- * LA VUE DE VAVI DANS CLAUDE (MCP Apps, spécification 2026-01-26) — sous la réponse de Claude, la fiche du projet :
- * le lien de l'aperçu, où il en est (en ligne, à publier), ses dernières versions, ses messages et ses visites, et le
- * bouton « Publier » que la personne seule clique (décision d'Antoine du 24/11 : un maximum dans Claude, Publier aussi).
+ * LA VUE DE VAVI DANS CLAUDE (MCP Apps, spécification 2026-01-26) — sous la réponse de Claude, ou dans le panneau à
+ * droite : l'aperçu de l'app lui-même, qui reste affiché, et sous lui une barre fixe de boutons (voir l'aperçu dans un
+ * onglet, l'app à côté ou en grand si l'hôte l'offre, « Publier » que la personne seule clique, le site en ligne, l'offre,
+ * la console). Décisions d'Antoine : un maximum dans Claude, Publier aussi (24/11) ; l'aperçu gardé et les boutons seuls,
+ * fixes sous lui (25/11) — versions, messages et visites restent dans la console.
  *
  * La vue est une page HTML sans dépendance, servie par `resources/read` de `ui://vavi/projet`. Elle parle à l'hôte en
  * JSON-RPC par postMessage : `ui/initialize`, puis le résultat de l'outil (`ui/notifications/tool-result`), puis ses
@@ -50,60 +52,55 @@ function laPage(jeton: string): string {
 @media (prefers-color-scheme:dark){:root{--fond:#1e1e1e;--texte:#eee;--doux:#aaa;--trait:#3a3a3a;--vert:#4cc38a;--accent:#4cc38a}}
 *{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,-apple-system,sans-serif;background:var(--fond);color:var(--texte)}
 main{padding:12px 14px;display:grid;gap:10px}
-.entete{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
-h1{font-size:16px;margin:0}.etat{font-size:12px;padding:2px 8px;border-radius:99px;border:1px solid var(--trait);color:var(--doux)}
-.etat.vert{color:var(--vert);border-color:var(--vert)}
-.boutons{display:flex;gap:8px;flex-wrap:wrap}
-button{font:inherit;padding:7px 12px;border-radius:8px;border:1px solid var(--trait);background:transparent;color:var(--texte);cursor:pointer}
-button.principal{background:var(--accent);border-color:var(--accent);color:#fff}button:disabled{opacity:.5;cursor:default}
-.doux{color:var(--doux)}ul{margin:0;padding-left:18px}.grille{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
-.carte{border:1px solid var(--trait);border-radius:8px;padding:8px 10px}.carte h2{font-size:13px;margin:0 0 4px}
-[role=status]{font-weight:600}
+.doux{color:var(--doux)}
 </style></head>
 <body><main id="vue"><p class="doux" id="attente">…</p></main>
 <script>
 (function(){
   var JETON=${enScript(jeton)};
   var fr=(navigator.language||'').toLowerCase().indexOf('fr')===0;
-  var T=fr?{attente:'Chargement du projet…',enLigne:'En ligne',aPublier:'Changements à publier',rien:'Pas encore d’aperçu',grand:'Voir l’aperçu',
+  var T=fr?{attente:'Chargement de l’aperçu…',enLigne:'En ligne',aPublier:'Changements à publier',rien:'Pas encore d’aperçu',grand:'Voir l’aperçu',
     site:'Voir le site en ligne',publier:'Publier',publierQ:'Confirmer : mettre en ligne cet aperçu',publie:'C’est en ligne.',console:'Console vavi',
-    versions:'Dernières versions',messages:'Messages reçus',visites:'Visites (30 jours)',aucun:'Aucun',offre:'Choisir une offre',
-    travail:'Travail en cours avec Claude',ici:'Essayer l’app ici',cote:'Garder l’app à côté',enGrand:'Ouvrir l’app en grand',erreur:'Cela n’a pas marché :',sansApercu:'Demandez à Claude de construire l’aperçu.'}
-  :{attente:'Loading the project…',enLigne:'Online',aPublier:'Changes to publish',rien:'No preview yet',grand:'See the preview',
+    offre:'Choisir une offre',
+    cote:'Garder l’app à côté',enGrand:'Ouvrir l’app en grand',erreur:'Cela n’a pas marché :',sansApercu:'Demandez à Claude de construire l’aperçu.'}
+  :{attente:'Loading the preview…',enLigne:'Online',aPublier:'Changes to publish',rien:'No preview yet',grand:'See the preview',
     site:'See the live site',publier:'Publish',publierQ:'Confirm: put this preview online',publie:'It is online.',console:'vavi console',
-    versions:'Latest versions',messages:'Messages received',visites:'Visits (30 days)',aucun:'None',offre:'Choose a plan',
-    travail:'Work in progress with Claude',ici:'Try the app here',cote:'Keep the app alongside',enGrand:'Open the app large',erreur:'That did not work:',sansApercu:'Ask Claude to build the preview.'};
+    offre:'Choose a plan',
+    cote:'Keep the app alongside',enGrand:'Open the app large',erreur:'That did not work:',sansApercu:'Ask Claude to build the preview.'};
   document.getElementById('attente').textContent=T.attente;
   var n=0,attendus={};
   function envoyer(methode,params,notif){var m={jsonrpc:'2.0',method:methode,params:params||{}};if(!notif){m.id=++n;}
     window.parent.postMessage(m,'*');if(notif)return Promise.resolve();return new Promise(function(ok,non){attendus[m.id]={ok:ok,non:non};});}
   function lien(url){return envoyer('ui/open-link',{url:url}).catch(function(){window.open(url,'_blank','noopener');});}
-  function taille(){envoyer('ui/notifications/size-changed',{width:document.body.scrollWidth,height:document.body.scrollHeight},true);}
+  function taille(){envoyer('ui/notifications/size-changed',{width:document.body.scrollWidth,height:Math.max(document.body.scrollHeight,140)},true);}
   function el(tag,attrs,enfants){var e=document.createElement(tag);for(var k in attrs||{}){if(k==='texte')e.textContent=attrs[k];else if(k.indexOf('on')===0)e.addEventListener(k.slice(2),attrs[k]);else e.setAttribute(k,attrs[k]);}
     (enfants||[]).forEach(function(c){if(c)e.appendChild(c);});return e;}
   function outil(nom,args){return envoyer('tools/call',{name:nom,arguments:args}).then(function(r){var s=r&&r.structuredContent;if(!s||s.refuse)throw new Error((s&&s.fait)||'refus');return s;});}
-  var projet=null,entree=null,modes=[];
-  // L'app à la place de la fiche, dans le mode demandé à l'hôte (une fenêtre flottante qui reste visible, ou en grand) ;
-  // l'hôte répond le mode qu'il accorde, et sans réponse en 1,5 s l'app s'ouvre là où est la fiche.
-  function lApp(html,mode){var ouvrir=function(){envoyer('ui/notifications/size-changed',{width:document.body.scrollWidth,height:720},true);
-    document.open();document.write(html);document.close();};
-    if(!mode)return ouvrir();var fait=false,une=function(){if(!fait){fait=true;ouvrir();}};
-    envoyer('ui/request-display-mode',{mode:mode}).then(function(r){console.log('[vavi] mode accordé',r&&r.mode);une();},function(x){console.log('[vavi] mode refusé',x&&x.message);une();});setTimeout(une,1500);}
-  function montrer(f,message){
-    var v=document.getElementById('vue');v.textContent='';
-    var etat=f.state==='en_ligne'?T.enLigne:f.state==='a_publier'?T.aPublier:T.rien;
-    v.appendChild(el('div',{class:'entete'},[el('h1',{texte:f.name}),el('span',{class:'etat'+(f.state==='en_ligne'?' vert':''),texte:etat})]));
-    if(f.work_session)v.appendChild(el('p',{class:'doux',texte:T.travail+' : '+f.work_session}));
-    if(message)v.appendChild(el('p',{role:'status',texte:message}));
-    // Pas de cadre : Claude.ai n'ouvre pas un site extérieur dans la vue (frameDomains non appliqué, 24/11). L'aperçu
-    // s'ouvre dans un onglet, par l'hôte (ui/open-link).
-    if(!f.preview_url)v.appendChild(el('p',{class:'doux',texte:T.sansApercu}));
-    var b=el('div',{class:'boutons'});
+  var projet=null,entree=null,modes=[],ecrite=null,derniere=null;
+  // L'APERÇU RESTE AFFICHÉ (Antoine, 25/11) : dès qu'il y a un aperçu, la vue devient l'app (son code chargé de vavi,
+  // sa base jointe, sans cadre extérieur) ; les boutons tiennent dans une barre fixe sous elle. document.open efface les
+  // écouteurs de la fenêtre : celui des messages de l'hôte est reposé après chaque écriture. La barre vit dans une ombre
+  // (shadow DOM) : ni le style de l'app ne la touche, ni le sien ne touche l'app.
+  function ecrire(html){if(ecrite===html)return;ecrite=html;document.open();document.write(html);document.close();
+    window.removeEventListener('message',recevoir);window.addEventListener('message',recevoir);
+    envoyer('ui/notifications/size-changed',{width:document.body?document.body.scrollWidth:640,height:720},true);}
+  function mode(m){return envoyer('ui/request-display-mode',{mode:m}).then(function(r){console.log('[vavi] mode accordé',r&&r.mode);},function(x){console.log('[vavi] mode refusé',x&&x.message);});}
+  var STYLE=':host{all:initial}.barre{position:fixed;left:0;right:0;bottom:0;z-index:2147483647;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px;'
+    +'font:13px/1.3 system-ui,-apple-system,sans-serif;background:#fff;color:#1c1c1c;border-top:1px solid #e3e3e3;box-shadow:0 -2px 10px rgba(0,0,0,.06)}'
+    +'button{font:inherit;padding:6px 11px;border-radius:8px;border:1px solid #d6d6d6;background:#fff;color:inherit;cursor:pointer}'
+    +'button.principal{background:#1f7a4a;border-color:#1f7a4a;color:#fff}button:disabled{opacity:.5;cursor:default}'
+    +'.mot{flex-basis:100%;font-weight:600}.doux{flex-basis:100%;color:#666}'
+    +'@media (prefers-color-scheme:dark){.barre{background:#1e1e1e;color:#eee;border-color:#3a3a3a}button{background:#262626;border-color:#444}.doux{color:#aaa}}';
+  function laBarre(f,message){
+    if(!document.body)document.documentElement.appendChild(document.createElement('body'));
+    var hote=document.getElementById('vavi-barre');if(!hote){hote=el('div',{id:'vavi-barre'});document.body.appendChild(hote);hote.attachShadow({mode:'open'});}
+    var ombre=hote.shadowRoot;ombre.textContent='';ombre.appendChild(el('style',{texte:STYLE}));
+    var b=el('div',{class:'barre',role:'toolbar','aria-label':'vavi'});
+    if(message)b.appendChild(el('span',{class:'mot',role:'status',texte:message}));
+    if(!f.app_html)b.appendChild(el('span',{class:'doux',texte:f.preview_url?T.attente:T.sansApercu}));
     if(f.preview_url)b.appendChild(el('button',{texte:T.grand,onclick:function(){lien(f.preview_url);}}));
-    // ESSAI du 24/11 : la vue devient l'app (son code chargé de vavi, sa base jointe), sans cadre extérieur.
-    if(f.app_html){b.appendChild(el('button',{texte:T.ici,onclick:function(){lApp(f.app_html);}}));
-      if(modes.indexOf('pip')>=0)b.appendChild(el('button',{texte:T.cote,onclick:function(){lApp(f.app_html,'pip');}}));
-      if(modes.indexOf('fullscreen')>=0)b.appendChild(el('button',{texte:T.enGrand,onclick:function(){lApp(f.app_html,'fullscreen');}}));}
+    if(f.app_html&&modes.indexOf('pip')>=0)b.appendChild(el('button',{texte:T.cote,onclick:function(){mode('pip');}}));
+    if(f.app_html&&modes.indexOf('fullscreen')>=0)b.appendChild(el('button',{texte:T.enGrand,onclick:function(){mode('fullscreen');}}));
     // Deux clics, dans la vue : le cadre de l'hôte peut interdire window.confirm (bac à sable sans « allow-modals »).
     if(f.state==='a_publier')b.appendChild(el('button',{class:'principal',texte:T.publier,onclick:function(e){var x=e.target;
       if(!x.dataset.sur){x.dataset.sur='1';x.textContent=T.publierQ;return;}
@@ -112,21 +109,23 @@ button.principal{background:var(--accent);border-color:var(--accent);color:#fff}
     if(f.online_url)b.appendChild(el('button',{texte:T.site,onclick:function(){lien(f.online_url);}}));
     if(f.plan_url&&f.state==='a_publier'&&f.can_publish===false)b.appendChild(el('button',{texte:T.offre,onclick:function(){lien(f.plan_url);}}));
     b.appendChild(el('button',{texte:T.console,onclick:function(){lien(f.console_url);}}));
-    v.appendChild(b);
-    var g=el('div',{class:'grille'});
-    g.appendChild(el('div',{class:'carte'},[el('h2',{texte:T.versions}),f.versions&&f.versions.length?el('ul',{},f.versions.map(function(x){return el('li',{texte:x.version+' · '+x.why});})):el('p',{class:'doux',texte:T.aucun})]));
-    g.appendChild(el('div',{class:'carte'},[el('h2',{texte:T.messages}),el('p',{texte:f.messages==null?'—':String(f.messages)})]));
-    g.appendChild(el('div',{class:'carte'},[el('h2',{texte:T.visites}),el('p',{texte:f.visits==null?'—':String(f.visits)})]));
-    v.appendChild(g);setTimeout(taille,50);
+    ombre.appendChild(b);
+    setTimeout(function(){document.body.style.paddingBottom=(b.offsetHeight+8)+'px';},30);
+  }
+  function montrer(f,message){derniere=f;
+    if(f.app_html)ecrire(f.app_html);
+    else{var v=document.getElementById('vue');if(v)v.textContent='';}
+    laBarre(f,message);if(!f.app_html)setTimeout(taille,50);
   }
   function charger(id){projet=id;outil('vavi_fiche_du_projet',{project:id,geste:JETON}).then(function(f){montrer(f);})
     .catch(function(x){document.getElementById('vue').textContent=T.erreur+' '+x.message;taille();});}
-  window.addEventListener('message',function(e){var m=e.data;if(!m||m.jsonrpc!=='2.0')return;
+  function recevoir(e){var m=e.data;if(!m||m.jsonrpc!=='2.0')return;
     if(m.id!=null&&attendus[m.id]){var a=attendus[m.id];delete attendus[m.id];if(m.error)a.non(new Error(m.error.message));else a.ok(m.result);return;}
     if(m.method==='ui/notifications/tool-input'){var a2=(m.params&&m.params.arguments)||{};if(a2.project){entree=a2.project;if(!projet)charger(a2.project);}}
     if(m.method==='ui/notifications/tool-result'){var s=(m.params&&m.params.structuredContent)||{};var id=s.project||s.id||entree;if(id)charger(id);}
     if(m.method==='ui/resource-teardown'&&m.id!=null)window.parent.postMessage({jsonrpc:'2.0',id:m.id,result:{}},'*');
-  });
+  }
+  window.addEventListener('message',recevoir);
   envoyer('ui/initialize',{protocolVersion:'2026-01-26',appInfo:{name:'vavi',version:'1'},clientInfo:{name:'vavi',version:'1'},appCapabilities:{availableDisplayModes:['inline','fullscreen','pip']}})
     .then(function(r){modes=(r&&r.hostContext&&r.hostContext.availableDisplayModes)||[];console.log('[vavi] modes de l’hôte',JSON.stringify(modes));envoyer('ui/notifications/initialized',{},true);taille();}).catch(function(){taille();});
 })();
