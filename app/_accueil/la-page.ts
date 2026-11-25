@@ -255,39 +255,82 @@ details p{margin-top:10px;color:var(--encre-douce)}
   .trace{stroke-dasharray:1200;stroke-dashoffset:0;animation:trace 2.4s ease-out both}
   @keyframes trace{from{stroke-dashoffset:1200}to{stroke-dashoffset:0}}
 }
-/* L'animation des trois étapes : trois scènes de 5 s, en boucle ; immobile (la 1re scène) si l'on réduit les animations. */
+/* L'animation des trois étapes : cinq scènes de 5 s, en boucle ; immobile (le connecteur rempli) si l'on réduit les animations. */
 .film{margin:0 0 36px;display:grid;gap:10px;max-width:760px}
 .film svg{width:100%;height:auto}
-.film .scene{opacity:0;animation:15s infinite both}
-.film .s1{animation-name:scene1}.film .s2{animation-name:scene2}.film .s3{animation-name:scene3}
-@keyframes scene1{0%,30%{opacity:1}33.4%,97%{opacity:0}100%{opacity:1}}
-@keyframes scene2{0%,30%{opacity:0}33.4%,63.4%{opacity:1}66.7%,100%{opacity:0}}
-@keyframes scene3{0%,63.4%{opacity:0}66.7%,97%{opacity:1}100%{opacity:0}}
-.film .curseur{animation:15s infinite ease-in-out both}
-.film .k1{animation-name:curseur1}.film .k2{animation-name:curseur2}
-@keyframes curseur1{0%,6%{transform:translate(560px,330px)}20%,100%{transform:translate(452px,292px)}}
-@keyframes curseur2{0%,38%{transform:translate(560px,330px)}53%,100%{transform:translate(400px,286px)}}
-.film .clic{opacity:0;animation:15s infinite both}
-.film .c1{animation-name:clic1}.film .c2{animation-name:clic2}
-@keyframes clic1{0%,20%{opacity:0}22%,27%{opacity:1}29%,100%{opacity:0}}
-@keyframes clic2{0%,53%{opacity:0}55%,60%{opacity:1}62%,100%{opacity:0}}
-.film .presse{animation:15s infinite both}
-.film .s1 .presse{animation-name:presse1}.film .s2 .presse{animation-name:presse2}
-@keyframes presse1{0%,21%{fill:var(--vert)}22%,27%{fill:var(--encre)}28%,100%{fill:var(--vert)}}
-@keyframes presse2{0%,54%{fill:var(--vert)}55%,60%{fill:var(--encre)}61%,100%{fill:var(--vert)}}
-.film .bulle{opacity:0;animation:bulle 15s infinite both}
-.film .apercu{opacity:0;animation:apercu 15s infinite both}
-@keyframes bulle{0%,68%{opacity:0}72%,100%{opacity:1}}
-@keyframes apercu{0%,80%{opacity:0}85%,100%{opacity:1}}
 .legende{display:flex;gap:10px 22px;flex-wrap:wrap;font-family:var(--f-main);font-weight:700;font-size:1.45rem;color:var(--encre-douce)}
-.legende span{animation:15s infinite both;border-bottom:3px solid transparent}
-.legende .l1{animation-name:l1}.legende .l2{animation-name:l2}.legende .l3{animation-name:l3}
-@keyframes l1{0%,33%{color:var(--encre);border-color:var(--surligneur)}33.4%,100%{color:var(--encre-douce);border-color:transparent}}
-@keyframes l2{0%,33.3%{color:var(--encre-douce);border-color:transparent}33.4%,66.6%{color:var(--encre);border-color:var(--surligneur)}66.7%,100%{color:var(--encre-douce);border-color:transparent}}
-@keyframes l3{0%,66.6%{color:var(--encre-douce);border-color:transparent}66.7%,100%{color:var(--encre);border-color:var(--surligneur)}}
+.legende span{border-bottom:3px solid transparent}
+.film .v1{opacity:0;animation:v1 25s infinite both}
+.film .v2{opacity:0;animation:v2 25s infinite both}
+.film .v3{opacity:0;animation:v3 25s infinite both}
+.film .v4{opacity:0;animation:v4 25s infinite both}
+.film .v5{animation:v5 25s infinite ease-in-out both}
+.film .v6{opacity:0;animation:v6 25s infinite both}
+.film .v7{opacity:0;animation:v7 25s infinite both}
+.film .v8{opacity:0;animation:v8 25s infinite both}
+.film .v9{opacity:0;animation:v9 25s infinite both}
+.film .v10{opacity:0;animation:v10 25s infinite both}
+.film .v11{animation:v11 25s infinite both}
+.film .v12{opacity:0;animation:v12 25s infinite both}
+.film .v13{opacity:0;animation:v13 25s infinite both}
+.film .v14{opacity:0;animation:v14 25s infinite both}
+.film .v15{animation:v15 25s infinite ease-in-out both}
+.film .v16{opacity:0;animation:v16 25s infinite both}
+.film .v17{opacity:0;animation:v17 25s infinite both}
+.film .v18{opacity:0;animation:v18 25s infinite both}
+.film .v19{opacity:0;animation:v19 25s infinite both}
+.film .v20{animation:v20 25s infinite both}
+.film .v21{opacity:0;animation:v21 25s infinite both}
+.film .v22{animation:v22 25s infinite ease-in-out both}
+.film .v23{opacity:0;animation:v23 25s infinite both}
+.film .v24{animation:v24 25s infinite both}
+.film .v25{opacity:0;animation:v25 25s infinite both}
+.film .v26{animation:v26 25s infinite ease-in-out both}
+.film .v27{opacity:0;animation:v27 25s infinite both}
+.film .v28{opacity:0;animation:v28 25s infinite both}
+.film .v29{opacity:0;animation:v29 25s infinite both}
+.film .v30{opacity:0;animation:v30 25s infinite both}
+.legende .l1{animation:l1 25s infinite both}
+.legende .l2{animation:l2 25s infinite both}
+.legende .l3{animation:l3 25s infinite both}
+@keyframes v1{0%,6.70%{opacity:0}7.00%,20.00%{opacity:1}20.30%,100%{opacity:0}}
+@keyframes v2{0%,13.70%{opacity:0}14.00%,20.00%{opacity:1}20.30%,100%{opacity:0}}
+@keyframes v3{0%,5.70%{opacity:0}6.00%,9.00%{opacity:1}9.30%,100%{opacity:0}}
+@keyframes v4{0%,13.70%{opacity:0}14.00%,17.00%{opacity:1}17.30%,100%{opacity:0}}
+@keyframes v5{0%{transform:translate(420px,220px)}0.00%{transform:translate(420px,220px)}5.00%{transform:translate(44px,326px)}8.00%{transform:translate(44px,326px)}13.00%{transform:translate(104px,226px)}100%{transform:translate(104px,226px)}}
+@keyframes v6{0.00%,20.00%{opacity:1}20.30%,100%{opacity:0}}
+@keyframes v7{0%,24.20%{opacity:0}24.50%,40.00%{opacity:1}40.30%,100%{opacity:0}}
+@keyframes v8{0%,24.70%{opacity:0}25.00%,40.00%{opacity:1}40.30%,100%{opacity:0}}
+@keyframes v9{0%,29.70%{opacity:0}30.00%,40.00%{opacity:1}40.30%,100%{opacity:0}}
+@keyframes v10{0%,34.70%{opacity:0}35.00%,40.00%{opacity:1}40.30%,100%{opacity:0}}
+@keyframes v11{0%,29.30%{fill:var(--carte)}29.50%,32.50%{fill:var(--surligne-fond)}32.80%,100%{fill:var(--carte)}}
+@keyframes v12{0%,23.70%{opacity:0}24.00%,27.00%{opacity:1}27.30%,100%{opacity:0}}
+@keyframes v13{0%,29.20%{opacity:0}29.50%,32.50%{opacity:1}32.80%,100%{opacity:0}}
+@keyframes v14{0%,34.70%{opacity:0}35.00%,38.00%{opacity:1}38.30%,100%{opacity:0}}
+@keyframes v15{0%{transform:translate(330px,280px)}20.00%{transform:translate(330px,280px)}23.50%{transform:translate(94px,184px)}25.00%{transform:translate(94px,184px)}29.00%{transform:translate(549px,121px)}30.50%{transform:translate(549px,121px)}34.50%{transform:translate(474px,170px)}100%{transform:translate(474px,170px)}}
+@keyframes v16{0%,19.70%{opacity:0}20.00%,40.00%{opacity:1}40.30%,100%{opacity:0}}
+@keyframes v17{0%,42.70%{opacity:0}43.00%,60.00%{opacity:1}60.30%,100%{opacity:0}}
+@keyframes v18{0%,46.70%{opacity:0}47.00%,60.00%{opacity:1}60.30%,100%{opacity:0}}
+@keyframes v19{0%,46.70%{opacity:0}47.00%,60.00%{opacity:1}60.30%,100%{opacity:0}}
+@keyframes v20{0%,53.80%{fill:var(--vert)}54.00%,57.00%{fill:var(--encre)}57.30%,100%{fill:var(--vert)}}
+@keyframes v21{0%,53.70%{opacity:0}54.00%,57.00%{opacity:1}57.30%,100%{opacity:0}}
+@keyframes v22{0%{transform:translate(560px,330px)}40.00%{transform:translate(560px,330px)}45.00%{transform:translate(300px,226px)}48.00%{transform:translate(300px,226px)}53.00%{transform:translate(452px,292px)}100%{transform:translate(452px,292px)}}
+@keyframes v23{0%,39.70%{opacity:0}40.00%,60.00%{opacity:1}60.30%,100%{opacity:0}}
+@keyframes v24{0%,72.80%{fill:var(--vert)}73.00%,76.00%{fill:var(--encre)}76.30%,100%{fill:var(--vert)}}
+@keyframes v25{0%,72.70%{opacity:0}73.00%,76.00%{opacity:1}76.30%,100%{opacity:0}}
+@keyframes v26{0%{transform:translate(560px,330px)}60.00%{transform:translate(560px,330px)}66.00%{transform:translate(560px,330px)}72.00%{transform:translate(400px,286px)}100%{transform:translate(400px,286px)}}
+@keyframes v27{0%,59.70%{opacity:0}60.00%,80.00%{opacity:1}80.30%,100%{opacity:0}}
+@keyframes v28{0%,82.70%{opacity:0}83.00%,100.00%{opacity:1}}
+@keyframes v29{0%,89.70%{opacity:0}90.00%,100.00%{opacity:1}}
+@keyframes v30{0%,79.70%{opacity:0}80.00%,100.00%{opacity:1}}
+@keyframes l1{0.00%,59.90%{color:var(--encre);border-color:var(--surligneur)}60.00%,100%{color:var(--encre-douce);border-color:transparent}}
+@keyframes l2{0%,59.90%{color:var(--encre-douce);border-color:transparent}60.00%,79.90%{color:var(--encre);border-color:var(--surligneur)}80.00%,100%{color:var(--encre-douce);border-color:transparent}}
+@keyframes l3{0%,79.90%{color:var(--encre-douce);border-color:transparent}80.00%,99.90%{color:var(--encre);border-color:var(--surligneur)}}
 @media (prefers-reduced-motion:reduce){
-  .film .scene,.film .curseur,.film .clic,.film .presse,.film .bulle,.film .apercu,.legende span{animation:none}
-  .film .s1{opacity:1}.film .k1{transform:translate(452px,292px)}
+  .film *{animation:none!important}
+  .film .fixe,.film .fixe *{opacity:1}
+  .film .fixe .curseur{transform:translate(452px,292px)}
+  .film .fixe g:has(> circle[r="14"]){opacity:0}
 }
 </style>
 </head>
@@ -589,34 +632,83 @@ details p{margin-top:10px;color:var(--encre-douce)}
     </div>
 
     <figure class="film" aria-label="Animation : les trois étapes pour brancher vavi dans Claude">
-  <svg class="croquis" viewBox="0 0 640 360" fill="none" stroke="var(--encre)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="1, le bouton remplit le connecteur dans Claude.ai ; 2, vous vous connectez et autorisez Claude ; 3, vous décrivez votre projet et l'aperçu apparaît">
+  <svg class="croquis" viewBox="0 0 640 360" fill="none" stroke="var(--encre)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="1, dans Claude.ai : l'icône de votre compte, Réglages, Plug-ins, Ajouter, Ajouter un connecteur personnalisé, puis le nom vavi et son adresse ; 2, vous vous connectez et autorisez Claude ; 3, vous décrivez votre projet et l'aperçu apparaît">
     <g filter="url(#stylo)">
       <rect x="10" y="10" width="620" height="340" rx="18" fill="var(--papier)"/>
       <path d="M10 46h620"/><circle cx="34" cy="28" r="6"/><circle cx="54" cy="28" r="6"/><circle cx="74" cy="28" r="6"/>
       <rect x="110" y="18" width="300" height="20" rx="10" fill="var(--carte)"/>
     </g>
-    <!-- 1 : le connecteur déjà rempli -->
-    <g class="scene s1">
-      <text x="124" y="34" font-size="15">claude.ai · connecteurs</text>
+    <g class="scene v6">
+      <text x="124" y="34" font-size="15">claude.ai</text>
+      <g filter="url(#stylo)">
+        <path d="M150 46v304"/>
+        <path d="M30 80h96M30 104h80M30 128h90"/>
+        <circle cx="40" cy="322" r="15" fill="var(--surligneur)"/>
+        <path d="M220 90h300M220 112h240M220 134h270"/>
+        <rect x="220" y="270" width="380" height="50" rx="14" fill="var(--carte)"/>
+      </g>
+      <text x="35" y="328" font-size="16" font-weight="700">A</text>
+      <text x="62" y="300" font-size="19" style="fill:var(--vert)" transform="rotate(-5 62 300)">votre compte</text>
+      <g class="v1">
+        <g filter="url(#stylo)"><rect x="30" y="196" width="190" height="100" rx="12" fill="var(--carte)"/></g>
+        <rect class="v2" x="38" y="206" width="174" height="30" rx="8" fill="var(--surligne-fond)" stroke="none"/>
+        <text x="50" y="227" font-size="18" font-weight="700">Réglages</text>
+        <text x="50" y="256" font-size="17" style="fill:var(--encre-douce)">Langue</text>
+        <text x="50" y="284" font-size="17" style="fill:var(--encre-douce)">Se déconnecter</text>
+      </g>
+      <g class="v3"><circle cx="40" cy="322" r="14" stroke="var(--vert)"/></g>
+      <g class="v4"><circle cx="100" cy="222" r="14" stroke="var(--vert)"/></g>
+      <g class="curseur v5"><path d="M0 0l12 30 6-12 14 12 5-5-13-13 13-5z" fill="var(--carte)"/></g>
+    </g>
+    <g class="scene v16">
+      <text x="124" y="34" font-size="15">claude.ai · réglages</text>
+      <g filter="url(#stylo)"><path d="M190 60v280"/></g>
+      <text x="30" y="86" font-size="24" font-weight="700">Réglages</text>
+      <rect class="v7" x="24" y="164" width="150" height="30" rx="8" fill="var(--surligne-fond)" stroke="none"/>
+      <text x="34" y="124" font-size="18" style="fill:var(--encre-douce)">Général</text>
+      <text x="34" y="154" font-size="18" style="fill:var(--encre-douce)">Compte</text>
+      <text x="34" y="185" font-size="18" font-weight="700">Plug-ins</text>
+      <text x="34" y="216" font-size="18" style="fill:var(--encre-douce)">Confidentialité</text>
+      <g class="v8">
+        <text x="214" y="124" font-size="22" font-weight="700">Plug-ins</text>
+        <path d="M214 160h200M214 182h150" filter="url(#stylo)"/>
+        <g filter="url(#stylo)"><rect class="v11" x="490" y="100" width="110" height="34" rx="9" fill="var(--carte)"/></g>
+        <text x="512" y="123" font-size="18">Ajouter ▾</text>
+      </g>
+      <g class="v9">
+        <g filter="url(#stylo)"><rect x="300" y="144" width="300" height="76" rx="12" fill="var(--carte)"/></g>
+        <rect class="v10" x="308" y="150" width="284" height="30" rx="8" fill="var(--surligne-fond)" stroke="none"/>
+        <text x="318" y="171" font-size="17" font-weight="700">Ajouter un connecteur personnalisé</text>
+        <text x="318" y="205" font-size="17" style="fill:var(--encre-douce)">Importer un plug-in</text>
+        <text x="420" y="250" font-size="19" style="fill:var(--marge)" transform="rotate(-4 420 250)">pas celui-là ↑</text>
+      </g>
+      <g class="v12"><circle cx="90" cy="180" r="14" stroke="var(--vert)"/></g>
+      <g class="v13"><circle cx="545" cy="117" r="14" stroke="var(--vert)"/></g>
+      <g class="v14"><circle cx="470" cy="166" r="14" stroke="var(--vert)"/></g>
+      <g class="curseur v15"><path d="M0 0l12 30 6-12 14 12 5-5-13-13 13-5z" fill="var(--carte)"/></g>
+    </g>
+    <g class="scene fixe v23">
+      <text x="124" y="34" font-size="15">claude.ai · nouveau connecteur</text>
       <g filter="url(#stylo)">
         <rect x="150" y="70" width="340" height="250" rx="16" fill="var(--carte)"/>
         <rect x="176" y="136" width="288" height="36" rx="9" fill="var(--surligne-fond)"/>
         <rect x="176" y="206" width="288" height="36" rx="9" fill="var(--surligne-fond)"/>
-        <rect class="presse" x="356" y="262" width="108" height="38" rx="10" fill="var(--vert)"/>
+        <rect class="v20" x="356" y="262" width="108" height="38" rx="10" fill="var(--vert)"/>
       </g>
       <text x="176" y="106" font-size="24" font-weight="700">Nouveau connecteur</text>
       <text x="178" y="130" font-size="15" style="fill:var(--encre-douce)">Nom</text>
-      <text x="190" y="161" font-size="19">vavi</text>
+      <text class="v17" x="190" y="161" font-size="19">vavi</text>
       <text x="178" y="200" font-size="15" style="fill:var(--encre-douce)">Adresse</text>
-      <text x="190" y="231" font-size="17">vavi.dev/api/mcp</text>
+      <text class="v18" x="190" y="231" font-size="17">vavi.dev/api/mcp</text>
       <text x="380" y="288" font-size="20" style="fill:#fff">Ajouter</text>
-      <text x="500" y="160" font-size="20" style="fill:var(--vert)" transform="rotate(-6 500 160)">déjà rempli !</text>
-      <path d="M498 168c-12 4-20 2-28-4" stroke="var(--vert)" filter="url(#stylo)"/>
-      <g class="clic c1"><circle cx="452" cy="292" r="14" stroke="var(--vert)"/></g>
-      <g class="curseur k1"><path d="M0 0l12 30 6-12 14 12 5-5-13-13 13-5z" fill="var(--carte)"/></g>
+      <g class="v19">
+        <text x="500" y="214" font-size="20" style="fill:var(--vert)" transform="rotate(-6 500 214)">collez</text>
+        <text x="500" y="238" font-size="20" style="fill:var(--vert)" transform="rotate(-6 500 238)">l'adresse</text>
+      </g>
+      <g class="v21"><circle cx="452" cy="292" r="14" stroke="var(--vert)"/></g>
+      <g class="curseur v22"><path d="M0 0l12 30 6-12 14 12 5-5-13-13 13-5z" fill="var(--carte)"/></g>
     </g>
-    <!-- 2 : se connecter, autoriser -->
-    <g class="scene s2">
+    <g class="scene v27">
       <text x="124" y="34" font-size="15">vavi · autoriser Claude</text>
       <g filter="url(#stylo)">
         <rect x="170" y="66" width="300" height="262" rx="16" fill="var(--carte)"/>
@@ -624,7 +716,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
         <path d="M300 114h36M330 106l8 8-8 8"/>
         <circle cx="372" cy="114" r="24" fill="var(--carte)"/><path d="M362 110c5-9 15-9 20 0M360 120c7 7 17 7 24 0"/>
         <rect x="196" y="186" width="248" height="36" rx="9" fill="var(--surligne-fond)"/>
-        <rect class="presse" x="226" y="250" width="188" height="44" rx="11" fill="var(--vert)"/>
+        <rect class="v24" x="226" y="250" width="188" height="44" rx="11" fill="var(--vert)"/>
       </g>
       <text x="252" y="120" font-size="17" font-weight="700">vavi</text>
       <text x="216" y="172" font-size="19">Claude demande l'accès</text>
@@ -632,24 +724,27 @@ details p{margin-top:10px;color:var(--encre-douce)}
       <text x="276" y="280" font-size="24" style="fill:#fff">Autoriser</text>
       <text x="486" y="210" font-size="20" style="fill:var(--vert)" transform="rotate(5 486 210)">sans mot</text>
       <text x="486" y="232" font-size="20" style="fill:var(--vert)" transform="rotate(5 486 232)">de passe</text>
-      <g class="clic c2"><circle cx="400" cy="286" r="14" stroke="var(--vert)"/></g>
-      <g class="curseur k2"><path d="M0 0l12 30 6-12 14 12 5-5-13-13 13-5z" fill="var(--carte)"/></g>
+      <g class="v25"><circle cx="400" cy="286" r="14" stroke="var(--vert)"/></g>
+      <g class="curseur v26"><path d="M0 0l12 30 6-12 14 12 5-5-13-13 13-5z" fill="var(--carte)"/></g>
     </g>
-    <!-- 3 : décrire, voir l'aperçu -->
-    <g class="scene s3">
+    <g class="scene v30">
       <text x="124" y="34" font-size="15">claude.ai · nouvelle conversation</text>
-      <g filter="url(#stylo)">
-        <rect class="bulle" x="250" y="66" width="360" height="74" rx="14" fill="var(--surligne-fond)"/>
-        <rect class="apercu" x="40" y="160" width="400" height="170" rx="14" fill="var(--carte)"/>
-        <path class="apercu" d="M40 188h400M62 216h150M62 236h110"/>
-        <rect class="apercu" x="62" y="262" width="100" height="32" rx="9" fill="var(--vert)"/>
-        <path class="apercu" d="M300 300c-6-34 22-52 56-52s62 18 56 52z" fill="url(#hachures)"/>
+      <g class="v28">
+        <g filter="url(#stylo)"><rect x="250" y="66" width="360" height="74" rx="14" fill="var(--surligne-fond)"/></g>
+        <text x="266" y="96" font-size="19">Avec vavi, fais le site</text>
+        <text x="266" y="122" font-size="19">de ma boulangerie…</text>
       </g>
-      <text class="bulle" x="266" y="96" font-size="19">Avec vavi, fais le site</text>
-      <text class="bulle" x="266" y="122" font-size="19">de ma boulangerie…</text>
-      <text class="apercu" x="56" y="181" font-size="16" font-weight="700">Aperçu · Le Fournil</text>
-      <text class="apercu" x="78" y="284" font-size="17" style="fill:#fff">Commander</text>
-      <text class="apercu" x="462" y="250" font-size="24" style="fill:var(--vert)" transform="rotate(-6 462 250)">votre aperçu !</text>
+      <g class="v29">
+        <g filter="url(#stylo)">
+          <rect x="40" y="160" width="400" height="170" rx="14" fill="var(--carte)"/>
+          <path d="M40 188h400M62 216h150M62 236h110"/>
+          <rect x="62" y="262" width="100" height="32" rx="9" fill="var(--vert)"/>
+          <path d="M300 300c-6-34 22-52 56-52s62 18 56 52z" fill="url(#hachures)"/>
+        </g>
+        <text x="56" y="181" font-size="16" font-weight="700">Aperçu · Le Fournil</text>
+        <text x="78" y="284" font-size="17" style="fill:#fff">Commander</text>
+        <text x="462" y="250" font-size="24" style="fill:var(--vert)" transform="rotate(-6 462 250)">votre aperçu !</text>
+      </g>
     </g>
   </svg>
   <figcaption class="legende"><span class="l1">1. Ajouter vavi</span><span class="l2">2. Autoriser Claude</span><span class="l3">3. Décrire votre projet</span></figcaption>
@@ -668,7 +763,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
             <li><span>Le bouton ouvre Claude.ai avec le nom et l'adresse de vavi déjà remplis. Connectez-vous à Claude si on vous le demande.</span></li>
             <li><span>Vérifiez que le nom est <b>vavi</b>, puis cliquez sur <kbd>Ajouter</kbd>.</span></li>
           </ol>
-          <p class="astuce">Un compte Claude suffit : l'offre gratuite permet un connecteur personnalisé. Le bouton ne s'ouvre pas ? Collez cette adresse dans Personnaliser, puis Connecteurs, puis « Ajouter un connecteur personnalisé ».</p>
+          <p class="astuce">Un compte Claude suffit : l'offre gratuite permet un connecteur personnalisé. Le bouton ne s'ouvre pas ? Dans Claude.ai, cliquez sur l'icône de votre compte, puis <kbd>Réglages</kbd>, puis <kbd>Plug-ins</kbd> (ou <kbd>Connecteurs</kbd>), <kbd>Ajouter</kbd> et <kbd>Ajouter un connecteur personnalisé</kbd>. Nom : vavi. Adresse : celle-ci.</p>
           <div class="copie"><code id="adresse-mcp">__ADRESSE_MCP__</code><button type="button" data-copier="adresse-mcp">Copier</button></div>
         </div>
         <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
