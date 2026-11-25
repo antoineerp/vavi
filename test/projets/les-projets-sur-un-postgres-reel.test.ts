@@ -9,7 +9,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CHEMIN_DE_LA_MIGRATION_DES_PROJETS, CHEMIN_DE_LA_MIGRATION_DE_LA_MISE_EN_LIGNE, laMigrationDesProjets, laMigrationDeLaMiseEnLigne } from '@/lib/projets/le-sql-des-projets';
+import { CHEMIN_DE_LA_MIGRATION_DES_PROJETS, CHEMIN_DE_LA_MIGRATION_DE_LA_MISE_EN_LIGNE, CHEMIN_DE_LA_MIGRATION_DES_REGLAGES, laMigrationDesProjets, laMigrationDeLaMiseEnLigne, laMigrationDesReglages } from '@/lib/projets/le-sql-des-projets';
 import { empreinteDuFichier } from '@/lib/projets/les-empreintes';
 import { demarrer, POSTGRES_PRESENT, type UnPostgres } from '../aides/un-postgres';
 
@@ -22,6 +22,7 @@ describe('la migration des projets', () => {
   it('est exactement celle que sa source écrit (sinon : npx tsx scripts/ecrire-la-migration-du-socle.ts)', () => {
     expect(readFileSync(join(__dirname, '../..', CHEMIN_DE_LA_MIGRATION_DES_PROJETS), 'utf8')).toBe(laMigrationDesProjets());
     expect(readFileSync(join(__dirname, '../..', CHEMIN_DE_LA_MIGRATION_DE_LA_MISE_EN_LIGNE), 'utf8')).toBe(laMigrationDeLaMiseEnLigne());
+    expect(readFileSync(join(__dirname, '../..', CHEMIN_DE_LA_MIGRATION_DES_REGLAGES), 'utf8')).toBe(laMigrationDesReglages());
   });
 });
 
@@ -35,6 +36,8 @@ describe.runIf(POSTGRES_PRESENT)('les projets, sur un PostgreSQL réel', () => {
     pg.admin(laMigrationDesProjets());
     pg.admin(laMigrationDeLaMiseEnLigne());
     pg.admin(laMigrationDeLaMiseEnLigne()); // rejouée sans dommage
+    pg.admin(laMigrationDesReglages());
+    pg.admin(laMigrationDesReglages()); // rejouée sans dommage
     pg.service(`insert into public.vavi_projets (id, proprietaire, nom) values ('${P}', '${MOI}', 'Le mien');`);
     pg.service(`insert into public.vavi_secrets (projet, nom, valeur) values ('${P}', 'CLE_STRIPE', 'chiffree');`);
   }, 60_000);
@@ -82,5 +85,13 @@ describe.runIf(POSTGRES_PRESENT)('les projets, sur un PostgreSQL réel', () => {
     expect(pg.comme(MOI, 'select count(en_ligne_empreinte) from public.vavi_projets;').ok).toBe(true);
     expect(pg.comme(MOI, `select public.vavi_appliquer('${P}', null, '{}'::jsonb, '{}'::jsonb, null, 'x');`).ok).toBe(false);
     expect(pg.comme(MOI, `select public.vavi_ouvrir_chantier('${P}', 'x', false);`).ok).toBe(false);
+  });
+
+  it('l’adresse de réception des messages : une adresse est gardée, un texte qui n’en est pas une est refusé par la base', () => {
+    expect(pg.service(`update public.vavi_projets set courriel_des_messages = 'contact@exemple.fr' where id = '${P}';`).ok).toBe(true);
+    expect(pg.service(`select courriel_des_messages from public.vavi_projets where id = '${P}';`).sortie).toBe('contact@exemple.fr');
+    expect(pg.service(`update public.vavi_projets set courriel_des_messages = 'pas-une-adresse' where id = '${P}';`).ok).toBe(false);
+    expect(pg.service(`update public.vavi_projets set verification_google = 'x;<script>' where id = '${P}';`).ok).toBe(false);
+    expect(pg.service(`update public.vavi_projets set courriel_des_messages = null where id = '${P}';`).ok).toBe(true);
   });
 });
