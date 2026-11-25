@@ -2,7 +2,8 @@
  * Le build de l'app. Deux ajouts à Vite : les faits des pages (`src/lib/faits.ts`), servis à l'app par le module
  * `virtual:faits` et écrits dans le build (`faits.json`) pour la plateforme, une déclaration illisible arrêtant le build ;
  * l'emplacement de chaque texte écrit dans un écran (`src/lib/textes-situes.ts`), que l'aperçu désigne ; et la tête de
- * l'accueil écrite dans `index.html` (titre, description, image de partage de `src/referencement.json`), lue sans JS par
+ * l'accueil écrite dans `index.html` (titre, description, image de partage de `src/referencement.json`, recopié dans le
+ * build pour le choix des robots d'IA), lue sans JS par
  * les moteurs et les aperçus de lien ; les autres pages la posent en s'ouvrant (`src/lib/referencement.ts`).
  */
 import { defineConfig, type Plugin } from 'vite';
@@ -72,6 +73,11 @@ function laTeteDeLAccueil(): Plugin {
       const og = [`<meta property="og:title" content="${titre}" />`, `<meta property="og:description" content="${description}" />`,
         ...(ref.image ? [`<meta property="og:image" content="${html(ref.image)}" />`] : [])];
       return tete.replace('</head>', `    ${og.join('\n    ')}\n  </head>`);
+    },
+    // Le référencement, dans le build : la plateforme y lit le choix des robots d'IA (`robots.txt` du site en ligne).
+    generateBundle() {
+      const chemin = join(SRC, 'referencement.json');
+      if (existsSync(chemin)) this.emitFile({ type: 'asset', fileName: 'referencement.json', source: readFileSync(chemin, 'utf8') });
     },
   };
 }
