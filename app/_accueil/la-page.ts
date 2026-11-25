@@ -821,6 +821,8 @@ details p{margin-top:10px;color:var(--encre-douce)}
           <p>Dites ensuite ce que vous voulez. Claude vous pose les questions qui manquent, puis écrit les pages, la base de données et les paiements dans votre projet vavi.</p>
           <p class="exemple">« Fais le site de ma boulangerie. Je veux que les clients puissent commander un gâteau et venir le chercher le samedi. »</p>
           <p class="astuce">Joignez un logo, des photos, une carte des prix : Claude s'en sert.</p>
+          <p><b>Pour ne plus avoir à écrire « Avec vavi »</b>, collez une fois cette phrase dans Claude.ai : icône de votre compte, <kbd>Réglages</kbd>, puis le champ <kbd>Préférences personnelles</kbd>. Claude la lit dans chaque conversation.</p>
+          <div class="copie"><code id="preference">__PREFERENCE__</code><button type="button" data-copier="preference">Copier</button></div>
         </div>
         <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <g filter="url(#stylo)">
@@ -1146,11 +1148,12 @@ document.querySelectorAll('[data-copier]').forEach(function(b){
 /** Le texte, sûr dans un attribut comme dans un élément. */
 const enHtml = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/** PURE : la page, l'adresse du connecteur et le premier message posés. `premier` : le message de la page Commencer.
+/** PURE : la page, l'adresse du connecteur, le premier message et la phrase des préférences posés (ceux de la page Commencer).
  * Les liens vers la console sont absolus : servie sous vavi.dev, la page envoie à la console, là où la connexion est réglée. */
-export function laPageDAccueil(premier: string, adresse: string = adresseMcp(), console: string = adresseDeLaPlateforme()): string {
+export function laPageDAccueil(t: { readonly premier: string; readonly preference: string }, adresse: string = adresseMcp(), console: string = adresseDeLaPlateforme()): string {
   return GABARIT.split('__CONSOLE__').join(enHtml(console))
     .split('__LIEN_D_INSTALLATION__').join(enHtml(lienDInstallation(adresse)))
     .split('__ADRESSE_MCP__').join(enHtml(adresse))
-    .split('__PREMIER_MESSAGE__').join(enHtml(premier.trim()));
+    .split('__PREMIER_MESSAGE__').join(enHtml(t.premier.trim()))
+    .split('__PREFERENCE__').join(enHtml(t.preference));
 }
