@@ -1,4 +1,4 @@
-# L'image de vavi : le serveur Next (sortie autonome), le gabarit des apps et les exemples de design lus sur disque,
+# L'image de vavi : le serveur Next (sortie autonome) et le gabarit des apps,
 # et npm pour l'atelier (qui installe et construit chaque app). Les NEXT_PUBLIC_* sont figés au build (Next les inscrit
 # dans le code) : ils arrivent en arguments de build, jamais un secret ; les secrets sont posés chez l'hébergeur.
 FROM node:22-bookworm-slim AS build
@@ -28,7 +28,6 @@ ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 VAVI_VERSION=$VAVI_VERSION VA
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/squelette/gabarit ./squelette/gabarit
-COPY --from=build /app/lib/design/exemples ./lib/design/exemples
 USER node
 EXPOSE 3000
 CMD ["node", "server.js"]

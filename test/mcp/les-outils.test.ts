@@ -244,7 +244,7 @@ describe('le serveur MCP', () => {
 });
 
 describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {
-  it('get_design_guide rend le guide de la vitrine, les règles de sa nature, et les exemples en images', async () => {
+  it('get_design_guide rend le guide de la vitrine et les règles de sa nature, en mots seuls', async () => {
     const { project } = await unChantier();
     const r = await servirLeMcp({ jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'get_design_guide', arguments: { project } } },
       { outils: c, langue: 'fr', gabaritPackageJson: GABARIT, noteDuChantier: async () => null }) as { result: { content: { type: string; mimeType?: string }[]; structuredContent: Record<string, unknown> } };
@@ -253,7 +253,15 @@ describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {
     expect((s.rules as string[]).some((t) => t.includes('search_images'))).toBe(true);
     expect((s.rules as string[]).some((t) => t.includes('`verifier`'))).toBe(false);
     expect(s._images).toBeUndefined();
-    expect(r.result.content.filter((x) => x.type === 'image').length).toBeGreaterThan(0);
+    expect(r.result.content.filter((x) => x.type === 'image')).toEqual([]);
+  });
+  it('INCIDENT 25/11 (Thème astral) — le guide joignait des captures d’autres sites, que Claude.ai montrait à la personne', async () => {
+    const { project } = await unChantier();
+    const r = await servirLeMcp({ jsonrpc: '2.0', id: 10, method: 'tools/call', params: { name: 'get_design_guide', arguments: { project } } },
+      { outils: c, langue: 'fr', gabaritPackageJson: GABARIT, noteDuChantier: async () => null }) as { result: { content: { type: string; text?: string }[]; structuredContent: Record<string, unknown> } };
+    expect(r.result.content.map((x) => x.type)).toEqual(['text']);
+    expect(Object.keys(r.result.structuredContent).sort()).toEqual(['guide', 'ok', 'rules'].filter((k) => k in r.result.structuredContent).sort());
+    expect(JSON.stringify(r.result.structuredContent)).not.toMatch(/exemples? de design|examples? of successful|\.jpg/i);
   });
   it('search_images pose la photo du sujet dans src/images.json, que Claude n’écrit pas ; sans banque, il le dit', async () => {
     const { project, work_session } = await unChantier();

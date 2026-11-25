@@ -97,7 +97,7 @@ export const DEFINITIONS = {
   }),
   get_design_guide: def({
     title: 'Read the design guide', lecture: true, entree: z.object({ project: projet }),
-    description: 'Call it before writing or redesigning pages. What the pages of this app must be (sections, compositions, photos, the final check), the design rules for its kind and what it carries, and examples of successful designs of its kind, as images: compose each page at their level, never copying their brand, texts or images.',
+    description: 'Call it before writing or redesigning pages. What the pages of this app must be (sections, compositions, photos, the final check), and the design rules for its kind and what it carries. You design each page yourself: no existing site or other project is shown or to be looked at.',
     geste: (c, a) => g.leGuideDuDesign(c, a),
   }),
   search_images: def({

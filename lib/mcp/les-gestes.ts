@@ -31,7 +31,6 @@ import { lArbreDUnProjet } from '@/lib/projets/l-arbre-d-un-projet';
 import { revenirA } from '@/lib/versions/revenir';
 import type { LecturesDeLaVue } from './les-gestes-de-la-vue';
 import { leGuideDeDesign } from '@/lib/design/le-guide';
-import { lesExemplesDeDesign, LES_EXEMPLES_DE_DESIGN } from '@/lib/design/les-exemples-de-design';
 import { CHEMIN_DES_IMAGES, poserLesImages, type Banque, type DemandeDImage } from '@/lib/images/la-banque';
 
 export interface Contexte {
@@ -409,13 +408,10 @@ export async function configurerLeBackend(c: Contexte, a: { project: string; wor
   });
 }
 
-/** Les images qu'un rendu joint à Claude (les exemples de design) : le serveur les rend en images, hors du texte. */
-export const IMAGES_JOINTES = '_images';
-export interface ImageJointe { readonly nom: string; readonly mimeType: 'image/jpeg'; readonly data: string }
-
 /**
- * Le guide de design de l'app (`lib/design/le-guide`) : ce que les pages doivent être, les règles qui la concernent, et les
- * exemples de design de sa sorte, joints en images. Lu avant d'écrire ou de refaire des pages.
+ * Le guide de design de l'app (`lib/design/le-guide`) : ce que les pages doivent être et les règles qui la concernent, en
+ * mots seuls. INCIDENT 25/11 (essai « Thème astral ») : le guide joignait des captures (des sites de marque, un projet
+ * généré par constructor), que Claude.ai montrait à la personne en vignettes ; Claude conçoit seul (Antoine, 25/11 15h30).
  */
 export async function leGuideDuDesign(c: Contexte, a: { project: string }): Promise<Rendu> {
   const p = await leProjet(c, a.project);
@@ -425,14 +421,7 @@ export async function leGuideDuDesign(c: Contexte, a: { project: string }): Prom
   const arbre = lArbreDUnProjet(f.valeur);
   if (!arbre.lu) return refuser('app_json_refuse', `app.json does not hold: ${arbre.erreurs.join(' | ')}`, { fichier: 'app.json' });
   const g = leGuideDeDesign(arbre.manifeste);
-  const e = lesExemplesDeDesign(arbre.manifeste);
-  const jointes: ImageJointe[] = e.exemples.map((x) => ({ nom: x.nom, mimeType: 'image/jpeg', data: x.jpeg.toString('base64') }));
-  return fait({
-    guide: g.guide,
-    rules: g.regles.map((r) => r.texte),
-    examples: e.exemples.length ? { note: LES_EXEMPLES_DE_DESIGN, shown: e.exemples.map((x) => ({ name: x.nom, view: x.vue, shows: x.montre })) } : null,
-    [IMAGES_JOINTES]: jointes,
-  });
+  return fait({ guide: g.guide, rules: g.regles.map((r) => r.texte) });
 }
 
 /**

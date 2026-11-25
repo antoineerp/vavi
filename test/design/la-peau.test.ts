@@ -4,7 +4,6 @@
  */
 import { describe, expect, it } from 'vitest';
 import { contraste, jetonsDeLaPeau } from '@/lib/design/la-peau';
-import { lesExemplesDeDesign } from '@/lib/design/les-exemples-de-design';
 import { unManifeste } from '../aides/un-manifeste';
 
 const hex = (n: number) => `#${(n & 0xffffff).toString(16).padStart(6, '0')}`;
@@ -44,17 +43,3 @@ const BOUTIQUE = { nature: 'boutique', fonctions: { panier: true },
     champs: [{ nom: 'nom', libelle: 'Nom', type: 'texte', obligatoire: true }, { nom: 'prix', libelle: 'Prix', type: 'montant', obligatoire: true }],
     vente: { prix: 'prix', libelle: 'nom' } }],
   vente: { pays: 'FR', devise: 'EUR', livraison: { pays: ['FR'], prix: 5 } } };
-
-describe('les exemples de design', () => {
-  it.each(['site', 'boutique', 'app'] as const)('« %s » : chaque capture choisie est livrée', (nature) => {
-    const m = unManifeste(nature === 'app'
-      ? { nature, roles: [{ nom: 'gerant', libelle: 'Gérant', obtenu: 'proprietaire' }, { nom: 'membre', libelle: 'Membre', obtenu: 'invitation' }],
-        tables: [{ nom: 'demande', libelle: 'Demandes', appartenance: 'personnelle', lecture: ['membre', 'gerant'], ecriture: ['membre', 'gerant'],
-          champs: [{ nom: 'objet', libelle: 'Objet', type: 'texte', obligatoire: true }] }] }
-      : nature === 'boutique' ? BOUTIQUE : { nature });
-    const { exemples, manquants } = lesExemplesDeDesign(m);
-    expect(manquants).toEqual([]);
-    expect(exemples.length).toBeGreaterThan(0);
-    for (const e of exemples) expect(e.jpeg.subarray(0, 2).toString('hex'), e.nom).toBe('ffd8');
-  });
-});
