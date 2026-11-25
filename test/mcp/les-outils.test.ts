@@ -288,6 +288,23 @@ describe('le serveur MCP', () => {
   });
 });
 
+describe('Claude voit ce qu’il a fait (Antoine, 25/11, « comme Lovable »)', () => {
+  it('un build vert rend l’accueil sur ordinateur et téléphone en blocs image, jamais dans le JSON ; sans navigateur, la raison est dite', async () => {
+    const w = await unChantier();
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+    (c as { capturer?: Contexte['capturer'] }).capturer = async () => ({ captures: [{ ecran: 'bureau', jpeg }, { ecran: 'telephone', jpeg }], manquees: [] });
+    const r = await servirLeMcp({ jsonrpc: '2.0', id: 11, method: 'tools/call', params: { name: 'apply_changes', arguments: { ...w, why: 'accueil', changes: [{ path: 'src/pages/index.tsx', content: 'export default function A() { return null; }' }] } } },
+      { outils: c, langue: 'fr', gabaritPackageJson: GABARIT, noteDuChantier: async () => null }) as { result: { content: { type: string; data?: string; mimeType?: string; text?: string }[]; structuredContent: Record<string, unknown> } };
+    expect(r.result.content.filter((x) => x.type === 'image')).toEqual([
+      { type: 'image', data: jpeg.toString('base64'), mimeType: 'image/jpeg' }, { type: 'image', data: jpeg.toString('base64'), mimeType: 'image/jpeg' }]);
+    expect(r.result.content[0]!.text).not.toContain('_images');
+    expect((r.result.structuredContent.build as Record<string, unknown>).screens).toMatch(/desktop.*phone/);
+    (c as { capturer?: Contexte['capturer'] }).capturer = async () => ({ captures: [], manquees: ['Chromium did not start'] });
+    const b = await ok('apply_changes', { ...w, why: 'encore', changes: [{ path: 'src/pages/index.tsx', read_fingerprint: await empreinteDe(w.project, 'src/pages/index.tsx'), content: 'export default function B() { return null; }' }] });
+    expect((b.build as Record<string, unknown>).screens).toBe('not taken: Chromium did not start');
+  });
+});
+
 describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {
   it('get_design_guide rend le guide de la vitrine et les règles de sa nature, en mots seuls', async () => {
     const { project } = await unChantier();

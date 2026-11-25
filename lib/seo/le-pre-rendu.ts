@@ -100,7 +100,7 @@ export function sansLEnvironnement(html: string): string {
 }
 
 /** Sert le dist en mémoire sous la base du pré-rendu, avec l'environnement de l'app. */
-function servir(dist: ReadonlyMap<string, Buffer>, env: Omit<EnvDeLApp, 'base'>): Promise<{ adresse: string; serveur: Server }> {
+export function servir(dist: ReadonlyMap<string, Buffer>, env: Omit<EnvDeLApp, 'base'>): Promise<{ adresse: string; serveur: Server }> {
   const entree = poserLEnvironnement(dist.get('index.html')?.toString('utf8') ?? '', { ...env, base: BASE_DU_PRE_RENDU });
   const serveur = createServer((q, r) => {
     const chemin = decodeURIComponent((q.url ?? '/').split('?')[0]!).replace(BASE_DU_PRE_RENDU, '').replace(/^\/+/, '');

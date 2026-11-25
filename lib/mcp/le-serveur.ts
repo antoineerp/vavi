@@ -59,8 +59,12 @@ async function repondre(r: Requete, ctx: ContexteDuServeur): Promise<ReponseRpc 
       if (!a.connu) return erreur(id, -32602, `Unknown tool "${nom}".`);
       if ('invalide' in a) return erreur(id, -32602, `Invalid arguments for ${nom}: ${a.invalide}`);
       const refus = estUnRefus(a.rendu);
-      const rendu = a.rendu as Record<string, unknown>;
-      return resultat(id, { content: [{ type: 'text', text: JSON.stringify(rendu, null, 2) }], structuredContent: rendu, isError: refus });
+      // Les images d'un rendu (`_images` : les captures d'un build vert) vont en blocs image, jamais dans le JSON.
+      const { _images: images, ...rendu } = a.rendu as Record<string, unknown>;
+      const { _images: imagesDuBuild, ...build } = (rendu.build ?? {}) as Record<string, unknown>;
+      if (rendu.build) rendu.build = build;
+      const blocs = [...(Array.isArray(images) ? images : []), ...(Array.isArray(imagesDuBuild) ? imagesDuBuild : [])] as { data: string; mimeType: string }[];
+      return resultat(id, { content: [{ type: 'text', text: JSON.stringify(rendu, null, 2) }, ...blocs.map((x) => ({ type: 'image', data: x.data, mimeType: x.mimeType }))], structuredContent: rendu, isError: refus });
     }
     case 'prompts/list': return resultat(id, { prompts: lesPrompts(ctx.langue) });
     case 'prompts/get': {

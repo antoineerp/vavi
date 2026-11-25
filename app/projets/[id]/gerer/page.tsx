@@ -119,7 +119,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       <section className="carte">
         <h2>{t.textes}</h2>
         {!p.valeur!.apercuEmpreinte ? <p className="attenue">{t.pasDApercu}</p> : (
-          <EditeurDeTextes id={id} apercu={adresseDeLApp(id, 'apercu')} t={{ textes: t.textes, textesExplication: t.textesExplication, textesActif: t.textesActif, textesChoisir: t.textesChoisir,
+          <EditeurDeTextes id={id} apercu={adresseDeLApp(id, 'apercu')} projet={p.valeur!.nom} langue={c.langue} t={{ textes: t.textes, textesExplication: t.textesExplication, textesActif: t.textesActif, textesChoisir: t.textesChoisir,
             textesPasIci: t.textesPasIci, enregistrer: t.enregistrer, annuler: t.annuler, enCours: t.enCours, textesFait: t.textesFait, textesRouge: t.textesRouge, textesRefus: t.textesRefus }} />
         )}
       </section>

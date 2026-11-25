@@ -45,6 +45,8 @@ export interface Contexte {
   readonly construire: (arbre: ReadonlyMap<string, string>, base: string) => Promise<Construction>;
   /** Le pré-rendu des pages publiques d'un build vert (`lib/seo`) ; rend `null` sans navigateur sur ce serveur. */
   readonly preRendre: (projet: string, dist: ReadonlyMap<string, Buffer>, manifeste: Manifeste) => Promise<PreRendu | null>;
+  /** Les captures de l'accueil d'un build vert, ordinateur et téléphone (`lib/seo/les-captures`), rendues à Claude ; absent : aucune. */
+  readonly capturer?: (projet: string, dist: ReadonlyMap<string, Buffer>, manifeste: Manifeste) => Promise<{ readonly captures: readonly { readonly ecran: string; readonly jpeg: Buffer }[]; readonly manquees: readonly string[] } | null>;
   /** Lance un travail après la réponse de l'outil (le pré-rendu) ; absent, l'outil l'attend (essais). */
   readonly enArrierePlan?: (nom: string, travail: () => Promise<void>) => void;
   /** Les paquets du gabarit verrouillé. */
@@ -603,9 +605,16 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   // Un build vert DEVIENT l'aperçu (24/11, retour d'Antoine : la console disait « pas encore d'aperçu » après un build
   // vert) : la console et le lien montrent la dernière version qui se construit ; `publish` ferme le chantier.
   const designe = await c.projets.publierLApercu(c.compte, a.project, arbre.empreinte);
+  // Claude voit ce qu'il a fait (Antoine, 25/11, « comme Lovable ») : l'accueil, sur ordinateur et téléphone, en images.
+  const t1 = Date.now();
+  const vues = c.capturer ? await c.capturer(a.project, b.dist, arbre.manifeste).catch((e: unknown) => ({ captures: [], manquees: [String((e as Error)?.message ?? e).slice(0, 200)] })) : null;
+  if (vues) console.log(`[build_preview] ${a.project} captures ${Date.now() - t1} ms (${vues.captures.length})`);
   return fait({
     project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree, timings_ms: temps,
     preview_updated: designe.lu,
+    ...(vues ? { screens: vues.captures.length ? `the home page on ${vues.captures.map((x) => x.ecran === 'bureau' ? 'a desktop screen (1280×800)' : 'a phone (390×844)').join(' and ')}, as images below: look at them and fix what is visibly wrong (empty or broken section, unreadable text, overflowing menu) before showing the person`
+      : `not taken: ${vues.manquees.join(' | ')}` } : {}),
+    ...(vues?.captures.length ? { _images: vues.captures.map((x) => ({ data: x.jpeg.toString('base64'), mimeType: 'image/jpeg' })) } : {}),
     next: 'When the person’s request is done, call `publish` to close the work session.',
     checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the preview and check.',
     prerendered: pre === 'en_fond' ? 'running in the background: the public pages are rendered for search engines after this answer'
