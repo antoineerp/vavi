@@ -55,6 +55,9 @@ describe('servir l’aperçu', () => {
     expect(html).toContain(`window.__PROJECT_ID__="${P}"`);
     expect(html).toContain('window.__CONSTRUCTOR_API_URL__=""');
   });
+  it('INCIDENT 25/11 — dans le cadre de la vue de Claude, l’app appelle les routes de vavi à leur origine, jamais à celle de Claude', () => {
+    expect(poserLEnvironnement('<html><head></head></html>', { ...ENV, api: 'https://www.vavi.test' })).toContain('window.__CONSTRUCTOR_API_URL__="https://www.vavi.test"');
+  });
   it('une page de l’app sert l’entrée ; un fichier absent rend 404 ; un chemin qui sort du dist est refusé', async () => {
     const m = unMagasinEnMemoire();
     await publierLeDist(m, R, dist());

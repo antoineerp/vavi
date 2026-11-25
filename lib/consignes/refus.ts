@@ -14,7 +14,7 @@
 /** La liste fermée des refus. Un outil n'en invente pas : il en ajoute un ici, avec son geste par défaut. */
 export const CODES_DE_REFUS = {
   conflit: 'Re-read the files listed in `fichiers` with `read_files`, then redo your change on their current version.',
-  chantier_ouvert: 'Another conversation has a work session open on this project. Ask the person whether to resume it here or abandon it.',
+  chantier_ouvert: 'A work session of the same person is open on this project, perhaps from another conversation. If the person asked you to work on it here, call `ouvrir_chantier` again with `resume: true`; ask them only if their request contradicts its intention.',
   chantier_requis: 'Open a work session with `ouvrir_chantier` and a one-sentence intention first.',
   passage_introuvable: 'Read the file again with `read_files` and quote the passage exactly as it stands.',
   passage_ambigu: 'Quote a longer passage so that it appears exactly once in the file.',

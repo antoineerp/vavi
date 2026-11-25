@@ -19,12 +19,14 @@
     "@supabase/ssr": "0.8.0",
     "@supabase/supabase-js": "2.46.1",
     "astronomia": "4.2.0",
+    "jszip": "3.10.1",
     "next": "15.5.25",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "0.0.1",
     "suncalc": "2.0.0",
     "tz-lookup": "6.1.25",
+    "unpdf": "2.1.0",
     "zod": "3.23.8"
   },
   "devDependencies": {

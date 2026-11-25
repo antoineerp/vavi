@@ -21,6 +21,10 @@ export interface EnvDeLApp {
   readonly projet: string;
   /** L'origine de la console : la seule qui puisse demander l'édition dans l'aperçu (l'app est à un autre hôte). */
   readonly console?: string;
+  /** L'origine des routes `/api/` de l'app quand la page n'est pas servie à son adresse (la vue de Claude l'écrit dans
+   * son propre cadre : un appel relatif y partait vers l'hôte de Claude, INCIDENT 25/11 « la connexion n'a pas abouti »).
+   * Absente : à la même adresse que la page. */
+  readonly api?: string;
 }
 
 export interface Reponse { readonly statut: number; readonly type: string; readonly cache: string; readonly corps: Buffer }
@@ -39,7 +43,7 @@ const enScript = (v: string): string => JSON.stringify(v).replace(/</g, '\\u003c
 export function poserLEnvironnement(html: string, env: EnvDeLApp): string {
   const script = `<base href="${env.base.replace(/[^\w/.-]/g, '')}">` + `<script>window.__SUPABASE_URL__=${enScript(env.supabaseUrl)};window.__SUPABASE_ANON_KEY__=${enScript(env.cleAnonyme)};`
     + `window.__DATABASE_SCHEMA__=${enScript(env.schema)};window.__VAVI_BASENAME__=${enScript(env.base)};`
-    + `window.__PROJECT_ID__=${enScript(env.projet)};window.__CONSTRUCTOR_API_URL__="";`
+    + `window.__PROJECT_ID__=${enScript(env.projet)};window.__CONSTRUCTOR_API_URL__=${enScript(env.api ?? '')};`
     + `${env.console ? `window.__VAVI_CONSOLE__=${enScript(env.console)};` : ''}</script>`;
   const tete = /<head[^>]*>/i.exec(html);
   return tete ? html.replace(tete[0], `${tete[0]}${script}`) : `${script}${html}`;

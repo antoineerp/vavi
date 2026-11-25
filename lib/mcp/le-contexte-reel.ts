@@ -96,7 +96,7 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
           if (!magasin.lu || !pub.lue || !schema) return null;
           const o = await magasin.magasin.lire(`${racineDuBuild(projet, empreinte)}/index.html`);
           if (o === 'absent') return null;
-          const html = poserLEnvironnement(o.octets.toString('utf8'), { supabaseUrl: pub.valeur.url, cleAnonyme: pub.valeur.cleAnonyme, schema, base: '/', projet, console: adresseDeLaPlateforme() });
+          const html = poserLEnvironnement(o.octets.toString('utf8'), { supabaseUrl: pub.valeur.url, cleAnonyme: pub.valeur.cleAnonyme, schema, base: '/', projet, console: adresseDeLaPlateforme(), api: new URL(adresse).origin });
           // Claude.ai refuse un `<base>` d'une autre origine (base-uri 'self', essai d'Antoine du 25/11) : les fichiers de
           // la page sont nommés en entier, à l'aperçu ; ceux qu'ils chargent suivent leur propre adresse. Le routeur
           // monte là où la vue tourne (le chemin de son cadre).

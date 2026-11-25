@@ -19,7 +19,7 @@ vavi protège votre projet : Claude ne peut pas écraser votre travail, mettre u
 6. **Si ça tourne en rond, revenez en arrière.** Choisissez « Revenir en arrière » : chaque modification est une version que l'on peut ramener, vos données restent.
 7. **Ouvrez une nouvelle conversation pour un nouveau sujet**, ou quand Claude vous le propose, avec « Reprendre » : vavi lui redonne où vous en étiez.
 
-Trois prompts à connaître : **Démarrer un projet**, **Modifier mon projet**, **Reprendre**. Si Claude vous dit qu'un autre travail est en cours sur le projet, c'est qu'une autre conversation l'a ouvert : terminez-le là-bas, ou demandez à l'abandonner.
+Trois prompts à connaître : **Démarrer un projet**, **Modifier mon projet**, **Reprendre**. Un travail laissé ouvert dans une autre conversation se reprend ici tout seul, avec ses notes : Claude ne vous le demande que si votre demande le contredit.
 `,
   en: `# Working well with Claude and vavi
 
@@ -33,7 +33,7 @@ vavi protects your project: Claude cannot overwrite your work, put a secret key 
 6. **If it goes in circles, go back.** Choose "Go back": every change is a version you can bring back, and your data stays.
 7. **Open a new conversation for a new subject**, or when Claude suggests it, with "Resume": vavi tells it where you were.
 
-Three prompts to know: **Start a project**, **Change my project**, **Resume**. If Claude says another piece of work is in progress on the project, another conversation opened it: finish it there, or ask to abandon it.
+Three prompts to know: **Start a project**, **Change my project**, **Resume**. Work left open in another conversation is resumed here on its own, with its notes: Claude asks you only if your request contradicts it.
 `,
 };
 

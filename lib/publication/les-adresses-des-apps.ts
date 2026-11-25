@@ -17,7 +17,23 @@ export type Lequel = 'apercu' | 'en_ligne';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** Les routes `/api/<x>/` qu'une app appelle, servies sur son hôte. Rien d'autre de la console n'y passe. */
-export const API_DES_APPS = ['audience', 'coffre', 'compte', 'comptes', 'entreprises', 'ephemeride', 'forms', 'geocode', 'mail', 'pay', 'pieces', 'sms'] as const;
+export const API_DES_APPS = ['ai', 'audience', 'coffre', 'compte', 'comptes', 'entreprises', 'ephemeride', 'external', 'file', 'forms', 'geocode', 'mail', 'pay', 'pieces', 'sms'] as const;
+
+/** Une route `/api/<x>/…` qu'une app appelle (`API_DES_APPS`). PURE. */
+export function estUneRouteDesApps(chemin: string): boolean {
+  const api = /^\/api\/([a-z-]+)(\/|$)/.exec(chemin);
+  return api !== null && (API_DES_APPS as readonly string[]).includes(api[1]!);
+}
+
+/**
+ * Les routes des apps répondent à toute origine : l'app est servie à son hôte, à `/p/` de la console, ou écrite dans le
+ * cadre de la vue de Claude, d'une autre origine (INCIDENT 25/11 : « la connexion n'a pas abouti » dans le panneau).
+ * Aucune ne lit un cookie : le compte voyage dans `authorization`, d'où `*` sans `credentials`.
+ */
+export const CORS_DES_APPS = {
+  'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+  'access-control-allow-headers': 'content-type, authorization, x-vavi-essai', 'access-control-max-age': '600',
+} as const;
 
 /** Le domaine des apps, net ; `null` sans lui. */
 export function leDomaineDesApps(env: Readonly<Record<string, string | undefined>>): string | null {
@@ -60,8 +76,7 @@ export function laDecision(hote: string | null, chemin: string, recherche: strin
   const h = (hote ?? '').toLowerCase().split(':')[0]!;
   const app = lAppDeLHote(h, o.domaine);
   if (app) {
-    const api = /^\/api\/([a-z-]+)(\/|$)/.exec(chemin);
-    if (api && (API_DES_APPS as readonly string[]).includes(api[1]!)) return { faire: 'passer' };
+    if (estUneRouteDesApps(chemin)) return { faire: 'passer' };
     return { faire: 'reecrire', chemin: `/${app.lequel === 'apercu' ? 'p' : 's'}/${app.projet}${chemin === '/' ? '/' : chemin}` };
   }
   if (h === o.domaine || h.endsWith(`.${o.domaine}`)) return { faire: 'refuser' };

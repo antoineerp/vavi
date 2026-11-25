@@ -19,6 +19,7 @@ import { EXEMPLE_D_APP_JSON_TEXTE } from '@/lib/backend/app/l-exemple-d-app-json
 import { poserLaBase, type AppelDeLaBase } from '@/lib/relais/poser-la-base';
 import type { Projets, Projet } from '@/lib/projets/les-projets';
 import { empreinteDuFichier } from '@/lib/projets/les-empreintes';
+import { MINUTES_DU_VERROU } from '@/lib/projets/le-sql-des-projets';
 import type { Construction } from '@/lib/atelier/construire';
 import type { Magasin } from '@/lib/publication/le-magasin';
 import type { PreRendu } from '@/lib/seo/le-pre-rendu';
@@ -189,6 +190,18 @@ export async function creerUnProjet(c: Contexte, a: { app_json: unknown }): Prom
   });
 }
 
+/**
+ * Ce que Claude fait d'un chantier qu'il trouve ouvert (INCIDENT 25/11, Cap Équipage : Claude demandait à la personne s'il
+ * pouvait reprendre « la session de l'autre conversation », alors que le projet est le sien et que ce chantier dormait
+ * depuis une heure). Un chantier est celui de la personne : il se reprend sans question, ses notes avec lui. PURE.
+ */
+export function commentContinuer(dernierGesteLe: string, maintenant: number): string {
+  const minutes = Math.max(0, Math.round((maintenant - Date.parse(dernierGesteLe)) / 60_000));
+  return minutes >= MINUTES_DU_VERROU
+    ? `Idle for ${minutes} min, so released: call \`ouvrir_chantier\` with \`resume: true\` to continue it with its notes, or with a new intention. Nothing to ask the person.`
+    : `Last change ${minutes} min ago, perhaps from another conversation of the same person. If the person asks you to work on this project here, call \`ouvrir_chantier\` with \`resume: true\`; ask them only if their request contradicts its intention.`;
+}
+
 export async function lEtatDuProjet(c: Contexte, a: { project: string }): Promise<Rendu> {
   const p = await leProjet(c, a.project);
   if (!p.ok) return p.refus;
@@ -205,7 +218,8 @@ export async function lEtatDuProjet(c: Contexte, a: { project: string }): Promis
     ...vueDuProjet(c, p.valeur),
     ...(plan ? { plan } : {}),
     connectors: connecteurs ?? 'unknown',
-    work_session: ch ? { id: ch.id, intention: ch.intention, opened_at: ch.ouvertLe, changes: ch.gestes, done: ch.fait, remaining: ch.reste } : null,
+    work_session: ch ? { id: ch.id, intention: ch.intention, opened_at: ch.ouvertLe, last_change_at: ch.dernierGesteLe, changes: ch.gestes, done: ch.fait, remaining: ch.reste,
+      how_to_continue: commentContinuer(ch.dernierGesteLe, Date.now()) } : null,
     database_laid_out_at: p.valeur.basePoseeLe,
     your_files: [...f.valeur].filter(([chemin]) => chemin !== 'app.json').map(([chemin, t]) => ({ path: chemin, fingerprint: empreinteDuFichier(t), size: t.length })),
     app_json: f.valeur.has('app.json') ? { fingerprint: empreinteDuFichier(f.valeur.get('app.json')!) } : null,

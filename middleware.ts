@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { rafraichirLaSession } from '@/lib/supabase/session';
-import { laDecision, leDomaineDesApps } from '@/lib/publication/les-adresses-des-apps';
+import { CORS_DES_APPS, estUneRouteDesApps, laDecision, leDomaineDesApps } from '@/lib/publication/les-adresses-des-apps';
 import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 
 /**
@@ -11,6 +11,13 @@ export function middleware(requete: NextRequest) {
   const d = laDecision(requete.headers.get('host'), requete.nextUrl.pathname, requete.nextUrl.search,
     { console: adresseDeLaPlateforme(), domaine: leDomaineDesApps(process.env) });
   if (d.faire === 'refuser') return new NextResponse('introuvable', { status: 404 });
+  // Les routes des apps : à toute origine, sans la session de la console.
+  if (estUneRouteDesApps(requete.nextUrl.pathname)) {
+    if (requete.method === 'OPTIONS') return new NextResponse(null, { status: 204, headers: CORS_DES_APPS });
+    const r = NextResponse.next();
+    for (const [k, v] of Object.entries(CORS_DES_APPS)) r.headers.set(k, v);
+    return r;
+  }
   if (d.faire === 'rediriger') return NextResponse.redirect(d.adresse, 308);
   if (d.faire === 'reecrire') {
     const u = requete.nextUrl.clone();
