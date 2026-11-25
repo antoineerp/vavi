@@ -1,5 +1,5 @@
-:root { --fond: #fafaf9; --surface: #ffffff; --texte: #1c1917; --attenue: #57534e; --bord: #e7e5e4; --accent: #1f6f5c; --accent-texte: #ffffff; --alerte: #b42318; }
-@media (prefers-color-scheme: dark) { :root { --fond: #1c1917; --surface: #292524; --texte: #fafaf9; --attenue: #d6d3d1; --bord: #44403c; --accent: #5fb89f; --accent-texte: #0c0a09; --alerte: #f97066; } }
+:root { --fond: #eaf3fc; --surface: #f6faff; --menu: #dcebfa; --texte: #10233f; --attenue: #4a5d78; --bord: #cfe0f3; --accent: #1d4ed8; --accent-texte: #ffffff; --accent-doux: #dbe6fb; --vert: #0f7a55; --vert-doux: #dff4ea; --alerte: #b42318; }
+@media (prefers-color-scheme: dark) { :root { --fond: #0d1726; --surface: #14233a; --menu: #101d31; --texte: #eef4fc; --attenue: #a9bbd3; --bord: #24395a; --accent: #7aa2ff; --accent-texte: #0b1220; --accent-doux: #1b2d4d; --vert: #6fd3a8; --vert-doux: #133528; --alerte: #f97066; } }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--fond); color: var(--texte); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; line-height: 1.5; }
 .console { max-width: 960px; margin: 0 auto; padding: 2rem 1rem 4rem; }
@@ -32,3 +32,38 @@ a { color: var(--accent); }
 .chiffres strong { display: block; font-size: 1.4rem; }
 .formulaire-admin { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: end; }
 .formulaire-admin label { font-weight: 500; font-size: 0.85rem; display: flex; flex-direction: column; gap: 0.2rem; margin: 0; }
+
+input[type=color] { width: 3rem; height: 2.5rem; padding: 2px; cursor: pointer; }
+input[type=checkbox], input[type=radio] { width: auto; margin: 0 0.4rem 0 0; }
+select, textarea { padding: 0.5rem 0.6rem; border: 1px solid var(--bord); border-radius: 8px; background: var(--fond); color: var(--texte); font: inherit; }
+.chiffres .carte span.attenue { display: block; font-size: 0.9rem; }
+.chiffres strong { font-size: 1.6rem; }
+.carte h2 { margin-top: 0.25rem; }
+/* La mise en page d'un projet : barre du haut, menu latéral, contenu (Antoine, 25/11 : comme le tableau de bord de constructor). */
+.projet { min-height: 100vh; display: flex; flex-direction: column; }
+.projet-haut { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 0.75rem 1.25rem; background: var(--surface); border-bottom: 1px solid var(--bord); position: sticky; top: 0; z-index: 10; }
+.projet-retour { text-decoration: none; color: var(--attenue); }
+.projet-nom { font-size: 1.15rem; }
+.projet-haut-droite { margin-left: auto; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.projet-haut .bouton { padding: 0.4rem 0.9rem; font-size: 0.95rem; border-radius: 999px; }
+.bouton.pastille { background: var(--vert-doux); color: var(--vert); border-color: var(--vert); }
+.projet-corps { display: grid; grid-template-columns: 250px minmax(0, 1fr); flex: 1; }
+.projet-menu { background: var(--menu); border-right: 1px solid var(--bord); padding: 1rem 0.75rem; display: flex; flex-direction: column; gap: 1rem; }
+.projet-menu-titre { text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.75rem; font-weight: 700; color: var(--attenue); margin: 0 0.6rem 0.35rem; }
+.projet-menu a { display: block; padding: 0.55rem 0.75rem; border-radius: 10px; color: var(--texte); text-decoration: none; }
+.projet-menu a:hover { background: var(--surface); }
+.projet-menu a.actif { background: var(--surface); font-weight: 600; box-shadow: 0 1px 2px rgba(16, 35, 63, 0.08); }
+.projet-contenu { min-width: 0; }
+.projet-contenu .console { max-width: 1000px; margin: 0; padding: 1.75rem 2rem 4rem; }
+@media (max-width: 760px) {
+  .projet-corps { grid-template-columns: 1fr; }
+  .projet-menu { flex-direction: row; overflow-x: auto; gap: 0.25rem; padding: 0.5rem; border-right: 0; border-bottom: 1px solid var(--bord); }
+  .projet-menu > div { display: flex; gap: 0.25rem; }
+  .projet-menu-titre { display: none; }
+  .projet-menu a { white-space: nowrap; }
+  .projet-contenu .console { padding: 1.25rem 1rem 3rem; }
+}
+.graphique { display: flex; align-items: flex-end; gap: 0.5rem; height: 180px; padding-top: 1rem; }
+.graphique-jour { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 0.25rem; min-width: 0; }
+.graphique-barre { width: 100%; background: var(--accent); border-radius: 4px 4px 0 0; }
+.graphique-nombre, .graphique-nom { font-size: 0.8rem; color: var(--attenue); }

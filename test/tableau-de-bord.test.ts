@@ -5,6 +5,9 @@
 import { describe, expect, it } from 'vitest';
 import { TEXTES } from '@/app/_partage/textes';
 import { lEtatDeLaMiseEnLigne } from '@/lib/projets/la-mise-en-ligne';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { leMenu } from '@/app/projets/[id]/la-navigation';
 
 describe('la console', () => {
   it('a les mêmes textes en français et en anglais', () => {
@@ -19,4 +22,15 @@ describe('la console', () => {
     const tout = JSON.stringify(TEXTES);
     expect(tout).not.toMatch(/src\/|\.tsx|app\.json/);
   });
+
+  // Antoine, 25/11 : la console d'un projet reprend la mise en page du tableau de bord de constructor, menu latéral des
+  // seuls écrans qui marchent. Chaque écran du menu a sa page ; les paiements n'apparaissent que pour une app qui vend.
+  it('chaque écran du menu d’un projet a sa page, et les paiements seulement pour une app qui vend', () => {
+    const ecrans = (vend: boolean) => leMenu('fr', { vend }).flatMap((r) => r.ecrans.map((e) => e.ecran));
+    expect(ecrans(false)).not.toContain('paiements');
+    expect(ecrans(true)).toContain('paiements');
+    for (const e of ecrans(true)) expect(existsSync(join(process.cwd(), 'app', 'projets', '[id]', e, 'page.tsx')), e || 'vue d’ensemble').toBe(true);
+    expect(leMenu('en', { vend: true }).flatMap((r) => r.ecrans.map((e) => e.ecran))).toEqual(ecrans(true));
+  });
 });
+

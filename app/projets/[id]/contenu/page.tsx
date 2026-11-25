@@ -13,6 +13,8 @@ import { magasinS3 } from '@/lib/publication/le-magasin';
 import { racineDuBuild } from '@/lib/publication/publier';
 import { FICHIER_DE_DECOUVERTE, lireLaDecouverte, type PageDecouverte } from '@/lib/seo/la-decouverte';
 import { enregistrerLApparence, enregistrerLeReferencement } from './gestes';
+import { claudeAFini } from '../gestes';
+import { TEXTES } from '@/app/_partage/textes';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +26,7 @@ const MOTS = {
     pageTitre: 'Titre (70 caractères au plus)', pageDescription: 'Description (200 caractères au plus)', parDefaut: 'par défaut :',
     sansPages: 'Les pages publiques apparaissent ici après un premier aperçu construit.', textes: 'Les textes des pages se réécrivent dans l’aperçu, sur la page du projet.',
     images: 'Les photos : bientôt ici. Pour l’instant, demandez à Claude de les changer.',
-    fait: { apparence: 'Apparence enregistrée.', referencement: 'Référencement enregistré.' } as Record<string, string>,
+    fait: { apparence: 'Apparence enregistrée.', referencement: 'Référencement enregistré.', claude_a_fini: 'Le travail de Claude est fermé ; tout ce qu’il a fait est gardé.' } as Record<string, string>,
     apercu: { a_jour: 'L’aperçu est à jour : publiez pour mettre en ligne.', build_rouge: 'L’aperçu n’a pas pu être rebâti : le changement est gardé, demandez à Claude de regarder.', rien_change: 'Rien n’a changé.' } as Record<string, string>,
     erreurs: { chantier_ouvert: 'Claude travaille sur ce projet : réessayez quand il a fini.', conflit: 'Le projet a changé entre-temps : rechargez la page.', panne: 'vavi n’a pas répondu ; réessayez.', mal_forme: 'À corriger :' } as Record<string, string> },
   en: { titre: 'Manage content', retour: 'Back to the project', apparence: 'Appearance', referencement: 'Page search listings',
@@ -34,7 +36,7 @@ const MOTS = {
     pageTitre: 'Title (70 characters at most)', pageDescription: 'Description (200 characters at most)', parDefaut: 'default:',
     sansPages: 'Public pages appear here after a first preview is built.', textes: 'Page texts are rewritten in the preview, on the project page.',
     images: 'Photos: coming here soon. For now, ask Claude to change them.',
-    fait: { apparence: 'Appearance saved.', referencement: 'Search listings saved.' } as Record<string, string>,
+    fait: { apparence: 'Appearance saved.', referencement: 'Search listings saved.', claude_a_fini: 'Claude’s work session is closed; everything it did is kept.' } as Record<string, string>,
     apercu: { a_jour: 'The preview is up to date: publish to put it online.', build_rouge: 'The preview could not be rebuilt: the change is kept, ask Claude to look.', rien_change: 'Nothing changed.' } as Record<string, string>,
     erreurs: { chantier_ouvert: 'Claude is working on this project: try again when it is done.', conflit: 'The project changed meanwhile: reload the page.', panne: 'vavi did not answer; try again.', mal_forme: 'To fix:' } as Record<string, string> },
 } as const;
@@ -56,7 +58,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   if (p.lu && !p.valeur) notFound();
   const f = await c.projets.fichiers(c.compte, id);
   const lu = f.lu ? leManifesteStocke(f.valeur.get('app.json')) : null;
-  const haut = <><Link href={`/projets/${id}`}>{m.retour}</Link><div className="entete"><h1>{m.titre}</h1>{p.lu && <span className="attenue">{p.valeur!.nom}</span>}</div></>;
+  const haut = <h1>{m.titre}</h1>;
   if (!p.lu || !f.lu || !lu?.lu) return <main className="console">{haut}<p role="alert">{m.erreurs.panne}</p></main>;
   const d = lu.manifeste.direction;
   const ref = leReferencementStocke(f.valeur.get(CHEMIN_DU_REFERENCEMENT));
@@ -66,7 +68,13 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     <main className="console">
       {haut}
       {message && <div className="carte" role={q.erreur ? 'alert' : 'status'}>{message}</div>}
-      {p.valeur!.chantier && <div className="carte" role="status">{m.erreurs.chantier_ouvert}</div>}
+      {p.valeur!.chantier && (
+        <form action={claudeAFini.bind(null, id, 'contenu')} className="carte" role="status">
+          <p>{m.erreurs.chantier_ouvert}</p>
+          <p className="attenue">{TEXTES[c.langue].claudeAFiniExplication}</p>
+          <button type="submit" className="discret">{TEXTES[c.langue].claudeAFini}</button>
+        </form>
+      )}
 
       <section className="carte">
         <h2>{m.apparence}</h2>

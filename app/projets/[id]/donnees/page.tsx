@@ -21,7 +21,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   if (!ID.test(id)) notFound();
   const p = await leProjet(id);
   const m = MOTS[p.langue];
-  const haut = <div className="ligne" style={{ justifyContent: 'space-between' }}><Link href={`/projets/${id}`}>{m.retour}</Link></div>;
+  const haut = null;
   if (!p.ok) {
     if (p.pourquoi === 'inconnu') notFound();
     return <main className="console">{haut}<h1>{m.titre}</h1><p role="alert">{m.erreurs[p.pourquoi]}{p.detail ? ` (${p.detail})` : ''}</p></main>;

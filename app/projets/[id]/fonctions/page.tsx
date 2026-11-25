@@ -26,13 +26,14 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const m = MOTS[c.langue];
   const p = await c.projets.lire(c.compte, id);
   if (p.lu && !p.valeur) notFound();
-  const haut = <><Link href={`/projets/${id}`}>{m.retour}</Link><div className="entete"><h1>{m.titre}</h1>{p.lu && <span className="attenue">{p.valeur!.nom}</span>}</div></>;
+  const haut = <h1>{m.titre}</h1>;
   const [f, s] = await Promise.all([c.projets.fichiers(c.compte, id), c.projets.nomsDesSecrets(c.compte, id)]);
   if (!p.lu || !f.lu) return <main className="console">{haut}<p role="alert">{m.panne}</p></main>;
   const lu = leManifesteStocke(f.valeur.get('app.json'));
   if (!lu.lu) return <main className="console">{haut}<p role="alert">{m.illisible} {lu.erreurs.join(' ; ')}</p></main>;
   const secrets = new Set(s.lu ? s.valeur : []);
-  const lien = (x: UneFonction): string | null => (x.ou === 'donnees' ? `/projets/${id}/donnees` : x.ou ? `/projets/${id}#${x.ou}` : null);
+  const ECRAN = { donnees: 'donnees', messages: 'messages', encaisser: 'paiements', secrets: 'secrets', registre: 'confidentialite' } as const;
+  const lien = (x: UneFonction): string | null => (x.ou ? `/projets/${id}/${ECRAN[x.ou]}` : null);
   return (
     <main className="console">
       {haut}
