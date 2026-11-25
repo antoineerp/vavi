@@ -1,6 +1,7 @@
 /** « Gérer le contenu » : l'apparence et le référencement changés par la personne, relus avant d'être écrits. */
 import { describe, expect, it } from 'vitest';
-import { avecLApparence, leReferencementRelu, leReferencementStocke, CHEMIN_DU_REFERENCEMENT } from '@/lib/contenus/le-contenu';
+import { avecLApparence, changerLeReferencement, leReferencementRelu, leReferencementStocke, CHEMIN_DU_REFERENCEMENT } from '@/lib/contenus/le-contenu';
+import { desProjetsEnMemoire } from '../aides/des-projets-en-memoire';
 import { lArbreDUnProjet } from '@/lib/projets/l-arbre-d-un-projet';
 import { NOTES } from '../donnees/une-app';
 
@@ -31,5 +32,15 @@ describe('gérer le contenu', () => {
     const a = lArbreDUnProjet(new Map([['app.json', APP_JSON], [CHEMIN_DU_REFERENCEMENT, ref]]));
     expect(a.lu && a.fige.get(CHEMIN_DU_REFERENCEMENT)).not.toBe(ref);
     expect(a.lu && a.construit.get(CHEMIN_DU_REFERENCEMENT)).toBe(ref);
+  });
+  it('INCIDENT 25/11 — changer un titre dans la console effaçait l’image de partage posée par Claude', async () => {
+    const projets = desProjetsEnMemoire();
+    const MOI = 'aaaaaaaa-0000-4000-8000-00000000000a';
+    const p = await projets.creer(MOI, 'Le Thé', APP_JSON);
+    const id = p.lu ? p.valeur.id : '';
+    projets.etats.get(id)!.fichiers.set(CHEMIN_DU_REFERENCEMENT, `${JSON.stringify({ pages: {}, image: '/partage.jpg' })}\n`);
+    const r = await changerLeReferencement({ compte: MOI, projets, construire: async () => ({ vert: true }) }, id, { '/': { titre: 'Thés rares' } });
+    expect(r.change).toBe(true);
+    expect(leReferencementStocke(projets.etats.get(id)!.fichiers.get(CHEMIN_DU_REFERENCEMENT))).toEqual({ pages: { '/': { titre: 'Thés rares' } }, image: '/partage.jpg' });
   });
 });

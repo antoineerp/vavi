@@ -16,7 +16,7 @@ export const COULEURS = ['fond', 'texte', 'accent', 'surface', 'bordure'] as con
 export const RAYONS = ['net', 'doux', 'rond'] as const;
 
 export interface Apparence { readonly couleurs: Readonly<Record<(typeof COULEURS)[number], string>>; readonly polices: { readonly titres: string; readonly texte: string }; readonly rayon: (typeof RAYONS)[number] }
-export interface Referencement { readonly pages: Readonly<Record<string, { readonly titre?: string; readonly description?: string }>> }
+export interface Referencement { readonly pages: Readonly<Record<string, { readonly titre?: string; readonly description?: string }>>; readonly image?: string }
 
 export type Changement =
   | { readonly change: true; readonly version: number; readonly apercu: 'a_jour' | 'build_rouge' | 'rien_change' }
@@ -32,8 +32,11 @@ export function avecLApparence(appJson: string, a: Apparence): { readonly ok: tr
   return r.ok ? { ok: true, texte: `${JSON.stringify(suivant, null, 2)}\n` } : { ok: false, detail: r.erreurs.join(' ; ') };
 }
 
-/** PURE — le référencement relu : des adresses de page, un titre de 70 caractères au plus, une description de 200 ; le vide retiré. */
-export function leReferencementRelu(pages: Readonly<Record<string, { readonly titre?: string; readonly description?: string }>>): { readonly ok: true; readonly texte: string } | { readonly ok: false; readonly detail: string } {
+/**
+ * PURE — le référencement relu : des adresses de page, un titre de 70 caractères au plus, une description de 200 ; le vide
+ * retiré. `image` : l'image de partage déjà posée, gardée (la console ne la change pas ; elle ne l'efface pas non plus).
+ */
+export function leReferencementRelu(pages: Readonly<Record<string, { readonly titre?: string; readonly description?: string }>>, image?: string): { readonly ok: true; readonly texte: string } | { readonly ok: false; readonly detail: string } {
   const propre: Record<string, { titre?: string; description?: string }> = {};
   for (const [adresse, p] of Object.entries(pages)) {
     if (!/^\/[^\s?#:*]{0,300}$/.test(adresse)) return { ok: false, detail: `adresse ${adresse}` };
@@ -42,12 +45,16 @@ export function leReferencementRelu(pages: Readonly<Record<string, { readonly ti
     if (description.length > 200) return { ok: false, detail: `${adresse} : description de plus de 200 caractères` };
     if (titre || description) propre[adresse] = { ...(titre ? { titre } : {}), ...(description ? { description } : {}) };
   }
-  return { ok: true, texte: `${JSON.stringify({ pages: propre }, null, 2)}\n` };
+  return { ok: true, texte: `${JSON.stringify({ pages: propre, ...(image ? { image } : {}) }, null, 2)}\n` };
 }
 
 /** PURE — le référencement stocké, lu ; absent ou illisible : aucun choix. */
 export function leReferencementStocke(texte: string | undefined): Referencement {
-  try { const o = JSON.parse(texte ?? '') as Referencement; return o && typeof o.pages === 'object' && o.pages ? o : { pages: {} }; } catch { return { pages: {} }; }
+  try {
+    const o = JSON.parse(texte ?? '') as Referencement;
+    if (!o || typeof o.pages !== 'object' || !o.pages) return { pages: {} };
+    return { pages: o.pages, ...(typeof o.image === 'string' && o.image ? { image: o.image } : {}) };
+  } catch { return { pages: {} }; }
 }
 
 async function ecrire(d: DependancesDeLaReecriture, id: string, chemin: string, calculer: (avant: string | undefined) => { ok: true; texte: string } | { ok: false; detail: string }, pourquoi: string): Promise<Changement> {
@@ -71,4 +78,4 @@ export const changerLApparence = (d: DependancesDeLaReecriture, id: string, a: A
   ecrire(d, id, 'app.json', (avant) => (avant === undefined ? { ok: false, detail: 'no app.json' } : avecLApparence(avant, a)), 'apparence changée dans la console');
 
 export const changerLeReferencement = (d: DependancesDeLaReecriture, id: string, pages: Referencement['pages']): Promise<Changement> =>
-  ecrire(d, id, CHEMIN_DU_REFERENCEMENT, () => leReferencementRelu(pages), 'référencement changé dans la console');
+  ecrire(d, id, CHEMIN_DU_REFERENCEMENT, (avant) => leReferencementRelu(pages, leReferencementStocke(avant).image), 'référencement changé dans la console');

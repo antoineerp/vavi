@@ -4,6 +4,7 @@
  * connecté (Supabase), puis passe par les fonctions de la plateforme, qui vérifient que le projet est à lui. Le résultat
  * revient à la page par son adresse (`?fait=`), jamais une valeur secrète.
  */
+import { leJetonGoogle } from '@/lib/seo/la-note';
 import { redirect } from 'next/navigation';
 import { laConsole } from '@/app/_partage/la-console';
 import { mettreLApercuEnLigne } from '@/lib/projets/la-mise-en-ligne';
@@ -58,6 +59,16 @@ export async function reglerLeCourriel(id: string, formulaire: FormData) {
   const c = await laConsole(`/projets/${id}/messages`);
   const r = await c.projets.regler(c.compte, id, { courrielDesMessages: brut || null });
   retour(id, r.lu ? { fait: 'courriel' } : { erreur: 'panne' }, 'messages');
+}
+
+/** La balise Google Search Console : collée entière ou son seul contenu ; vide, elle est retirée. */
+export async function reglerGoogle(id: string, formulaire: FormData) {
+  if (!ID.test(id)) redirect('/projets');
+  const jeton = leJetonGoogle(String(formulaire.get('google') ?? '').slice(0, 1000));
+  if (jeton === false) retour(id, { erreur: 'google_mal_forme' }, 'referencement');
+  const c = await laConsole(`/projets/${id}/referencement`);
+  const r = await c.projets.regler(c.compte, id, { verificationGoogle: jeton || null });
+  retour(id, r.lu ? { fait: 'google' } : { erreur: 'panne' }, 'referencement');
 }
 
 export async function revenir(id: string, version: number) {
