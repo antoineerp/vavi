@@ -13,7 +13,9 @@ Supabase (projet neuf, région Europe), pnpm seul. Né le 24/11/2026 des fonctio
 3. **La plateforme n'appelle pas de modèle pour générer.** Seuls les capacités et les agents des apps en appellent un,
    sur la clé du propriétaire de l'app.
 4. **Zéro écrivain.** Aucun code de la plateforme ne modifie, complète ou répare un fichier écrit par Claude. Un outil
-   refuse ce qui est mal formé et dit pourquoi ; c'est Claude qui corrige. Une exception (Antoine, 24/11, élargie le 25/11) : ce que la personne change elle-même dans la console, sans modèle,
+   refuse ce qui est mal formé et dit pourquoi ; c'est Claude qui corrige. app.json, que vavi réécrit de toute façon depuis
+   le manifeste lu, est ajusté quand le sens ne change pas (un lien en double, un exemple qui ne nomme rien), et l'ajustement
+   est dit (Antoine : réparer plutôt que refuser, 25/11). Une exception (Antoine, 24/11, élargie le 25/11) : ce que la personne change elle-même dans la console, sans modèle,
    hors chantier, en une version, l'aperçu rebâti : un texte réécrit dans l'aperçu (ce passage seul, relu au caractère près),
    l'apparence (la `direction` d'app.json) et le référencement de ses pages (`src/referencement.json`) (`lib/contenus`).
 5. **La base dérive de la déclaration** (`app.json`). Le modèle n'écrit jamais de SQL ni de RLS.

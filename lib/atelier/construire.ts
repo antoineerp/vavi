@@ -57,14 +57,19 @@ export async function construireLApp(arbre: ReadonlyMap<string, string>, base?: 
     return { construite: false, etape: 'dependances', ecarts: [{ fichier: null, fait: (e as Error).message }], duree: duree() };
   }
   try {
-    const tsc = await atelier.lancerIsole('node_modules/typescript/bin/tsc', ['--noEmit', '-p', '.']);
+    // Le typage et l'assemblage tournent EN MÊME TEMPS (25/11, « le succès passe aussi par la rapidité ») : mesuré sur
+    // une app posée, 5,8 s + 4,2 s l'un après l'autre, 7 s ensemble. Le verdict ne change pas : un écart de types refuse
+    // le build, même quand l'assemblage a réussi ; le dist n'est lu que si les deux sont verts.
+    // `--configLoader runner` : la configuration se charge sans fichier temporaire dans node_modules, lu seul au bac à sable.
+    const [tsc, build] = await Promise.all([
+      atelier.lancerIsole('node_modules/typescript/bin/tsc', ['--noEmit', '-p', '.']),
+      atelier.lancerIsole('node_modules/vite/bin/vite.js', ['build', '--configLoader', 'runner', '--logLevel', 'error', ...(base ? ['--base', base] : [])]),
+    ]);
     if (!tsc.ok && tsc.sortie.startsWith(BAC_A_SABLE_FERME)) return { construite: false, etape: 'bac_a_sable', ecarts: [{ fichier: null, fait: tsc.sortie }], duree: duree() };
     if (!tsc.ok) {
       const ecarts = ecartsDuTypage(tsc.sortie);
       return { construite: false, etape: 'types', ecarts: ecarts.length ? ecarts : [{ fichier: null, fait: tsc.sortie.slice(-1500) }], duree: duree() };
     }
-    // `--configLoader runner` : la configuration se charge sans fichier temporaire dans node_modules, lu seul au bac à sable.
-    const build = await atelier.lancerIsole('node_modules/vite/bin/vite.js', ['build', '--configLoader', 'runner', '--logLevel', 'error', ...(base ? ['--base', base] : [])]);
     if (!build.ok) return { construite: false, etape: 'build', ecarts: ecartsDuBuild(build.sortie), duree: duree() };
     const dist = lireLeDist(join(atelier.dossier, 'dist'));
     const faits = dist.get('faits.json');

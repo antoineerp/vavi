@@ -36,9 +36,13 @@ describe('les refus', () => {
   });
   it('le même refus deux fois dit d’arrêter, un autre refus non (l’instrument discrimine)', () => {
     const a = refuser('build_rouge', 'x', { fichier: 'src/A.tsx', ligne: 3 });
-    expect(suiteDeRefus(a, refuser('build_rouge', 'y', { fichier: 'src/A.tsx', ligne: 3 })).arreter).toBeDefined();
+    expect(suiteDeRefus(a, refuser('build_rouge', 'x', { fichier: 'src/A.tsx', ligne: 3 })).arreter).toBeDefined();
     expect(suiteDeRefus(a, refuser('build_rouge', 'y', { fichier: 'src/A.tsx', ligne: 4 })).arreter).toBeUndefined();
     expect(suiteDeRefus(null, a).arreter).toBeUndefined();
+  });
+  it('INCIDENT 25/11 — une autre erreur au même endroit n’est pas « le même refus » : Claude avance, il ne s’arrête pas', () => {
+    const a = refuser('passage_introuvable', 'This passage is not in src/A.tsx: "un".', { fichier: 'src/A.tsx' });
+    expect(suiteDeRefus(a, refuser('passage_introuvable', 'This passage is not in src/A.tsx: "deux".', { fichier: 'src/A.tsx' })).arreter).toBeUndefined();
   });
 });
 

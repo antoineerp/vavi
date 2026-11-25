@@ -60,8 +60,10 @@ export function refuser(
   return { refuse: true, code, fait, geste: geste ?? CODES_DE_REFUS[code], ...lieu };
 }
 
-/** Deux refus sont « le même » quand ils ont le même code au même endroit. */
-const cleDuRefus = (r: Refus): string => `${r.code}|${r.fichier ?? ''}|${r.ligne ?? ''}`;
+/** Deux refus sont « le même » quand ils ont le même code, au même endroit, pour le même fait. INCIDENT 25/11 : sans le
+ * fait, une deuxième erreur différente dans le même fichier (un autre passage introuvable, un autre écart de types)
+ * disait à Claude de s'arrêter alors qu'il avançait. */
+const cleDuRefus = (r: Refus): string => `${r.code}|${r.fichier ?? ''}|${r.ligne ?? ''}|${r.fait}`;
 
 /** Ajoute l'arrêt quand le refus répète, à l'identique, le précédent rendu sur ce chantier. */
 export function suiteDeRefus(precedent: Refus | null, present: Refus): Refus {

@@ -12,6 +12,7 @@
  */
 import { lAdresseDeLApp } from '@/lib/publication/les-adresses-des-apps';
 import { derive } from '@/squelette/poser';
+import { lesFonctionsPasEncoreServies } from '@/squelette/les-types-des-tables';
 import { estFige, CHEMINS_MONTRES, POSES_PAR_UN_OUTIL } from '@/squelette/registre';
 import { lireLeManifeste, type Manifeste } from '@/lib/backend/app/manifeste';
 import { poserLaBase, type AppelDeLaBase } from '@/lib/relais/poser-la-base';
@@ -37,6 +38,8 @@ export interface Contexte {
   readonly construire: (arbre: ReadonlyMap<string, string>, base: string) => Promise<Construction>;
   /** Le pré-rendu des pages publiques d'un build vert (`lib/seo`) ; rend `null` sans navigateur sur ce serveur. */
   readonly preRendre: (projet: string, dist: ReadonlyMap<string, Buffer>, manifeste: Manifeste) => Promise<PreRendu | null>;
+  /** Lance un travail après la réponse de l'outil (le pré-rendu) ; absent, l'outil l'attend (essais). */
+  readonly enArrierePlan?: (nom: string, travail: () => Promise<void>) => void;
   /** Les paquets du gabarit verrouillé. */
   readonly permis: readonly string[];
   /** L'adresse publique de la plateforme, sans barre finale. */
@@ -123,17 +126,28 @@ function texteRefuse(c: Contexte, chemin: string, texte: string): Refus | null {
   return /\.(tsx?|jsx?|mjs)$/.test(chemin) ? paquetInconnu(chemin, texte, c.permis) : null;
 }
 
-/** app.json tel que Claude l'envoie : valide sans réparation, sinon refusé avec chaque écart. */
-function leManifesteEnvoye(brut: unknown): Etape<Manifeste> {
+/** Ce que l'outil dit de plus quand il reçoit app.json : ce qu'il a ajusté, ce que vavi ne sert pas encore. */
+interface Recu { readonly manifeste: Manifeste; readonly dit: Record<string, unknown> }
+
+/**
+ * app.json tel que Claude l'envoie. Ce que la lecture du manifeste sait ajuster sans rien perdre du sens (un lien en
+ * double, un exemple qui ne nomme rien, une transition que la base tient déjà) est ajusté et DIT (`adjusted`) : app.json
+ * est de toute façon réécrit par vavi depuis le manifeste lu (`derive`), et Claude ne refait pas un tour pour écrire ce que
+ * vavi sait déjà (décision d'Antoine : réparer plutôt que refuser ; 25/11 : « une modification ne doit jamais être
+ * refusée »). Seul ce qui n'a pas de sens est refusé, chaque écart dit.
+ */
+function leManifesteEnvoye(brut: unknown): Etape<Recu> {
   let json = brut;
   if (typeof brut === 'string') {
     try { json = JSON.parse(brut); } catch (e) { return bloque(refuser('app_json_refuse', `app.json is not valid JSON: ${(e as Error).message}.`, { fichier: 'app.json' })); }
   }
   const r = lireLeManifeste(json);
   if (!r.ok) return bloque(refuser('app_json_refuse', `app.json does not hold: ${r.erreurs.slice(0, 20).join(' | ')}`, { fichier: 'app.json' }));
-  // vavi ne répare pas ce que Claude écrit (règle 4) : ce qu'il aurait fallu changer est dit, et Claude l'écrit.
-  if (r.repare.length > 0) return bloque(refuser('app_json_refuse', `app.json must be written as follows (vavi does not change it for you): ${r.repare.join(' | ')}`, { fichier: 'app.json' }));
-  return passe(r.manifeste);
+  const pasEncore = lesFonctionsPasEncoreServies(r.manifeste);
+  return passe({ manifeste: r.manifeste, dit: {
+    ...(r.repare.length ? { adjusted: `vavi adjusted app.json (nothing else to do): ${r.repare.join(' | ')}` } : {}),
+    ...(pasEncore.length ? { not_available_yet: `vavi does not provide these functions yet: ${pasEncore.join(', ')}. The app cannot call them; tell the person this part is not available yet, and build the rest.` } : {}),
+  } });
 }
 
 /* ── Les gestes ────────────────────────────────────────────────────────── */
@@ -152,14 +166,15 @@ export async function listerLesProjets(c: Contexte): Promise<Rendu> {
 }
 
 export async function creerUnProjet(c: Contexte, a: { app_json: unknown }): Promise<Rendu> {
-  const m = leManifesteEnvoye(a.app_json);
-  if (!m.ok) return m.refus;
-  const p = await c.projets.creer(c.compte, m.valeur.nom, derive('app.json', m.valeur));
+  const recu = leManifesteEnvoye(a.app_json);
+  if (!recu.ok) return recu.refus;
+  const m = recu.valeur.manifeste;
+  const p = await c.projets.creer(c.compte, m.nom, derive('app.json', m));
   if (!p.lu) return panne(p.pourquoi);
-  const pose = await poserLaBase(c.base, p.valeur.id, m.valeur, c.compte);
-  if (pose.posee) await c.projets.marquerLaBase(c.compte, p.valeur.id, m.valeur.nom);
+  const pose = await poserLaBase(c.base, p.valeur.id, m, c.compte);
+  if (pose.posee) await c.projets.marquerLaBase(c.compte, p.valeur.id, m.nom);
   return fait({
-    project: p.valeur.id, name: m.valeur.nom, version: 1,
+    project: p.valeur.id, name: m.nom, version: 1, ...recu.valeur.dit,
     database: pose.posee ? 'laid out from app.json' : `not laid out: ${pose.motif}. Send app.json again with \`configure_backend\`.`,
     next: `Open a work session with \`ouvrir_chantier\`, then read with \`read_files\` the platform files you build on: ${CHEMINS_MONTRES.join(', ')}.`,
   });
@@ -343,21 +358,23 @@ export async function configurerLeBackend(c: Contexte, a: { project: string; wor
   if (actuel !== undefined && a.read_fingerprint !== empreinteDuFichier(actuel)) {
     return refuser('conflit', 'app.json changed since you read it.', { fichier: 'app.json', fichiers: ['app.json'] });
   }
-  const m = leManifesteEnvoye(a.app_json);
-  if (!m.ok) return m.refus;
+  const recu = leManifesteEnvoye(a.app_json);
+  if (!recu.ok) return recu.refus;
+  const m = recu.valeur.manifeste;
   // La base d'abord : une déclaration que la base refuse n'entre pas dans le projet.
-  const pose = await poserLaBase(c.base, a.project, m.valeur, c.compte);
+  const pose = await poserLaBase(c.base, a.project, m, c.compte);
   if (!pose.posee) {
     return pose.motif.startsWith('create_app_schema') ? panne(pose.motif)
       : refuser('app_json_refuse', `The database refused this declaration: ${pose.motif}`, { fichier: 'app.json' });
   }
-  const texte = derive('app.json', m.valeur);
+  const texte = derive('app.json', m);
   const r = await c.projets.appliquer(c.compte, a.project, { chantier: a.work_session, attendus: { 'app.json': actuel === undefined ? null : a.read_fingerprint },
     ecrits: new Map([['app.json', texte]]), supprimes: [], pourquoi: a.why });
   if (!r.lu) return panne(r.pourquoi);
   if (!r.valeur.applique) return 'conflit' in r.valeur ? refuser('conflit', 'app.json changed while the database was laid out.', { fichiers: r.valeur.conflit }) : refuser('chantier_requis', 'The work session was closed.');
-  await c.projets.marquerLaBase(c.compte, a.project, m.valeur.nom);
+  await c.projets.marquerLaBase(c.compte, a.project, m.nom);
   return fait({
+    ...recu.valeur.dit,
     version: r.valeur.version, app_json: { fingerprint: empreinteDuFichier(texte) }, database: `laid out (${pose.groupes} steps); the access rules come from app.json`,
     next: 'The types of the tables changed: read src/donnees/types.ts again with `read_files` before using them.',
   });
@@ -412,19 +429,32 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
     const s = unSecretDans(octets.toString('utf8'));
     if (s) return refuser('secret_dans_le_code', `The built app would ship what looks like a secret (${s.sorte}) in ${chemin}.`, { fichier: chemin });
   }
-  // Les pages publiques, rendues en visiteur, s'ajoutent au dist à côté de la coquille : lisibles sans JavaScript.
-  // Le temps de chaque étape est dit (25/11 : « très long pour un mot » — mesurer avant d'accélérer).
+  // Les pages publiques, rendues en visiteur, s'ajoutent au dist à côté de la coquille : lisibles sans JavaScript. Ce
+  // rendu ne sert qu'aux moteurs de recherche, et l'aperçu n'est jamais référencé : sur le serveur, il se fait APRÈS la
+  // réponse (25/11 : « le succès passe aussi par la rapidité »), et ses pages rejoignent le même build. Le temps de chaque
+  // étape est dit.
+  const racine = racineDuBuild(a.project, arbre.empreinte);
+  const magasin = c.magasin;
+  const preRendre = async () => {
+    const pre = await c.preRendre(a.project, b.dist, arbre.manifeste).catch((e: unknown) => ({ erreur: String((e as Error)?.message ?? e) }));
+    if (pre && 'fichiers' in pre && pre.fichiers.size > 0) await publierLeDist(magasin, racine, new Map([...b.dist, ...pre.fichiers]));
+    return pre;
+  };
   const t0 = Date.now();
-  const pre = await c.preRendre(a.project, b.dist, arbre.manifeste).catch((e: unknown) => ({ erreur: String((e as Error)?.message ?? e) }));
-  const dist = pre && 'fichiers' in pre ? new Map([...b.dist, ...pre.fichiers]) : b.dist;
-  const t1 = Date.now();
+  let pre: Awaited<ReturnType<typeof preRendre>> | 'en_fond' = 'en_fond';
   try {
-    await publierLeDist(c.magasin, racineDuBuild(a.project, arbre.empreinte), dist);
+    await publierLeDist(magasin, racine, b.dist);
+    if (c.enArrierePlan) {
+      c.enArrierePlan(`pré-rendu ${a.project}`, async () => {
+        const t = Date.now(); const r = await preRendre();
+        console.log(`[build_preview] ${a.project} pré-rendu ${Date.now() - t} ms${r && 'erreur' in r ? ` : ${r.erreur.slice(0, 200)}` : ''}`);
+      });
+    } else pre = await preRendre();
   } catch (e) {
     return refuser('plateforme_en_panne', `The build is green but could not be stored (${(e as Error).message}).`);
   }
-  const temps = { build: b.duree, prerender: t1 - t0, store: Date.now() - t1 };
-  console.log(`[build_preview] ${a.project} build ${temps.build} ms, pré-rendu ${temps.prerender} ms, envoi ${temps.store} ms`);
+  const temps = { build: b.duree, store: Date.now() - t0 };
+  console.log(`[build_preview] ${a.project} build ${temps.build} ms, envoi ${temps.store} ms`);
   await c.projets.enregistrerUnBuild(c.compte, a.project, { empreinte: arbre.empreinte, vert: true, ecarts: [] });
   // Un build vert DEVIENT l'aperçu (24/11, retour d'Antoine : la console disait « pas encore d'aperçu » après un build
   // vert) : la console et le lien montrent la dernière version qui se construit ; `publish` ferme le chantier.
@@ -433,8 +463,9 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
     project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree, timings_ms: temps,
     preview_updated: designe.lu,
     checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the preview and check.',
-    prerendered: pre === null ? 'skipped: no browser on this vavi server, public pages need JavaScript to be read'
-      : 'erreur' in pre ? `failed: ${pre.erreur.slice(0, 200)}` : { pages: pre.gardees, not_kept: pre.ecartees },
+    prerendered: pre === 'en_fond' ? 'running in the background: the public pages are rendered for search engines after this answer'
+      : pre === null ? 'skipped: no browser on this vavi server, public pages need JavaScript to be read'
+        : 'erreur' in pre ? `failed: ${pre.erreur.slice(0, 200)}` : { pages: pre.gardees, not_kept: pre.ecartees },
   });
 }
 
