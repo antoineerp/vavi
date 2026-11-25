@@ -20,7 +20,13 @@ export const COULEURS = ['fond', 'texte', 'accent', 'surface', 'bordure'] as con
 export const RAYONS = ['net', 'doux', 'rond'] as const;
 
 export interface Apparence { readonly couleurs: Readonly<Record<(typeof COULEURS)[number], string>>; readonly polices: { readonly titres: string; readonly texte: string }; readonly rayon: (typeof RAYONS)[number] }
-export interface Referencement { readonly pages: Readonly<Record<string, { readonly titre?: string; readonly description?: string }>>; readonly image?: string }
+export interface Referencement { readonly pages: Readonly<Record<string, { readonly titre?: string; readonly description?: string }>>; readonly image?: string; readonly ia?: ChoixDesIa }
+export interface ChoixDesIa { readonly assistants: boolean; readonly entrainement: boolean }
+/** Ce que le propriétaire dit de son site dans « Référencement » : son nom, ce qu'il fait, qui le publie (app.json). */
+export interface LeSite {
+  readonly nom: string; readonly description: string;
+  readonly editeur: { readonly nom?: string; readonly adresse?: string; readonly telephone?: string; readonly courriel?: string; readonly immatriculation?: string; readonly horaires?: readonly string[] };
+}
 
 export type Changement =
   | { readonly change: true; readonly version: number; readonly apercu: 'a_jour' | 'build_rouge' | 'rien_change' }
@@ -38,9 +44,12 @@ export function avecLApparence(appJson: string, a: Apparence): { readonly ok: tr
 
 /**
  * PURE — le référencement relu : des adresses de page, un titre de 70 caractères au plus, une description de 200 ; le vide
- * retiré. `image` : l'image de partage déjà posée, gardée (la console ne la change pas ; elle ne l'efface pas non plus).
+ * retiré. `image` : l'image de partage, une adresse https (une photo de l'app ou de la banque) ou un fichier du site (`/…`) ; `ia` : le choix des
+ * robots d'IA, gardé seulement s'il ferme une famille (sans choix, tous entrent).
  */
-export function leReferencementRelu(pages: Readonly<Record<string, { readonly titre?: string; readonly description?: string }>>, image?: string): { readonly ok: true; readonly texte: string } | { readonly ok: false; readonly detail: string } {
+export function leReferencementRelu(pages: Readonly<Record<string, { readonly titre?: string; readonly description?: string }>>, image?: string, ia?: ChoixDesIa): { readonly ok: true; readonly texte: string } | { readonly ok: false; readonly detail: string } {
+  if (image && !/^(https:\/\/[^\s"<>]{1,1000}|\/[^\s"<>/][^\s"<>]{0,300})$/.test(image)) return { ok: false, detail: 'image de partage : une adresse https, ou un fichier du site' };
+  const choix = ia && (!ia.assistants || !ia.entrainement) ? { ia: { assistants: ia.assistants, entrainement: ia.entrainement } } : {};
   const propre: Record<string, { titre?: string; description?: string }> = {};
   for (const [adresse, p] of Object.entries(pages)) {
     if (!/^\/[^\s?#:*]{0,300}$/.test(adresse)) return { ok: false, detail: `adresse ${adresse}` };
@@ -49,7 +58,7 @@ export function leReferencementRelu(pages: Readonly<Record<string, { readonly ti
     if (description.length > 200) return { ok: false, detail: `${adresse} : description de plus de 200 caractères` };
     if (titre || description) propre[adresse] = { ...(titre ? { titre } : {}), ...(description ? { description } : {}) };
   }
-  return { ok: true, texte: `${JSON.stringify({ pages: propre, ...(image ? { image } : {}) }, null, 2)}\n` };
+  return { ok: true, texte: `${JSON.stringify({ pages: propre, ...(image ? { image } : {}), ...choix }, null, 2)}\n` };
 }
 
 /** PURE — le référencement stocké, lu ; absent ou illisible : aucun choix. */
@@ -57,7 +66,8 @@ export function leReferencementStocke(texte: string | undefined): Referencement 
   try {
     const o = JSON.parse(texte ?? '') as Referencement;
     if (!o || typeof o.pages !== 'object' || !o.pages) return { pages: {} };
-    return { pages: o.pages, ...(typeof o.image === 'string' && o.image ? { image: o.image } : {}) };
+    const ia = o.ia && typeof o.ia === 'object' ? { ia: { assistants: o.ia.assistants !== false, entrainement: o.ia.entrainement !== false } } : {};
+    return { pages: o.pages, ...(typeof o.image === 'string' && o.image ? { image: o.image } : {}), ...ia };
   } catch { return { pages: {} }; }
 }
 
@@ -80,8 +90,37 @@ async function ecrire(d: DependancesDeLaReecriture, id: string, chemin: string, 
 export const changerLApparence = (d: DependancesDeLaReecriture, id: string, a: Apparence): Promise<Changement> =>
   ecrire(d, id, 'app.json', (avant) => (avant === undefined ? { ok: false, detail: 'no app.json' } : avecLApparence(avant, a)), 'apparence changée dans la console');
 
-export const changerLeReferencement = (d: DependancesDeLaReecriture, id: string, pages: Referencement['pages']): Promise<Changement> =>
-  ecrire(d, id, CHEMIN_DU_REFERENCEMENT, (avant) => leReferencementRelu(pages, leReferencementStocke(avant).image), 'référencement changé dans la console');
+/** `image` absente : celle déjà posée reste ; `null` : retirée. `ia` absent : le choix posé reste. */
+export const changerLeReferencement = (d: DependancesDeLaReecriture, id: string, pages: Referencement['pages'], o: { readonly image?: string | null; readonly ia?: ChoixDesIa } = {}): Promise<Changement> =>
+  ecrire(d, id, CHEMIN_DU_REFERENCEMENT, (avant) => {
+    const posee = leReferencementStocke(avant);
+    return leReferencementRelu(pages, o.image === null ? undefined : o.image ?? posee.image, o.ia ?? posee.ia);
+  }, 'référencement changé dans la console');
+
+/**
+ * PURE — app.json avec ce nom, cette description et cet éditeur (le vide retiré), relu par le manifeste ; le reste
+ * inchangé dans son sens. Ce que Google, les assistants IA et les mentions légales lisent du site.
+ */
+export function avecLeSite(appJson: string, site: LeSite): { readonly ok: true; readonly texte: string } | { readonly ok: false; readonly detail: string } {
+  let json: Record<string, unknown>;
+  try { json = JSON.parse(appJson) as Record<string, unknown>; } catch { return { ok: false, detail: 'app.json is not valid JSON' }; }
+  const nom = site.nom.trim().slice(0, 120), description = site.description.trim().slice(0, 400);
+  if (!nom) return { ok: false, detail: 'le site a besoin d’un nom' };
+  const e = site.editeur;
+  const horaires = (e.horaires ?? []).map((h) => h.trim().slice(0, 120)).filter(Boolean).slice(0, 14);
+  const editeur = Object.fromEntries([
+    ...(['nom', 'adresse', 'telephone', 'courriel', 'immatriculation'] as const).map((k) => [k, (e[k] ?? '').trim().slice(0, 300)] as const),
+    ['horaires', horaires] as const,
+  ].filter(([, v]) => (Array.isArray(v) ? v.length > 0 : Boolean(v))));
+  if (typeof editeur.courriel === 'string' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(editeur.courriel)) return { ok: false, detail: 'le courriel de l’éditeur' };
+  const { editeur: _ancien, ...sans } = json;
+  const suivant = { ...sans, nom, description: description || String(json.description ?? ''), ...(Object.keys(editeur).length ? { editeur } : {}) };
+  const r = lireLeManifeste(suivant);
+  return r.ok ? { ok: true, texte: `${JSON.stringify(suivant, null, 2)}\n` } : { ok: false, detail: r.erreurs.join(' ; ') };
+}
+
+export const changerLeSite = (d: DependancesDeLaReecriture, id: string, site: LeSite): Promise<Changement> =>
+  ecrire(d, id, 'app.json', (avant) => (avant === undefined ? { ok: false, detail: 'no app.json' } : avecLeSite(avant, site)), 'nom, description et éditeur changés dans la console');
 
 /** PURE — `src/images.json` où la photo `nom`, déjà posée, devient `trouvee` ; sa description est celle que la personne relit. */
 export function avecUneImage(avant: string | undefined, nom: string, trouvee: ImageTrouvee, alt: string): { readonly ok: true; readonly texte: string } | { readonly ok: false; readonly detail: string } {

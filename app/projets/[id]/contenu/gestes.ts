@@ -7,7 +7,8 @@ import { redirect } from 'next/navigation';
 import { laConsole } from '@/app/_partage/la-console';
 import { construireLApercu as batir, estUnRefus } from '@/lib/mcp/les-gestes';
 import { leContexteReel } from '@/lib/mcp/le-contexte-reel';
-import { changerLApparence, changerLeReferencement, changerUneImage, COULEURS, RAYONS, type Apparence, type Changement } from '@/lib/contenus/le-contenu';
+import { changerLApparence, changerLeReferencement, changerLeSite, changerUneImage, CHEMIN_DU_REFERENCEMENT, COULEURS, leReferencementStocke, RAYONS, type Apparence, type Changement } from '@/lib/contenus/le-contenu';
+import { CHEMIN_DES_IMAGES, lireLesImages } from '@/lib/images/la-banque';
 import { banqueDeLaPlateforme } from '@/lib/images/la-banque';
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -45,7 +46,8 @@ export async function enregistrerLeReferencement(id: string, f: FormData) {
   }
   const r = await changerLeReferencement(await lesDependances(id), id, pages);
   if (r.change) console.log(`[contenu] ${id.slice(0, 8)} référencement (version ${r.version}, aperçu ${r.apercu})`);
-  retour(id, r, 'referencement');
+  // Le formulaire vit dans « Gérer le contenu » et dans « Référencement » : on revient où il a été envoyé.
+  retour(id, r, 'referencement', f.get('retour') === 'referencement' ? 'referencement' : 'contenu');
 }
 
 const NOM_DE_PHOTO = /^[A-Za-z0-9_-]{1,60}$/;
@@ -68,4 +70,41 @@ export async function choisirUnePhoto(id: string, nom: string, f: FormData) {
   const r = await changerUneImage(await lesDependances(id), id, nom, trouvee!, String(f.get('alt') ?? ''));
   if (r.change) { await banque!.signaler(trouvee!); console.log(`[contenu] ${id.slice(0, 8)} photo ${nom} (version ${r.version}, aperçu ${r.apercu})`); }
   retour(id, r, 'photo', 'gerer');
+}
+
+/** « Référencement » : le nom du site, ce qu'il fait, qui le publie (app.json) ; l'aperçu est rebâti. */
+export async function enregistrerLeSite(id: string, f: FormData) {
+  if (!ID.test(id)) redirect('/projets');
+  const champ = (k: string) => String(f.get(k) ?? '');
+  const r = await changerLeSite(await lesDependances(id), id, {
+    nom: champ('nom'), description: champ('description'),
+    editeur: { nom: champ('editeur_nom'), adresse: champ('editeur_adresse'), telephone: champ('editeur_telephone'), courriel: champ('editeur_courriel'),
+      immatriculation: champ('editeur_immatriculation'), horaires: champ('editeur_horaires').split('\n') },
+  });
+  if (r.change) console.log(`[contenu] ${id.slice(0, 8)} site (version ${r.version}, aperçu ${r.apercu})`);
+  retour(id, r, 'site', 'referencement');
+}
+
+/** « Référencement » : l'image de partage (une photo de l'app, relue dans `src/images.json`) et le choix des robots d'IA. */
+export async function enregistrerLePartage(id: string, f: FormData) {
+  if (!ID.test(id)) redirect('/projets');
+  const d = await lesDependances(id);
+  const choisie = String(f.get('image') ?? '');
+  let image: string | null | undefined;
+  if (choisie === 'aucune') image = null;
+  else if (choisie) {
+    const fichiers = await d.projets.fichiers(d.compte, id);
+    const photos = Object.values(lireLesImages(fichiers.lu ? fichiers.valeur.get(CHEMIN_DES_IMAGES) : undefined)).flatMap((i) => i?.sources?.map((s) => s[1]) ?? []);
+    if (!photos.includes(choisie)) retour(id, { change: false, pourquoi: 'mal_forme', detail: 'cette photo n’est plus dans l’app' }, 'partage', 'referencement');
+    image = choisie;
+  }
+  const r = await changerLeReferencement(d, id, (await lesPagesPosees(d, id)), { image, ia: { assistants: f.get('assistants') === 'oui', entrainement: f.get('entrainement') === 'oui' } });
+  if (r.change) console.log(`[contenu] ${id.slice(0, 8)} partage et robots d’IA (version ${r.version}, aperçu ${r.apercu})`);
+  retour(id, r, 'partage', 'referencement');
+}
+
+/** Les titres et descriptions déjà posés, gardés tels quels quand seul le partage change. */
+async function lesPagesPosees(d: Awaited<ReturnType<typeof lesDependances>>, id: string) {
+  const f = await d.projets.fichiers(d.compte, id);
+  return leReferencementStocke(f.lu ? f.valeur.get(CHEMIN_DU_REFERENCEMENT) : undefined).pages;
 }

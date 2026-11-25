@@ -23,6 +23,8 @@ export const ERREURS: Record<string, { fr: string; en: string }> = {
   stripe_non_relie: { fr: 'vavi n’est pas encore relié à Stripe.', en: 'vavi is not connected to Stripe yet.' },
   stripe_refuse: { fr: 'Stripe a refusé d’ouvrir le compte ; réessayez, ou écrivez-nous.', en: 'Stripe refused to open the account; try again, or write to us.' },
   panne: { fr: 'vavi n’a pas répondu ; réessayez.', en: 'vavi did not answer; try again.' },
+  mal_forme: { fr: 'à corriger :', en: 'to fix:' },
+  chantier_ouvert: { fr: 'Claude travaille sur ce projet : réessayez quand il a fini.', en: 'Claude is working on this project: try again when it is done.' },
   aucune_offre: { fr: 'l’essai gratuit n’a que l’aperçu : choisissez une offre pour publier.', en: 'the free trial has the preview only: choose an offer to publish.' },
   suspendu: { fr: 'un paiement de votre abonnement manque : réglez-le pour publier.', en: 'a payment of your subscription is missing: settle it to publish.' },
   nature: { fr: 'votre offre publie des sites vitrines ; une boutique ou une app demande l’offre Boutique ou app.', en: 'your offer publishes showcase sites; a shop or an app needs the Shop or app offer.' },

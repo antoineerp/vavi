@@ -25,7 +25,11 @@ export interface Decouverte {
   /** Toutes les adresses de l'app, publiques ou non, à paramètre comprises (`/the/:id`). */
   readonly routes: readonly string[];
   readonly editeur: Editeur | null;
+  /** Le choix du propriétaire pour les robots d'IA (« Référencement ») ; `null` : aucun choix, tous entrent. */
+  readonly ia?: ChoixDesIa | null;
 }
+/** Les deux familles de robots d'IA : ceux qui lisent pour répondre en citant le site, ceux qui collectent pour entraîner. */
+export interface ChoixDesIa { readonly assistants: boolean; readonly entrainement: boolean }
 
 const ADRESSE = /^\/[^\s?#:*]*$/;
 const ROUTE = /^\/[^\s?#*]*$/;
@@ -45,16 +49,34 @@ export function lireLaDecouverte(brut: string): Decouverte | null {
   const routes = Array.isArray(d.routes) ? d.routes.map((r) => texte(r, 300)).filter((r) => ROUTE.test(r)).slice(0, 500) : [];
   const e = (d.editeur && typeof d.editeur === 'object' ? d.editeur : {}) as Record<string, unknown>;
   const editeur = Object.fromEntries((['nom', 'adresse', 'telephone', 'courriel'] as const).map((k) => [k, texte(e[k], 300)]).filter(([, v]) => v)) as Editeur;
-  return { nom: texte(d.nom, 200), description: texte(d.description, 400), langue: texte(d.langue, 20), pages, routes, editeur: Object.keys(editeur).length ? editeur : null };
+  const ia = d.ia && typeof d.ia === 'object' ? d.ia as Record<string, unknown> : null;
+  return { nom: texte(d.nom, 200), description: texte(d.description, 400), langue: texte(d.langue, 20), pages, routes, editeur: Object.keys(editeur).length ? editeur : null,
+    ia: ia ? { assistants: ia.assistants !== false, entrainement: ia.entrainement !== false } : null };
 }
 
 const xml = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 /** L'adresse absolue d'une page : `racine` est l'adresse publique du site, sans `/` final. */
 export const url = (racine: string, adresse: string): string => `${racine}${adresse === '/' ? '/' : adresse.replace(/\/+$/, '')}`;
 
-/** Les robots qui lisent pour répondre en citant le site, et ceux qui collectent pour entraîner : tous entrent, rien n'est décidé ici. */
-export function robotsTxt(racine: string): string {
-  return `User-agent: *\nAllow: /\n\nSitemap: ${racine}/sitemap.xml\n`;
+/**
+ * LES ROBOTS D'IA, NOMMÉS — ceux qui lisent pour RÉPONDRE à quelqu'un (un assistant cite le site, avec son lien) et ceux
+ * qui collectent pour ENTRAÎNER un modèle. Le propriétaire décide pour chaque famille (« Référencement ») ; sans décision,
+ * tous entrent. Les moteurs de recherche ne sont jamais touchés : `User-agent: *` reste ouvert. Repris de
+ * constructor-v13@32d18f3 (`lib/publication/la-decouverte.ts`).
+ */
+export const ROBOTS_DES_ASSISTANTS = ['OAI-SearchBot', 'ChatGPT-User', 'Claude-SearchBot', 'Claude-User', 'PerplexityBot', 'Perplexity-User', 'DuckAssistBot', 'MistralAI-User'] as const;
+export const ROBOTS_D_ENTRAINEMENT = ['GPTBot', 'ClaudeBot', 'anthropic-ai', 'Google-Extended', 'Applebot-Extended', 'CCBot', 'meta-externalagent', 'Bytespider', 'cohere-ai', 'Amazonbot'] as const;
+
+export function robotsTxt(racine: string, ia: ChoixDesIa | null = null): string {
+  const famille = (robots: readonly string[], ouvert: boolean) => robots.map((r) => `User-agent: ${r}\n${ouvert ? 'Allow' : 'Disallow'}: /\n`).join('\n');
+  return [
+    'User-agent: *\nAllow: /\n',
+    `# Assistants IA qui répondent en citant le site : ${ia?.assistants === false ? 'refusés' : 'autorisés'}`,
+    famille(ROBOTS_DES_ASSISTANTS, ia?.assistants !== false),
+    `# Collecte pour entraîner des modèles d’IA : ${ia?.entrainement === false ? 'refusée' : 'autorisée'}`,
+    famille(ROBOTS_D_ENTRAINEMENT, ia?.entrainement !== false),
+    `Sitemap: ${racine}/sitemap.xml\n`,
+  ].join('\n');
 }
 /** L'aperçu ne se référence jamais : seul le site en ligne est le site. */
 export const ROBOTS_DE_L_APERCU = 'User-agent: *\nDisallow: /\n';
@@ -91,7 +113,7 @@ export function llmsCompletTxt(racine: string, d: Decouverte): string {
 
 /** Le fichier de découverte demandé, rendu ; `null` : ce n'en est pas un. */
 export function fichierDeDecouverte(nom: string, racine: string, d: Decouverte): { readonly corps: string; readonly type: string } | null {
-  if (nom === 'robots.txt') return { corps: robotsTxt(racine), type: 'text/plain; charset=utf-8' };
+  if (nom === 'robots.txt') return { corps: robotsTxt(racine, d.ia ?? null), type: 'text/plain; charset=utf-8' };
   if (nom === 'sitemap.xml') return { corps: sitemapXml(racine, d), type: 'application/xml; charset=utf-8' };
   if (nom === 'llms.txt') return { corps: llmsTxt(racine, d), type: 'text/plain; charset=utf-8' };
   if (nom === 'llms-full.txt') return { corps: llmsCompletTxt(racine, d), type: 'text/plain; charset=utf-8' };
