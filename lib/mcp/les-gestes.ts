@@ -28,6 +28,9 @@ import { connecteurDuSecret, PREFIXE_DU_SECRET } from '@/lib/connecteurs/les-con
 import { lArbreDUnProjet } from '@/lib/projets/l-arbre-d-un-projet';
 import { revenirA } from '@/lib/versions/revenir';
 import type { LecturesDeLaVue } from './les-gestes-de-la-vue';
+import { leGuideDeDesign } from '@/lib/design/le-guide';
+import { lesExemplesDeDesign, LES_EXEMPLES_DE_DESIGN } from '@/lib/design/les-exemples-de-design';
+import { CHEMIN_DES_IMAGES, poserLesImages, type Banque, type DemandeDImage } from '@/lib/images/la-banque';
 
 export interface Contexte {
   readonly compte: string;
@@ -54,6 +57,8 @@ export interface Contexte {
   readonly abonnement?: () => Promise<Record<string, unknown> | null>;
   /** Ce que la vue de vavi dans Claude lit en plus (messages, visites, droit de publier) ; absent : « — ». */
   readonly vue?: LecturesDeLaVue;
+  /** La banque de photos de la plateforme (`UNSPLASH_ACCESS_KEY`) ; absente : `search_images` le dit. */
+  readonly banque?: Banque | null;
 }
 
 export type Rendu = { readonly ok: true; readonly [champ: string]: unknown } | Refus;
@@ -218,7 +223,9 @@ export async function lireDesFichiers(c: Contexte, a: { project: string; paths: 
   let lus = 0;
   const files = a.paths.map((chemin) => {
     const platform = estFige(chemin) && chemin !== 'app.json';
-    const texte = platform ? (arbre.lu ? arbre.fige.get(chemin) : undefined) : f.valeur.get(chemin);
+    // Ce qu'un outil pose pour l'app (ses photos, son référencement) se lit tel qu'il est posé, sinon le fichier vide du cadre.
+    const pose = (POSES_PAR_UN_OUTIL as readonly string[]).includes(chemin) ? f.valeur.get(chemin) : undefined;
+    const texte = platform ? (pose ?? (arbre.lu ? arbre.fige.get(chemin) : undefined)) : f.valeur.get(chemin);
     if (texte === undefined) return { path: chemin, missing: true };
     if (lus + texte.length > MAX_LU) return { path: chemin, not_sent: 'too much text in one call: read this file in another call' };
     lus += texte.length;
@@ -383,6 +390,54 @@ export async function configurerLeBackend(c: Contexte, a: { project: string; wor
     version: r.valeur.version, app_json: { fingerprint: empreinteDuFichier(texte) }, database: `laid out (${pose.groupes} steps); the access rules come from app.json`,
     next: 'The types of the tables changed: read src/donnees/types.ts again with `read_files` before using them.',
   });
+}
+
+/** Les images qu'un rendu joint à Claude (les exemples de design) : le serveur les rend en images, hors du texte. */
+export const IMAGES_JOINTES = '_images';
+export interface ImageJointe { readonly nom: string; readonly mimeType: 'image/jpeg'; readonly data: string }
+
+/**
+ * Le guide de design de l'app (`lib/design/le-guide`) : ce que les pages doivent être, les règles qui la concernent, et les
+ * exemples de design de sa sorte, joints en images. Lu avant d'écrire ou de refaire des pages.
+ */
+export async function leGuideDuDesign(c: Contexte, a: { project: string }): Promise<Rendu> {
+  const p = await leProjet(c, a.project);
+  if (!p.ok) return p.refus;
+  const f = await lesFichiers(c, a.project);
+  if (!f.ok) return f.refus;
+  const arbre = lArbreDUnProjet(f.valeur);
+  if (!arbre.lu) return refuser('app_json_refuse', `app.json does not hold: ${arbre.erreurs.join(' | ')}`, { fichier: 'app.json' });
+  const g = leGuideDeDesign(arbre.manifeste);
+  const e = lesExemplesDeDesign(arbre.manifeste);
+  const jointes: ImageJointe[] = e.exemples.map((x) => ({ nom: x.nom, mimeType: 'image/jpeg', data: x.jpeg.toString('base64') }));
+  return fait({
+    guide: g.guide,
+    rules: g.regles.map((r) => r.texte),
+    examples: e.exemples.length ? { note: LES_EXEMPLES_DE_DESIGN, shown: e.exemples.map((x) => ({ name: x.nom, view: x.vue, shows: x.montre })) } : null,
+    [IMAGES_JOINTES]: jointes,
+  });
+}
+
+/**
+ * Des photos réelles pour l'app : la banque de la plateforme cherche chaque sujet, la photo retenue est posée sous son nom
+ * dans `src/images.json` (que Claude n'écrit pas), en une version ; une page la montre par `<Photo nom="…" />`.
+ */
+export async function chercherDesImages(c: Contexte, a: { project: string; work_session: string; images: readonly { name: string; subject: string; alt: string }[] }): Promise<Rendu> {
+  const p = await leChantier(c, a.project, a.work_session);
+  if (!p.ok) return p.refus;
+  if (!c.banque) return refuser('plateforme_en_panne', 'No photo bank is plugged into this vavi server yet.', { geste: 'Write the pages without photos for now (a drawing, a colour block), and tell the person photos will come.' });
+  const f = await lesFichiers(c, a.project);
+  if (!f.ok) return f.refus;
+  const actuel = f.valeur.get(CHEMIN_DES_IMAGES);
+  const demandes: DemandeDImage[] = a.images.map((x) => ({ nom: x.name, sujet: x.subject, alt: x.alt }));
+  const r = await poserLesImages(actuel, demandes, c.banque).catch((e: unknown) => ({ erreur: String((e as Error)?.message ?? e).slice(0, 200) }));
+  if ('erreur' in r) return refuser('plateforme_en_panne', `The photo bank did not answer (${r.erreur}).`, { geste: 'Try again in a moment, or write the page without photos.' });
+  if (r.texte === null) return fait({ images: r.dits, written: false });
+  const w = await c.projets.appliquer(c.compte, a.project, { chantier: a.work_session, attendus: { [CHEMIN_DES_IMAGES]: actuel === undefined ? null : empreinteDuFichier(actuel) },
+    ecrits: new Map([[CHEMIN_DES_IMAGES, r.texte]]), supprimes: [], pourquoi: 'photos chosen for the pages' });
+  if (!w.lu) return panne(w.pourquoi);
+  if (!w.valeur.applique) return 'conflit' in w.valeur ? refuser('conflit', 'The photos changed while they were searched.', { fichiers: w.valeur.conflit }) : refuser('chantier_requis', 'The work session was closed.');
+  return fait({ version: w.valeur.version, images: r.dits, next: 'Show each set photo with `<Photo nom="…" />` from `@/briques/Photo` (a name not set does not compile), then run `build_preview`.' });
 }
 
 export async function poserUnSecret(c: Contexte, a: { project: string; name: string; value: string }): Promise<Rendu> {

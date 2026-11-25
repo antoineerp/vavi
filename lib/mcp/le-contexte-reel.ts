@@ -26,6 +26,7 @@ import { abonnementsSurSupabase } from '@/lib/abonnements/sur-supabase';
 import { lEtatDuCompte, laVueDeLAbonnement, leDroitDePublier } from '@/lib/abonnements/l-abonnement';
 import { boiteSurSupabase, lesVisites } from '@/lib/formulaires/sur-supabase';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
+import { banqueDeLaPlateforme } from '@/lib/images/la-banque';
 
 const REFUS_PRECEDENTS = new Map<string, Refus>();
 const LANGUES_DES_COMPTES = new Map<string, string>();
@@ -76,6 +77,7 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
       domaineDesApps: leDomaineDesApps(process.env),
       scellerUnSecret,
       refusPrecedents: REFUS_PRECEDENTS,
+      banque: banqueDeLaPlateforme(),
       async abonnement() {
         const e = await lEtatDuCompte({ ...abonnementsSurSupabase(base), maintenant: Date.now() }, compte);
         return e.lu ? laVueDeLAbonnement(e.valeur, `${adresseDeLaPlateforme()}/abonnement`) : null;

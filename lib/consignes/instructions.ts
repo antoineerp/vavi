@@ -13,7 +13,7 @@
 /** Les outils du serveur que les consignes ont le droit de nommer. */
 export const OUTILS = [
   'list_projects', 'create_project', 'get_project_state', 'read_files', 'ouvrir_chantier', 'abandonner_chantier',
-  'apply_changes', 'configure_backend', 'set_secret', 'build_preview', 'publish', 'history', 'rollback',
+  'apply_changes', 'configure_backend', 'set_secret', 'get_design_guide', 'search_images', 'build_preview', 'publish', 'history', 'rollback',
 ] as const;
 export type Outil = (typeof OUTILS)[number];
 
@@ -45,9 +45,9 @@ vavi's tools refuse what would break the project. When a tool refuses, read its 
 - If a change made things worse, propose \`rollback\` instead of piling fixes on top of it.
 
 ## Design
-- Build each page like a current professional site, not a draft: a strong first screen (a real headline, one clear
-  sentence, one main action), generous spacing, clear sections, the colours and fonts of the app's direction (\`tokens.css\`),
-  the components of \`src/ui\` and \`src/briques\`, and a layout that works on a phone.
+- Before writing or redesigning pages, call \`get_design_guide\` and follow it: it gives the sections, the compositions,
+  the photos (\`search_images\`) and the examples that make a rich site.
+- Use the colours and fonts of the app's direction (\`tokens.css\`), \`src/ui\` and \`src/briques\`; every page works on a phone.
 - The brand (logo or name) always links to the home page, so \`menu\` never lists the home page.
 - Only what the site needs: a one-page site has no menu (the chrome receives an empty \`menu\` and shows the brand alone),
   no account button unless the app has accounts, no empty section, no placeholder link.

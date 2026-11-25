@@ -1,7 +1,7 @@
 /**
  * La photo d'une ligne (un champ `image`), montrée dans la page : lue à la plateforme sous la sécurité des lignes, comme
  * toute pièce jointe ; elle se joint et se remplace par `<PieceJointe>`. Sans photo jointe, `sinon` montre une photo
- * posée par `chercher_images`, choisie pour le sujet ; sans l'un ni l'autre, une surface calme tient sa place.
+ * posée par `search_images`, choisie pour le sujet ; sans l'un ni l'autre, une surface calme tient sa place.
  */
 import { useEffect, useState } from 'react';
 import { Photo } from './Photo';
