@@ -8,6 +8,7 @@ import { notFound } from 'next/navigation';
 import { adresseDeLApp } from '@/app/_partage/l-adresse-des-apps';
 import { laConsole } from '@/app/_partage/la-console';
 import { TEXTES } from '@/app/_partage/textes';
+import { LogoVavi } from '@/app/_partage/le-logo';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 import { laBoutique } from '@/lib/vente/la-boutique';
 import { BarreLaterale } from './la-barre-laterale';
@@ -28,6 +29,7 @@ export default async function MiseEnPage({ children, params }: { children: React
   return (
     <div className="projet">
       <header className="projet-haut">
+        <Link href="/projets" className="marque" aria-label="vavi"><LogoVavi taille={26} /></Link>
         <Link href="/projets" className="projet-retour">{t.retour}</Link>
         <strong className="projet-nom">{projet?.nom ?? '…'}</strong>
         {projet && <span className="attenue">{t.version} {projet.version}</span>}
