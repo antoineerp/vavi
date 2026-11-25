@@ -72,3 +72,24 @@ export function depuisLaRecherche(lignes: readonly Visite[]): { readonly moteurs
   const assistants = hotes.filter(estUnAssistant);
   return { moteurs: hotes.filter(estUnMoteur).length, assistants: assistants.length, parAssistant: compte(assistants.map(sansWww), 6).map(([hote, visites]) => ({ hote, visites })) };
 }
+
+/** Les réseaux sociaux reconnus à l'hôte d'où l'on vient (la liste ne fait que regrouper, l'hôte reste lu). */
+const RESEAUX = ['facebook.com', 'instagram.com', 'linkedin.com', 'lnkd.in', 't.co', 'twitter.com', 'x.com', 'pinterest.', 'youtube.com', 'tiktok.com', 'threads.net', 'bsky.app', 'reddit.com', 'whatsapp.com'] as const;
+export const estUnReseau = (hote: string): boolean => RESEAUX.some((r) => (r.endsWith('.') ? sansWww(hote).startsWith(r) || hote.includes(`.${r}`) : sansWww(hote) === r || hote.endsWith(`.${r}`)));
+
+export type Source = 'direct' | 'moteurs' | 'assistants' | 'reseaux' | 'sites';
+/** D'où viennent les visites, en cinq familles : sans provenance (lien tapé, favori, application), moteur, assistant IA, réseau social, autre site. PURE. */
+export function lesSources(lignes: readonly Visite[]): Readonly<Record<Source, number>> {
+  const r: Record<Source, number> = { direct: 0, moteurs: 0, assistants: 0, reseaux: 0, sites: 0 };
+  for (const l of lignes) r[!l.referent ? 'direct' : estUnAssistant(l.referent) ? 'assistants' : estUnMoteur(l.referent) ? 'moteurs' : estUnReseau(l.referent) ? 'reseaux' : 'sites'] += 1;
+  return r;
+}
+
+/** La période choisie et celle d'avant, de même longueur, coupées au jour (`AAAA-MM-JJ`) ; l'écart en %, `null` sans visite avant. PURE. */
+export function lesDeuxPeriodes<T extends { readonly jour: string }>(lignes: readonly T[], jours: number, aujourdhui: string): { readonly actuelle: T[]; readonly precedente: T[]; readonly ecart: number | null } {
+  const jour = (n: number) => new Date(Date.parse(`${aujourdhui}T00:00:00Z`) - n * 86_400_000).toISOString().slice(0, 10);
+  const debut = jour(jours - 1); const avant = jour(2 * jours - 1);
+  const actuelle = lignes.filter((l) => l.jour >= debut && l.jour <= aujourdhui);
+  const precedente = lignes.filter((l) => l.jour < debut && l.jour >= avant);
+  return { actuelle, precedente, ecart: precedente.length ? Math.round(((actuelle.length - precedente.length) / precedente.length) * 100) : null };
+}
