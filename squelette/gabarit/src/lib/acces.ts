@@ -38,3 +38,14 @@ export function peutOuvrir(acces: Acces, compte: boolean, roles: readonly string
   if (!compte) return false;
   return acces.nature === 'compte' || acces.roles.some((r) => roles.includes(r));
 }
+
+/**
+ * Ce qu'un écran fermé au compte rend (INCIDENT 25/11 : la compta, sans accès à l'accueil des salariés, y restait bloquée,
+ * « Revenir à l'accueil » rouvrant le même écran ; un compte sans aucun rôle lisait « votre compte n'a pas le rôle »).
+ * `arrivee` : l'écran où ce compte arrive. PUR.
+ */
+export function apresUnEcranFerme(ici: string, roles: readonly string[], arrivee: string): { readonly rendre: 'sans-role' } | { readonly rendre: 'aller'; readonly vers: string } | { readonly rendre: 'ferme'; readonly vers: string } {
+  if (roles.length === 0) return { rendre: 'sans-role' };
+  if (ici === '/' && arrivee !== '/') return { rendre: 'aller', vers: arrivee };
+  return { rendre: 'ferme', vers: arrivee !== ici ? arrivee : '/' };
+}

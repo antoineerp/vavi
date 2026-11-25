@@ -4,15 +4,17 @@
  * retirer des rôles (`lib/supabase.ts`) : rien ne s'ouvre ainsi qui ne l'était déjà.
  */
 import { useEffect } from 'react';
+import { Navigate, useLocation } from 'react-router';
 import { APP } from '../lib/app';
-import { unAutreRoleQuiOuvre, type Acces } from '../lib/acces';
+import { apresUnEcranFerme, unAutreRoleQuiOuvre, type Acces } from '../lib/acces';
 import { useLecture } from '../lib/donnees';
 import { langueCourante } from '../lib/langue';
 import { libellesPour } from '../lib/libelles';
 import { useSession } from '../lib/session';
 import { essayerEnTantQue, roleEssaye } from '../lib/supabase';
 import { Button } from '../ui/button';
-import { AccesRefuse, Patience } from './etats';
+import { arriveePour } from '../lib/navigation';
+import { AccesRefuse, Patience, SansRole } from './etats';
 
 const libelleDuRole = (nom: string): string => APP.roles.find((r) => r.nom === nom)?.libelle ?? nom;
 
@@ -47,7 +49,8 @@ export function EssaiDeRole() {
  */
 export function BandeauDEssai() {
   const L = libellesPour(langueCourante());
-  const { compte } = useSession();
+  const { compte, roles, seDeconnecter } = useSession();
+  const ici = useLocation().pathname;
   const miens = useLecture('membres', { egal: { compte_id: compte?.id ?? '' } });
   const essaye = roleEssaye();
   if (!essaye || !compte) return null;
@@ -70,11 +73,15 @@ export function BandeauDEssai() {
  * Ce qu'il remplace (interdit 9) : « Cet écran ne vous est pas ouvert » au concepteur, qui porte pourtant le rôle.
  */
 export function EcranDUnAutreRole({ acces }: { readonly acces: Acces }) {
-  const { compte } = useSession();
+  const { compte, roles, seDeconnecter } = useSession();
+  const ici = useLocation().pathname;
   const miens = useLecture('membres', { egal: { compte_id: compte?.id ?? '' } });
   const essaye = roleEssaye();
   const autre = miens.forme === 'donnee' ? unAutreRoleQuiOuvre(acces, miens.donnee.lignes.map((m) => m.role), essaye) : null;
   useEffect(() => { if (essaye && autre) essayerEnTantQue(autre); }, [essaye, autre]);
   if (essaye && miens.forme === 'attente') return <Patience />;
-  return essaye && autre ? <Patience /> : <AccesRefuse />;
+  if (essaye && autre) return <Patience />;
+  const suite = apresUnEcranFerme(ici, roles, arriveePour(roles));
+  if (suite.rendre === 'sans-role') return <SansRole seDeconnecter={() => void seDeconnecter()} />;
+  return suite.rendre === 'aller' ? <Navigate to={suite.vers} replace /> : <AccesRefuse vers={suite.vers} />;
 }

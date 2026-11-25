@@ -30,10 +30,10 @@ export function Panne({ quoi, detail }: { quoi: string; detail?: string }) {
   );
 }
 
-function Retour({ reessayer }: { reessayer?: () => void }) {
+function Retour({ reessayer, vers = '/' }: { reessayer?: () => void; vers?: string }) {
   return (
     <p className="flex flex-wrap justify-center gap-4 text-sm">
-      <Link to="/" className="underline underline-offset-4">{L().revenirALAccueil}</Link>
+      <Link to={vers} className="underline underline-offset-4">{L().revenirALAccueil}</Link>
       {reessayer ? <button type="button" onClick={reessayer} className="underline underline-offset-4">{L().reessayer}</button> : null}
     </p>
   );
@@ -47,8 +47,17 @@ export function PageEnPanne({ reessayer }: { reessayer?: () => void }) {
   return <Cadre etat="page-en-panne" role="alert"><p className="font-medium">{L().pageEnPanne}</p><p className="text-sm">{L().pageEnPanneDetail}</p><Retour reessayer={reessayer} /></Cadre>;
 }
 
-export function AccesRefuse() {
-  return <Cadre etat="acces-refuse" role="alert"><p className="font-medium">{L().ecranFerme}</p><p className="text-sm">{L().ecranFermeDetail}</p><Retour /></Cadre>;
+/** Un écran fermé au rôle du compte ; `vers` : l'écran où ce compte arrive (jamais celui-ci, qui ne s'ouvrirait pas). */
+export function AccesRefuse({ vers }: { vers?: string }) {
+  return <Cadre etat="acces-refuse" role="alert"><p className="font-medium">{L().ecranFerme}</p><p className="text-sm">{L().ecranFermeDetail}</p><Retour vers={vers} /></Cadre>;
+}
+
+/**
+ * Un compte connecté qui n'a encore aucun rôle dans l'app (INCIDENT 25/11 : on lui disait « votre compte n'a pas le rôle
+ * qu'il demande », et « Revenir à l'accueil » rouvrait le même écran fermé). Seule la personne qui gère l'app l'invite.
+ */
+export function SansRole({ seDeconnecter }: { seDeconnecter: () => void }) {
+  return <Cadre etat="sans-role" role="alert"><p className="text-sm">{L().sansRoleEncore}</p><button type="button" onClick={seDeconnecter} className="text-sm underline underline-offset-4">{L().seDeconnecter}</button></Cadre>;
 }
 
 export function RolesIllisibles({ relire }: { relire: () => void }) {
