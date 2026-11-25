@@ -78,7 +78,7 @@ describe('l’audit du 25/11', () => {
     c = { ...c, enArrierePlan: (_n, t) => { lance = t; }, preRendre: async () => { rendu++; return null; } };
     const p = await creer(NOTES);
     const a = await appelerUnOutil(c, 'build_preview', { project: p.project });
-    expect(a.connu && !('invalide' in a) && a.rendu).toMatchObject({ ok: true, prerendered: expect.stringContaining('background') });
+    expect(a.connu && !('invalide' in a) && a.rendu).toMatchObject({ ok: true, prerendered: expect.stringContaining('background'), next: expect.stringContaining('`publish` to close the work session') });
     expect(rendu).toBe(0);
     await lance!();
     expect(rendu).toBe(1);

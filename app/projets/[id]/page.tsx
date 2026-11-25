@@ -8,7 +8,7 @@ import { adresseDeLApp } from '@/app/_partage/l-adresse-des-apps';
 import { lEtatDeLaMiseEnLigne } from '@/lib/projets/la-mise-en-ligne';
 import { boiteSurSupabase, lesVisites } from '@/lib/formulaires/sur-supabase';
 import { resumerLAudience } from '@/lib/formulaires/l-audience';
-import { publier } from './gestes';
+import { claudeAFini, publier } from './gestes';
 import { leProjet, ERREURS } from './le-projet';
 import { GraphiqueDesJours } from './le-graphique';
 
@@ -24,7 +24,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const [messages, visites] = await Promise.all([boiteSurSupabase(c.base).lister(id, 100), lesVisites(c.base, id, 7)]);
   const audience = visites.lu ? resumerLAudience(visites.valeur) : null;
   const etat = lEtatDeLaMiseEnLigne(projet);
-  const message = q.fait === 'publie' ? t.publie : q.erreur ? `${t.erreur} ${ERREURS[q.erreur]?.[c.langue] ?? q.erreur}` : null;
+  const message = q.fait === 'publie' ? t.publie : q.fait === 'claude_a_fini' ? t.claudeAFiniFait : q.erreur ? `${t.erreur} ${ERREURS[q.erreur]?.[c.langue] ?? q.erreur}` : null;
   const recus = messages.lu ? messages.valeur.filter((m) => m.statut !== 'spam').length : null;
 
   return (
@@ -39,7 +39,13 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <div className="carte"><span className="attenue">{t.version}</span><strong>{projet.version}</strong></div>
       </div>
 
-      {projet.chantier && <div className="carte"><strong>{t.travailEnCours}</strong> : {projet.chantier.intention} <span className="attenue">({t.depuis} {date(projet.chantier.ouvertLe)})</span></div>}
+      {projet.chantier && (
+        <form action={claudeAFini.bind(null, id, '')} className="carte">
+          <p><strong>{t.travailEnCours}</strong> : {projet.chantier.intention} <span className="attenue">({t.depuis} {date(projet.chantier.ouvertLe)})</span></p>
+          <p className="attenue">{t.claudeAFiniExplication}</p>
+          <button type="submit" className="discret">{t.claudeAFini}</button>
+        </form>
+      )}
 
       <div className="carte">
         <h2>{fr ? 'Aperçu et mise en ligne' : 'Preview and publishing'}</h2>

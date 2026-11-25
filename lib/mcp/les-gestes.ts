@@ -462,6 +462,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   return fait({
     project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree, timings_ms: temps,
     preview_updated: designe.lu,
+    next: 'When the person’s request is done, call `publish` to close the work session: until then the person cannot change texts or appearance in the console.',
     checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the preview and check.',
     prerendered: pre === 'en_fond' ? 'running in the background: the public pages are rendered for search engines after this answer'
       : pre === null ? 'skipped: no browser on this vavi server, public pages need JavaScript to be read'

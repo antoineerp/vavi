@@ -33,6 +33,23 @@ export async function publier(id: string) {
   retour(id, r.publie ? { fait: 'publie' } : { erreur: r.pourquoi });
 }
 
+/**
+ * « Claude a fini » : la personne ferme le travail en cours de Claude, qui la bloquait (Antoine, 25/11). Les fichiers sont
+ * déjà écrits, version par version : fermer garde tout, comme `publish` côté Claude. Si Claude n'avait pas fini, son
+ * geste suivant est refusé (`chantier_requis`) et il en rouvre un.
+ */
+export async function claudeAFini(id: string, ecran = '') {
+  if (!ID.test(id) || !['', 'contenu', 'textes'].includes(ecran)) redirect('/projets');
+  const c = await laConsole(`/projets/${id}`);
+  const p = await c.projets.lire(c.compte, id);
+  if (!p.lu) retour(id, { erreur: 'panne' }, ecran);
+  const ch = p.lu ? p.valeur?.chantier : null;
+  if (!ch) retour(id, { fait: 'claude_a_fini' }, ecran);
+  const r = await c.projets.fermerChantier(c.compte, id, ch!.id, 'publie');
+  if (r.lu) console.log(`[console] ${id.slice(0, 8)} travail de Claude fermé par la personne`);
+  retour(id, r.lu ? { fait: 'claude_a_fini' } : { erreur: 'panne' }, ecran);
+}
+
 export async function revenir(id: string, version: number) {
   if (!ID.test(id) || !Number.isInteger(version) || version < 1) redirect('/projets');
   const c = await laConsole(`/projets/${id}`);
