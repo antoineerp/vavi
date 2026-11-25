@@ -3,14 +3,16 @@
  * Étape « poser » : les fichiers figés d'une app, depuis app.json. Les autres fichiers de l'arbre, ceux de l'agent,
  * ne sont jamais touchés : poser rend seulement ce qui appartient au cadre.
  */
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import type { Manifeste } from '@/lib/backend/app/manifeste';
-import { DOSSIER_DU_GABARIT, fichiersFiges, POSES_PAR_UN_OUTIL } from './registre';
+import { CHEMINS_DERIVES, fichiersFiges, leGabaritCourant, POSES_PAR_UN_OUTIL, type Gabarit } from './registre';
 import { iconeDeLOnglet, poserLesJetons } from '@/lib/design/la-peau';
 import { typesDesTables } from './les-types-des-tables';
 
-const lireDuGabarit = (chemin: string): string => readFileSync(join(DOSSIER_DU_GABARIT, chemin), 'utf8');
+const lireDu = (g: Gabarit, chemin: string): string => {
+  const t = g.fichiers.get(chemin);
+  if (t === undefined) throw new Error(`${chemin} n'est pas dans le gabarit ${g.empreinte}`);
+  return t;
+};
 
 const nomDePaquet = (nom: string): string =>
   nom.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'app';
@@ -18,22 +20,24 @@ const nomDePaquet = (nom: string): string =>
 const echapperHtml = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
 /** Le contenu d'un fichier dérivé d'app.json. */
-export function derive(chemin: string, m: Manifeste): string {
+export function derive(chemin: string, m: Manifeste, g: Gabarit = leGabaritCourant()): string {
   switch (chemin) {
     case 'app.json': return `${JSON.stringify(m, null, 2)}\n`;
     case 'src/donnees/types.ts': return typesDesTables(m);
-    case 'src/styles/tokens.css': return poserLesJetons(lireDuGabarit(chemin), m.direction);
-    case 'index.html': return lireDuGabarit(chemin).replace('__LANGUE__', m.langues.principale)
+    case 'src/styles/tokens.css': return poserLesJetons(lireDu(g, chemin), m.direction);
+    case 'index.html': return lireDu(g, chemin).replace('__LANGUE__', m.langues.principale)
       .replace('__NOM__', echapperHtml(m.nom)).replace('__DESCRIPTION__', echapperHtml(m.description))
       .replace('__ICONE__', iconeDeLOnglet(m.nom, m.direction));
-    case 'package.json': return lireDuGabarit(chemin).replace('__NOM_PAQUET__', nomDePaquet(m.nom));
+    case 'package.json': return lireDu(g, chemin).replace('__NOM_PAQUET__', nomDePaquet(m.nom));
     default: throw new Error(`${chemin} n'est pas un fichier dérivé`);
   }
 }
 
-/** Tous les fichiers figés de l'app, chemin → contenu. */
-export function poserLeFige(m: Manifeste): Map<string, string> {
-  return new Map(fichiersFiges().map((f) => [f.chemin, f.derive ? derive(f.chemin, m) : lireDuGabarit(f.chemin)] as const));
+/** Tous les fichiers figés de l'app, chemin → contenu, depuis la version du gabarit fixée sur le projet. */
+export function poserLeFige(m: Manifeste, g: Gabarit = leGabaritCourant()): Map<string, string> {
+  if (g === leGabaritCourant()) return new Map(fichiersFiges().map((f) => [f.chemin, f.derive ? derive(f.chemin, m, g) : lireDu(g, f.chemin)] as const));
+  const derives = CHEMINS_DERIVES as readonly string[];
+  return new Map([...new Set([...g.fichiers.keys(), ...derives])].sort().map((c) => [c, derives.includes(c) ? derive(c, m, g) : lireDu(g, c)] as const));
 }
 
 const SUFFIXES = ['', '.ts', '.tsx', '.d.ts', '/index.ts', '/index.tsx'];

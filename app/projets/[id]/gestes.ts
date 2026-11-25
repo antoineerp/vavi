@@ -10,7 +10,8 @@ import { completerLeModele, MODELES_DE_CONNECTEURS } from '@/lib/connecteurs/l-a
 import { enSecret, FORME_DU_NOM, lireUnConnecteur, PREFIXE_DU_SECRET, secretDuConnecteur } from '@/lib/connecteurs/les-connecteurs';
 import { redirect } from 'next/navigation';
 import { laConsole } from '@/app/_partage/la-console';
-import { mettreLApercuEnLigne } from '@/lib/projets/la-mise-en-ligne';
+import { mettreLApercuEnLigne, uneAUneParCompte } from '@/lib/projets/la-mise-en-ligne';
+import { magasinS3 } from '@/lib/publication/le-magasin';
 import { revenirDepuisLaConsole } from '@/lib/versions/revenir';
 import { scellerUnSecret } from '@/lib/mcp/les-jetons';
 import { construireLApercu as batir, estUnRefus } from '@/lib/mcp/les-gestes';
@@ -27,14 +28,19 @@ export async function publier(id: string) {
   if (!ID.test(id)) redirect('/projets');
   const c = await laConsole(`/projets/${id}`);
   // L'OFFRE, VÉRIFIÉE PAR LE SERVEUR : l'essai n'a que l'aperçu ; une offre payante publie ses natures, dans sa place.
-  const f = await c.projets.fichiers(c.compte, id);
-  const m = f.lu ? leManifesteStocke(f.valeur.get('app.json')) : null;
-  const droit = await leDroitDePublier(lesAbonnementsReels(), c.compte, id, m?.lu ? m.manifeste : null);
-  if (!droit.lu) retour(id, { erreur: 'panne' });
-  if (droit.lu && !droit.valeur.permis) retour(id, { erreur: droit.valeur.pourquoi });
-  const r = await mettreLApercuEnLigne(c.projets, c.compte, id);
-  if (r.publie) console.log(`[console] ${id.slice(0, 8)} mis en ligne (${r.empreinte.slice(0, 12)})`);
-  retour(id, r.publie ? { fait: 'publie' } : { erreur: r.pourquoi });
+  // Le quota de l'offre et la mise en ligne, l'un après l'autre pour un même compte : deux « Publier » au même instant
+  // ne dépassent pas l'offre (audit du 25/11).
+  const issue = await uneAUneParCompte(c.compte, async (): Promise<Record<string, string>> => {
+    const f = await c.projets.fichiers(c.compte, id);
+    const m = f.lu ? leManifesteStocke(f.valeur.get('app.json')) : null;
+    const droit = await leDroitDePublier(lesAbonnementsReels(), c.compte, id, m?.lu ? m.manifeste : null);
+    if (!droit.lu) return { erreur: 'panne' };
+    if (!droit.valeur.permis) return { erreur: droit.valeur.pourquoi };
+    const r = await mettreLApercuEnLigne(c.projets, c.compte, id);
+    if (r.publie) console.log(`[console] ${id.slice(0, 8)} mis en ligne (${r.empreinte.slice(0, 12)})`);
+    return r.publie ? { fait: 'publie' } : { erreur: r.pourquoi };
+  });
+  retour(id, issue);
 }
 
 /**
@@ -87,7 +93,7 @@ export async function reglerGoogle(id: string, formulaire: FormData) {
 export async function revenir(id: string, version: number) {
   if (!ID.test(id) || !Number.isInteger(version) || version < 1) redirect('/projets');
   const c = await laConsole(`/projets/${id}`);
-  const r = await revenirDepuisLaConsole({ compte: c.compte, projets: c.projets, base: c.base }, id, version);
+  const r = await revenirDepuisLaConsole({ compte: c.compte, projets: c.projets, base: c.base, magasin: (() => { const m = magasinS3(); return m.lu ? m.magasin : null; })() }, id, version);
   if (!r.revenu) retour(id, { erreur: r.pourquoi }, 'versions');
   retour(id, r.revenu && r.apercu === 'a_construire' ? { fait: 'revenu', version: String(r.version), construire: 'oui' } : { fait: 'revenu', version: String(r.revenu ? r.version : 0) }, 'versions');
 }

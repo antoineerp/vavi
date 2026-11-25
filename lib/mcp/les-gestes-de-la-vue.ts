@@ -7,7 +7,7 @@
  * celui de la console (`app/projets/[id]/gestes.ts`) : le droit de l'offre vérifié par le serveur, puis
  * `mettreLApercuEnLigne`, qui désigne le build vert de l'aperçu sans rien construire ni toucher.
  */
-import { lEtatDeLaMiseEnLigne, mettreLApercuEnLigne } from '@/lib/projets/la-mise-en-ligne';
+import { lEtatDeLaMiseEnLigne, mettreLApercuEnLigne, uneAUneParCompte } from '@/lib/projets/la-mise-en-ligne';
 import { lAdresseDeLApp } from '@/lib/publication/les-adresses-des-apps';
 import { refuser } from '@/lib/consignes';
 import { lireUnJetonDeVue } from './les-jetons';
@@ -35,11 +35,16 @@ export async function laFicheDuProjet(c: Contexte, a: { project: string; geste: 
 
 export async function mettreEnLigneDepuisLaVue(c: Contexte, a: { project: string; geste: string }): Promise<Rendu> {
   if (!lireUnJetonDeVue(a.geste, c.compte)) return refuser('confirmation_requise', SANS_JETON);
-  if (!c.vue) return refuser('plateforme_en_panne', 'The subscription of this account could not be read on this vavi server.');
-  const droit = await c.vue.droitDePublier(a.project);
-  if (!droit) return refuser('plateforme_en_panne', 'The subscription of this account could not be read.');
-  if (!droit.permis) return refuser('confirmation_requise', `Publishing needs a plan (${droit.pourquoi}): ${c.adresse}/abonnement`);
-  const r = await mettreLApercuEnLigne(c.projets, c.compte, a.project);
+  const vue = c.vue;
+  if (!vue) return refuser('plateforme_en_panne', 'The subscription of this account could not be read on this vavi server.');
+  // Le quota et la mise en ligne, sans qu'un autre « Publier » du compte s'intercale (comme la console).
+  const r = await uneAUneParCompte(c.compte, async () => {
+    const droit = await vue.droitDePublier(a.project);
+    if (!droit) return refuser('plateforme_en_panne', 'The subscription of this account could not be read.');
+    if (!droit.permis) return refuser('confirmation_requise', `Publishing needs a plan (${droit.pourquoi}): ${c.adresse}/abonnement`);
+    return mettreLApercuEnLigne(c.projets, c.compte, a.project);
+  });
+  if ('refuse' in r) return r;
   if (!r.publie) {
     return r.pourquoi === 'projet_inconnu' ? refuser('projet_inconnu', `No project "${a.project}" in this account.`)
       : r.pourquoi === 'rien_a_publier' ? refuser('build_perime', 'There is no preview yet: build it first.')

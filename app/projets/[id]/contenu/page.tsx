@@ -80,7 +80,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             <label>{m.rayon} <select name="rayon" defaultValue={d.rayon}>{RAYONS.map((r) => <option key={r} value={r}>{m.rayons[r]}</option>)}</select></label>
           </div>
           <p className="attenue">{m.contraste}</p>
-          <button type="submit" disabled={Boolean(p.valeur!.chantier)}>{m.enregistrer}</button>
+          <button type="submit">{m.enregistrer}</button>
         </form>
       </section>
 
@@ -96,7 +96,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                 <label style={{ fontWeight: 500 }}>{m.pageDescription}<textarea name={`description:${x.adresse}`} maxLength={200} rows={2} defaultValue={ref.pages[x.adresse]?.description ?? ''} placeholder={`${m.parDefaut} ${x.description}`} style={{ width: '100%' }} /></label>
               </fieldset>
             ))}
-            <button type="submit" disabled={Boolean(p.valeur!.chantier)}>{m.enregistrer}</button>
+            <button type="submit">{m.enregistrer}</button>
           </form>
         )}
       </section>

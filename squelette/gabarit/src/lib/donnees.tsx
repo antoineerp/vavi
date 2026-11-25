@@ -82,8 +82,9 @@ async function lire<T extends NomDeTable>(table: T, d: DemandeDeLecture<T>): Pro
 }
 
 /** Lire des lignes : `attente`, puis une donnée ou un refus. Relue d'elle-même après une écriture sur la même table. */
-export function useLecture<T extends NomDeTable>(table: T, demande: DemandeDeLecture<T> = {}): EtatDeLecture<Ligne<T>> {
-  const q = useQuery({ queryKey: ['base', table, demande], queryFn: () => lire(table, demande) });
+/** `active: false` : rien n'est demandé à la base (une lecture qui attend un compte connecté), l'état reste `attente`. */
+export function useLecture<T extends NomDeTable>(table: T, demande: DemandeDeLecture<T> = {}, active = true): EtatDeLecture<Ligne<T>> {
+  const q = useQuery({ queryKey: ['base', table, demande], queryFn: () => lire(table, demande), enabled: active });
   if (q.isPending) return { forme: 'attente' };
   return q.isError ? refusDuCode(null) : q.data;
 }

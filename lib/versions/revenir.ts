@@ -10,9 +10,12 @@
 import { poserLaBase, type AppelDeLaBase } from '@/lib/relais/poser-la-base';
 import type { Projets } from '@/lib/projets/les-projets';
 import { empreinteDuFichier } from '@/lib/projets/les-empreintes';
-import { lArbreDUnProjet, lEcartVers } from '@/lib/projets/l-arbre-d-un-projet';
+import { lEcartVers } from '@/lib/projets/l-arbre-d-un-projet';
+import { lArbreLu } from '@/lib/projets/le-gabarit-du-projet';
+import type { Magasin } from '@/lib/publication/le-magasin';
 
-export interface DependancesDuRetour { readonly compte: string; readonly projets: Projets; readonly base: AppelDeLaBase }
+/** `magasin` : où se lit la version du gabarit fixée sur l'état ramené ; absent, le gabarit du jour. */
+export interface DependancesDuRetour { readonly compte: string; readonly projets: Projets; readonly base: AppelDeLaBase; readonly magasin?: Magasin | null }
 
 export type Retour =
   | { readonly revenu: true; readonly version: number; readonly rienAChanger: boolean; readonly base: { readonly posee: boolean; readonly motif?: string } | null; readonly empreinte: string | null }
@@ -24,7 +27,7 @@ export type Retour =
 export async function revenirA(d: DependancesDuRetour, id: string, chantier: string | null, cible: ReadonlyMap<string, string>, pourquoi: string): Promise<Retour> {
   const f = await d.projets.fichiers(d.compte, id);
   if (!f.lu) return { revenu: false, pourquoi: 'panne', detail: f.pourquoi };
-  const arbre = lArbreDUnProjet(cible);
+  const arbre = await lArbreLu(cible, d.magasin ?? null);
   const empreinte = arbre.lu ? arbre.empreinte : null;
   const { ecrits, supprimes } = lEcartVers(f.valeur, cible);
   if (ecrits.size === 0 && supprimes.length === 0) {
