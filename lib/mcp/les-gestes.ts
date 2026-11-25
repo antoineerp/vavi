@@ -15,6 +15,7 @@ import { derive } from '@/squelette/poser';
 import { lesFonctionsPasEncoreServies, ceQueClaudeEnFait } from '@/squelette/les-types-des-tables';
 import { estFige, CHEMINS_MONTRES, POSES_PAR_UN_OUTIL } from '@/squelette/registre';
 import { lireLeManifeste, type Manifeste } from '@/lib/backend/app/manifeste';
+import { EXEMPLE_D_APP_JSON_TEXTE } from '@/lib/backend/app/l-exemple-d-app-json';
 import { poserLaBase, type AppelDeLaBase } from '@/lib/relais/poser-la-base';
 import type { Projets, Projet } from '@/lib/projets/les-projets';
 import { empreinteDuFichier } from '@/lib/projets/les-empreintes';
@@ -148,7 +149,9 @@ function leManifesteEnvoye(brut: unknown): Etape<Recu> {
     try { json = JSON.parse(brut); } catch (e) { return bloque(refuser('app_json_refuse', `app.json is not valid JSON: ${(e as Error).message}.`, { fichier: 'app.json' })); }
   }
   const r = lireLeManifeste(json);
-  if (!r.ok) return bloque(refuser('app_json_refuse', `app.json does not hold: ${r.erreurs.slice(0, 20).join(' | ')}`, { fichier: 'app.json' }));
+  // La forme attendue, entière, avec le refus : Claude corrige d'après elle, sans lire un autre projet (essai du 25/11).
+  if (!r.ok) return bloque(refuser('app_json_refuse', `app.json does not hold: ${r.erreurs.slice(0, 20).join(' | ')}`, { fichier: 'app.json',
+    geste: `Fix app.json at the places given in \`fait\`, then send it whole again. A complete valid app.json, to follow for its shape (never read another project of the person for it): ${EXEMPLE_D_APP_JSON_TEXTE}` }));
   const pasEncore = lesFonctionsPasEncoreServies(r.manifeste);
   return passe({ manifeste: r.manifeste, dit: {
     ...(r.repare.length ? { adjusted: `vavi adjusted app.json (nothing else to do): ${r.repare.join(' | ')}` } : {}),

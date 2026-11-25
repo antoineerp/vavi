@@ -16,7 +16,7 @@ import { DOSSIER_DU_GABARIT } from '@/squelette/registre';
 import { lesPaquetsDuGabarit, type Refus } from '@/lib/consignes';
 import { adresseDeLaPlateforme } from './l-adresse';
 import { scellerUnSecret } from './les-jetons';
-import { lesFichiersEnEntier } from './la-vue';
+import { lesFichiersDansLaPage, lesFichiersEnEntier } from './la-vue';
 import { avecUneMemoire, etatSurSupabase, type EtatDeLAcces } from './l-etat-de-l-acces';
 import { configurationPublique } from '@/lib/supabase/configuration';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
@@ -86,7 +86,8 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         domaines: (() => {
           const pub = configurationPublique(process.env);
           const domaine = leDomaineDesApps(process.env);
-          const ressources = domaine ? [`https://*.${domaine}`] : [new URL(adresseDeLaPlateforme()).origin];
+          // Les photos de la banque (`search_images`) s'affichent aussi dans l'app montrée par la vue.
+          const ressources = [...(domaine ? [`https://*.${domaine}`] : [new URL(adresseDeLaPlateforme()).origin]), 'https://images.unsplash.com'];
           return { ressources, connexions: [...ressources, ...(pub.lue ? [new URL(pub.valeur.url).origin] : [])] };
         })(),
         async pageDeLApercu(projet, empreinte, adresse) {
@@ -99,8 +100,13 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
           // Claude.ai refuse un `<base>` d'une autre origine (base-uri 'self', essai d'Antoine du 25/11) : les fichiers de
           // la page sont nommés en entier, à l'aperçu ; ceux qu'ils chargent suivent leur propre adresse. Le routeur
           // monte là où la vue tourne (le chemin de son cadre).
-          return lesFichiersEnEntier(html.replace('<base href="/">', ''), adresse)
+          const page = lesFichiersEnEntier(html.replace('<base href="/">', ''), adresse)
             .replace('</script>', 'window.__VAVI_BASENAME__=location.pathname;</script>');
+          return lesFichiersDansLaPage(page, adresse, async (chemin) => {
+            if (chemin.split('/').some((x) => x === '..' || x === '')) return null;
+            const f = await magasin.magasin.lire(`${racineDuBuild(projet, empreinte)}/${chemin}`);
+            return f === 'absent' ? null : f.octets.toString('utf8');
+          });
         },
         async messages(projet) { const m = await boiteSurSupabase(base).lister(projet, 100); return m.lu ? m.valeur.length : null; },
         async visites(projet) { const v = await lesVisites(base, projet, 30); return v.lu ? v.valeur.length : null; },

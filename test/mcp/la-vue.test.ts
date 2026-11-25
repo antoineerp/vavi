@@ -14,7 +14,7 @@ import { appelerUnOutil, lesOutils } from '@/lib/mcp/les-outils';
 import type { Contexte, Rendu } from '@/lib/mcp/les-gestes';
 import { servirLeMcp, type ContexteDuServeur } from '@/lib/mcp/le-serveur';
 import { ecrireUnJetonDeVue, lireUnJetonDeVue } from '@/lib/mcp/les-jetons';
-import { RESSOURCE_DE_LA_VUE, TYPE_DE_LA_VUE, lesCadresPermis, lesFichiersEnEntier } from '@/lib/mcp/la-vue';
+import { RESSOURCE_DE_LA_VUE, TYPE_DE_LA_VUE, lesCadresPermis, lesFichiersDansLaPage, lesFichiersEnEntier } from '@/lib/mcp/la-vue';
 import { desProjetsEnMemoire } from '../aides/des-projets-en-memoire';
 import { unMagasinEnMemoire } from '../aides/un-magasin-en-memoire';
 import { unManifeste } from '../aides/un-manifeste';
@@ -105,6 +105,16 @@ describe('la vue dans Claude', () => {
     const a = 'https://vavi.test/p/x/';
     expect(lesFichiersEnEntier('<script type="module" crossorigin src="./assets/i.js"></script><link href="assets/i.css"><link href="/favicon.svg"><a href="https://ailleurs.test/">', a))
       .toBe('<script type="module" crossorigin src="https://vavi.test/p/x/assets/i.js"></script><link href="https://vavi.test/p/x/assets/i.css"><link href="https://vavi.test/p/x/favicon.svg"><a href="https://ailleurs.test/">');
+  });
+
+  it('INCIDENT 25/11 — l’hôte garde les domaines d’une vue lue avant un changement d’adresse : script et style sont DANS la page', async () => {
+    const a = 'https://www.vavi.test/p/x/';
+    const fichiers: Record<string, string> = { 'assets/i.js': 'console.log("</script>")', 'assets/i.css': 'body{color:red}' };
+    const page = await lesFichiersDansLaPage(
+      `<script type="module" crossorigin src="${a}assets/i.js"></script><link rel="stylesheet" crossorigin href="${a}assets/i.css"><link rel="icon" href="${a}favicon.svg"><script src="${a}assets/absent.js"></script>`,
+      a, async (c) => fichiers[c] ?? null);
+    expect(page).toBe(`<script type="module">console.log("<\\/script>")</script><style>body{color:red}</style><link rel="icon" href="${a}favicon.svg"><script src="${a}assets/absent.js"></script>`);
+    expect(page).not.toContain(`${a}assets/i.`);
   });
 
   it('sans domaine des apps, le cadre n’ouvre que la console', () => {
