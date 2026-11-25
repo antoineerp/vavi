@@ -5,6 +5,7 @@
  * revient à la page par son adresse (`?fait=`), jamais une valeur secrète.
  */
 import { leJetonGoogle } from '@/lib/seo/la-note';
+import { classerUnMessage, effacerUnMessage } from '@/lib/formulaires/sur-supabase';
 import { completerLeModele, MODELES_DE_CONNECTEURS } from '@/lib/connecteurs/l-acces';
 import { enSecret, FORME_DU_NOM, lireUnConnecteur, PREFIXE_DU_SECRET, secretDuConnecteur } from '@/lib/connecteurs/les-connecteurs';
 import { redirect } from 'next/navigation';
@@ -61,6 +62,16 @@ export async function reglerLeCourriel(id: string, formulaire: FormData) {
   const c = await laConsole(`/projets/${id}/messages`);
   const r = await c.projets.regler(c.compte, id, { courrielDesMessages: brut || null });
   retour(id, r.lu ? { fait: 'courriel' } : { erreur: 'panne' }, 'messages');
+}
+
+/** Un message reclassé (« ce n'est pas du spam », « c'est du spam ») ou effacé, dans un projet de la personne. */
+export async function rangerUnMessage(id: string, message: string, geste: 'recu' | 'spam' | 'effacer', vue: string) {
+  if (!ID.test(id) || !ID.test(message) || !['recu', 'spam', 'effacer'].includes(geste)) redirect('/projets');
+  const c = await laConsole(`/projets/${id}/messages`);
+  const p = await c.projets.lire(c.compte, id);
+  if (!p.lu || !p.valeur) retour(id, { erreur: 'panne' }, 'messages');
+  const r = geste === 'effacer' ? await effacerUnMessage(c.base, id, message) : await classerUnMessage(c.base, id, message, geste);
+  retour(id, r.lu ? { fait: geste, vue: ['spam', 'tous'].includes(vue) ? vue : 'recus' } : { erreur: 'panne' }, 'messages');
 }
 
 /** La balise Google Search Console : collée entière ou son seul contenu ; vide, elle est retirée. */

@@ -8,6 +8,7 @@
  */
 import { premierSpam, sansLesChampsDuJugement, verdictDeLaVisite, verdictDesChamps, verdictDuContenu, PLAFOND_PAR_ADRESSE_PAR_HEURE,
   PLAFOND_PAR_PROJET_PAR_HEURE, type LectureDeLaPreuve, type Verdict } from './le-jugement';
+import { laReponseA } from './la-boite-de-reception';
 
 export type Issue<T> = { readonly lu: true; readonly valeur: T } | { readonly lu: false; readonly pourquoi: string };
 export type EtatDuCourriel = 'a_envoyer' | 'envoye' | 'non_configure' | 'echec' | 'non_envoye';
@@ -51,7 +52,6 @@ export type Reception =
 const MAX_CHAMPS = 50;
 const MAX_OCTETS = 20_000;
 const FORMULAIRE = /^[A-Za-z0-9_-]{1,60}$/;
-const COURRIEL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
 
 /** Le message relu : un objet plat de valeurs simples, borné ; sinon pourquoi. PURE. */
 export function lireLEnvoi(formulaire: unknown, data: unknown, page: unknown): { readonly formulaire: string; readonly donnees: Record<string, unknown>; readonly page: string | null } | string {
@@ -70,11 +70,10 @@ export function lireLEnvoi(formulaire: unknown, data: unknown, page: unknown): {
 /** Le courriel du message, lisible : chaque champ sur sa ligne. PURE. */
 export function leCourrielDuMessage(nom: string, formulaire: string, donnees: Readonly<Record<string, unknown>>, page: string | null): { sujet: string; texte: string; repondreA: string | null } {
   const lignes = Object.entries(donnees).map(([k, v]) => `${k} : ${Array.isArray(v) ? v.join(', ') : String(v ?? '')}`);
-  const repondreA = Object.entries(donnees).find(([k, v]) => /mail/i.test(k) && typeof v === 'string' && COURRIEL.test(v.trim()))?.[1] as string | undefined;
   return {
     sujet: `${nom} — nouveau message (${formulaire})`,
     texte: [`Un visiteur a envoyé le formulaire « ${formulaire} »${page ? ` depuis la page ${page}` : ''}.`, '', ...lignes, '', 'Envoyé par vavi.'].join('\n'),
-    repondreA: repondreA?.trim() ?? null,
+    repondreA: laReponseA(donnees),
   };
 }
 

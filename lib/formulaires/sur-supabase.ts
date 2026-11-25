@@ -35,6 +35,18 @@ export function boiteSurSupabase(base: SupabaseClient): BoiteDesMessages {
   };
 }
 
+/** La personne reclasse un message (« ce n'est pas du spam », ou l'inverse), dans SON projet seul. */
+export async function classerUnMessage(base: SupabaseClient, projet: string, id: string, statut: 'recu' | 'spam'): Promise<Issue<true>> {
+  const r = await base.from('vavi_messages').update({ statut }).eq('projet', projet).eq('id', id);
+  return r.error ? pasLu(r.error.message) : lu(true as const);
+}
+
+/** La personne efface un message (une demande d'effacement du visiteur, un spam), dans SON projet seul. */
+export async function effacerUnMessage(base: SupabaseClient, projet: string, id: string): Promise<Issue<true>> {
+  const r = await base.from('vavi_messages').delete().eq('projet', projet).eq('id', id);
+  return r.error ? pasLu(r.error.message) : lu(true as const);
+}
+
 export async function noterUneVisite(base: SupabaseClient, projet: string, v: Visite): Promise<Issue<true>> {
   const r = await base.from('vavi_visites').insert({ projet, chemin: v.chemin, referent: v.referent, campagne: v.campagne });
   return r.error ? pasLu(r.error.message) : lu(true as const);
