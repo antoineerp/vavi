@@ -28,7 +28,7 @@ export interface ContexteDesRessources {
   /** La note du chantier ouvert d'un projet (fait, reste à faire), ou null s'il n'y en a pas ; vient de lib/projets. */
   readonly noteDuChantier: (projetId: string) => Promise<string | null>;
   /** Les fonctions qu'app.json sait déclarer mais que vavi ne sert pas encore ; vient de squelette. */
-  readonly fonctionsPasEncoreServies?: readonly string[];
+  readonly fonctionsPasEncoreServies?: readonly { nom: string; dansLaPage: string | null }[];
 }
 
 const NOTE = /^vavi:\/\/projet\/([^/]+)\/chantier$/;

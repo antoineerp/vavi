@@ -12,7 +12,7 @@ import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { appelerUnOutil } from '@/lib/mcp/les-outils';
 import type { Contexte } from '@/lib/mcp/les-gestes';
 import { unSecretDans } from '@/lib/mcp/les-secrets';
-import { typesDesTables, FONCTIONS_PAS_ENCORE_SERVIES } from '@/squelette/les-types-des-tables';
+import { typesDesTables, FONCTIONS_PAS_ENCORE_SERVIES, CE_QUE_CLAUDE_FAIT_DANS_LA_PAGE, lesFonctionsAFaireDansLaPage } from '@/squelette/les-types-des-tables';
 import { desProjetsEnMemoire } from '../aides/des-projets-en-memoire';
 import { unMagasinEnMemoire } from '../aides/un-magasin-en-memoire';
 import { NOTES, lu } from '../donnees/une-app';
@@ -50,8 +50,27 @@ describe('l’audit du 25/11', () => {
     const r = await creer({ ...NOTES, fonctions: { pdf: true, courriel: true } });
     expect(r).toMatchObject({ ok: true, not_available_yet: expect.stringContaining('pdf') });
     expect(r.not_available_yet).not.toContain('courriel');
-    expect(laRessourceDesCapacites([], FONCTIONS_PAS_ENCORE_SERVIES)).toMatch(/Not provided by vavi yet.*pdf/);
+    expect(laRessourceDesCapacites([], lesFonctionsAFaireDansLaPage(FONCTIONS_PAS_ENCORE_SERVIES))).toMatch(/pdf: generate the PDF in the page/);
     expect(laRessourceDesCapacites([])).not.toMatch(/PDF, AI/);
+  });
+
+  // INCIDENT 25/11 (Antoine : « il faut que Claude fasse tout ce que vavi ne fait pas ») : un PDF demandé était annoncé
+  // « pas encore disponible » à la personne, alors que Claude peut le faire dans la page.
+  it('ce que vavi ne sert pas, Claude le fait lui-même dans la page ; seul ce qui demande une clé attend', async () => {
+    const r = await creer({ ...NOTES, fonctions: { pdf: true, ia: true } });
+    expect(r.not_available_yet).toMatch(/pdf: .*build it yourself.*jspdf/);
+    expect(r.not_available_yet).not.toMatch(/pdf[^.]*not available yet/);
+    expect(r.not_available_yet).toMatch(/ia: needs a secret key/);
+    const ressource = laRessourceDesCapacites([], lesFonctionsAFaireDansLaPage(FONCTIONS_PAS_ENCORE_SERVIES));
+    expect(ressource).not.toMatch(/Do not promise them/);
+    expect(ressource).toMatch(/Waiting for vavi.*ia, connecteur, telephone/);
+  });
+
+  it('chaque paquet nommé pour le faire dans la page est dans le gabarit', () => {
+    const permis = lesPaquetsDuGabarit(readFileSync(join(process.cwd(), 'squelette', 'gabarit', 'package.json'), 'utf8'));
+    const nommes = Object.values(CE_QUE_CLAUDE_FAIT_DANS_LA_PAGE).flatMap((t) => [...(t ?? '').matchAll(/`([^`]+)`/g)].map((m) => m[1]!.replace(/\/browser$/, '')));
+    expect(nommes.length).toBeGreaterThan(4);
+    for (const p of nommes) expect(permis).toContain(p);
   });
 
   it('le rendu pour les moteurs de recherche se fait après la réponse : build_preview n’attend pas le navigateur', async () => {

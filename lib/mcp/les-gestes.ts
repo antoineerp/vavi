@@ -12,7 +12,7 @@
  */
 import { lAdresseDeLApp } from '@/lib/publication/les-adresses-des-apps';
 import { derive } from '@/squelette/poser';
-import { lesFonctionsPasEncoreServies } from '@/squelette/les-types-des-tables';
+import { lesFonctionsPasEncoreServies, ceQueClaudeEnFait } from '@/squelette/les-types-des-tables';
 import { estFige, CHEMINS_MONTRES, POSES_PAR_UN_OUTIL } from '@/squelette/registre';
 import { lireLeManifeste, type Manifeste } from '@/lib/backend/app/manifeste';
 import { poserLaBase, type AppelDeLaBase } from '@/lib/relais/poser-la-base';
@@ -146,7 +146,7 @@ function leManifesteEnvoye(brut: unknown): Etape<Recu> {
   const pasEncore = lesFonctionsPasEncoreServies(r.manifeste);
   return passe({ manifeste: r.manifeste, dit: {
     ...(r.repare.length ? { adjusted: `vavi adjusted app.json (nothing else to do): ${r.repare.join(' | ')}` } : {}),
-    ...(pasEncore.length ? { not_available_yet: `vavi does not provide these functions yet: ${pasEncore.join(', ')}. The app cannot call them; tell the person this part is not available yet, and build the rest.` } : {}),
+    ...(pasEncore.length ? { not_available_yet: ceQueClaudeEnFait(pasEncore) } : {}),
   } });
 }
 

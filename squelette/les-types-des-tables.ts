@@ -69,10 +69,40 @@ function typesDuJournal(t: Table): string {
 /**
  * Les fonctions qu'app.json sait déclarer mais que vavi ne sert pas encore : aucune route de la plateforme ne leur répond
  * (audit du 25/11 : l'app les appelait et recevait une erreur à l'écran). Elles ne sont pas offertes à l'app — son code ne
- * compile pas s'il les appelle — et l'outil qui reçoit app.json le dit à Claude, qui le dit à la personne. Une fonction sort
+ * compile pas s'il les appelle — et l'outil qui reçoit app.json dit à Claude comment le faire lui-même dans la page (`CE_QUE_CLAUDE_FAIT_DANS_LA_PAGE`). Une fonction sort
  * de cette liste le jour où sa route est servie.
  */
 export const FONCTIONS_PAS_ENCORE_SERVIES = ['ia', 'pdf', 'lecture', 'recherche', 'connecteur', 'telephone', 'agenda'] as const;
+
+/**
+ * Ce que Claude fait LUI-MÊME dans la page quand vavi ne sert pas la fonction (Antoine, 25/11 : « il faut que Claude fasse
+ * tout ce que vavi ne fait pas ») : avec les paquets vérifiés du gabarit. `null` : la fonction demande une clé secrète,
+ * qui ne va jamais dans le navigateur (règle 6) ; elle attend sa route vavi.
+ */
+export const CE_QUE_CLAUDE_FAIT_DANS_LA_PAGE: Readonly<Record<(typeof FONCTIONS_PAS_ENCORE_SERVIES)[number], string | null>> = {
+  pdf: 'generate the PDF in the page with `jspdf` (tables: `jspdf-autotable`), from the rows the page already reads',
+  lecture: 'read the file in the page: CSV with `papaparse`, Excel with `read-excel-file/browser` (write Excel with `write-excel-file/browser`)',
+  recherche: 'search in the page, over the rows it reads from the tables (filter, sort, highlight)',
+  agenda: 'show the calendar with `react-day-picker` and `date-fns`, the dates kept in a declared table (a sync with an outside calendar waits for vavi)',
+  ia: null,
+  connecteur: null,
+  telephone: null,
+};
+
+/** Une fonction non servie et ce que Claude en fait : `dansLaPage` null = elle attend vavi (clé secrète). PURE. */
+export const lesFonctionsAFaireDansLaPage = (noms: readonly string[]): { nom: string; dansLaPage: string | null }[] =>
+  noms.map((nom) => ({ nom, dansLaPage: (CE_QUE_CLAUDE_FAIT_DANS_LA_PAGE as Record<string, string | null>)[nom] ?? null }));
+
+/** Ce que l'outil dit à Claude des fonctions non servies : le faire lui-même, ou ce qui attend vavi. PURE. */
+export function ceQueClaudeEnFait(noms: readonly string[]): string {
+  const f = lesFonctionsAFaireDansLaPage(noms);
+  const seul = f.filter((x) => x.dansLaPage);
+  const attend = f.filter((x) => !x.dansLaPage);
+  return [
+    ...seul.map((x) => `${x.nom}: vavi does not serve it as a capability; build it yourself in the app's code: ${x.dansLaPage}.`),
+    ...(attend.length ? [`${attend.map((x) => x.nom).join(', ')}: needs a secret key, which never goes into the page; vavi does not serve it yet. Build everything around it, put a clearly marked place for it, and tell the person this part arrives with vavi.`] : []),
+  ].join(' ');
+}
 const servie = (c: string): boolean => !(FONCTIONS_PAS_ENCORE_SERVIES as readonly string[]).includes(c);
 
 /** Les fonctions déclarées dans app.json que vavi ne sert pas encore. PURE. */
