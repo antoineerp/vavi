@@ -47,7 +47,7 @@ vavi's tools refuse what would break the project. When a tool refuses, read its 
 
 ## Design
 - Before writing or redesigning pages, call \`get_design_guide\` and follow it: it gives the sections, the compositions,
-  the photos (\`search_images\`) and the examples that make a rich site.
+  the photos (\`search_images\`) that make a rich site. Never show, copy or look at another site or project.
 - Use the colours and fonts of the app's direction (\`tokens.css\`), \`src/ui\` and \`src/briques\`; every page works on a phone.
 - The brand (logo or name) always links to the home page, so \`menu\` never lists the home page.
 - Only what the site needs: a one-page site has no menu (the chrome receives an empty \`menu\` and shows the brand alone),
@@ -66,8 +66,8 @@ vavi's tools refuse what would break the project. When a tool refuses, read its 
   privacy page and its record of processing from app.json, and sets no tracker: add no analytics or third-party tracker.
 
 ## Never invent
-- Use only the packages and capabilities vavi lists (resource \`vavi://capacites\`). If you need something else, say so
-  instead of making it up.
+- What vavi lacks, build in the app (packages: \`vavi://capacites\`, or a public web service); never refuse for it.
+  Tell the person before a third party receives personal data.
 - Do not invent testimonials, customer reviews, figures, client references, addresses, or photos of real people. If a
   piece of information is missing, ask for it, or leave a clearly marked "to be completed" placeholder and tell the
   person.

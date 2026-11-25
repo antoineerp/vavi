@@ -12,7 +12,7 @@
 import { LOT_AU_PLUS } from './les-limites';
 import { INSTRUCTIONS, lesPrompts, unPrompt, lesRessources, lesModelesDeRessources, uneRessource, type ContexteDesRessources } from '@/lib/consignes';
 import { appelerUnOutil, lesOutils } from './les-outils';
-import { estUnRefus, IMAGES_JOINTES, type Contexte, type ImageJointe } from './les-gestes';
+import { estUnRefus, type Contexte } from './les-gestes';
 import { RESSOURCE_DE_LA_VUE, laRessourceDeLaVue, lesCadresPermis } from './la-vue';
 import { ecrireUnJetonDeVue } from './les-jetons';
 import { FONCTIONS_PAS_ENCORE_SERVIES, lesFonctionsAFaireDansLaPage } from '@/squelette/les-types-des-tables';
@@ -59,10 +59,8 @@ async function repondre(r: Requete, ctx: ContexteDuServeur): Promise<ReponseRpc 
       if (!a.connu) return erreur(id, -32602, `Unknown tool "${nom}".`);
       if ('invalide' in a) return erreur(id, -32602, `Invalid arguments for ${nom}: ${a.invalide}`);
       const refus = estUnRefus(a.rendu);
-      // Les images qu'un geste joint (les exemples de design) partent en images, hors du texte et de la forme structurée.
-      const { [IMAGES_JOINTES]: jointes, ...rendu } = a.rendu as Record<string, unknown>;
-      const images = Array.isArray(jointes) ? (jointes as ImageJointe[]).map((j) => ({ type: 'image', data: j.data, mimeType: j.mimeType })) : [];
-      return resultat(id, { content: [{ type: 'text', text: JSON.stringify(rendu, null, 2) }, ...images], structuredContent: rendu, isError: refus });
+      const rendu = a.rendu as Record<string, unknown>;
+      return resultat(id, { content: [{ type: 'text', text: JSON.stringify(rendu, null, 2) }], structuredContent: rendu, isError: refus });
     }
     case 'prompts/list': return resultat(id, { prompts: lesPrompts(ctx.langue) });
     case 'prompts/get': {
