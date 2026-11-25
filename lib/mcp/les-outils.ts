@@ -77,20 +77,20 @@ export const DEFINITIONS = {
     geste: (c, a) => g.abandonnerLeChantier(c, a),
   }),
   apply_changes: def({
-    title: 'Change files', lecture: false,
+    title: 'Change files', lecture: false, destructeur: true,
     entree: z.object({ project: projet, work_session: chantier, why: pourquoi, changes: z.array(Changement).min(1).max(50),
       remaining: z.string().max(2000).optional().describe('What is still to do in this session, for a later conversation.') }),
     description: 'Writes your files in one version, only if each one is still the version you read. app.json and the platform files are refused: use `configure_backend`.',
     geste: (c, a) => g.appliquerDesChangements(c, a),
   }),
   configure_backend: def({
-    title: 'Declare the data', lecture: false,
+    title: 'Declare the data', lecture: false, destructeur: true,
     entree: z.object({ project: projet, work_session: chantier, app_json: appJson, read_fingerprint: z.string().max(64).describe('The fingerprint of app.json as you read it.'), why: pourquoi }),
     description: 'Changes app.json: tables, columns, roles, access. vavi lays out the database and its access rules first, then writes app.json. Never write SQL.',
     geste: (c, a) => g.configurerLeBackend(c, a),
   }),
   set_secret: def({
-    title: 'Store a secret', lecture: false,
+    title: 'Store a secret', lecture: false, destructeur: true,
     entree: z.object({ project: projet, name: z.string().regex(/^[A-Z][A-Z0-9_]{1,63}$/).describe('e.g. ANTHROPIC_API_KEY'), value: z.string().min(1).max(8000) }),
     description: 'Stores a secret key of the project, encrypted. The value is never shown again and never goes into the code.',
     geste: (c, a) => g.poserUnSecret(c, a),
@@ -128,7 +128,7 @@ export const DEFINITIONS_DE_LA_VUE = {
     geste: (c, a) => v.laFicheDuProjet(c, a),
   }),
   vavi_mettre_en_ligne: def({
-    title: 'Publish, clicked by the person (vavi view only)', lecture: false, _meta: META_DE_LA_VUE_SEULE, entree: z.object({ project: projet, geste: jetonDeLaVue }),
+    title: 'Publish, clicked by the person (vavi view only)', lecture: false, destructeur: true, _meta: META_DE_LA_VUE_SEULE, entree: z.object({ project: projet, geste: jetonDeLaVue }),
     description: 'Reserved to the Publish button of the vavi view, clicked by the person. Do not call it: only the person puts a site online.',
     geste: (c, a) => v.mettreEnLigneDepuisLaVue(c, a),
   }),
