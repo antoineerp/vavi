@@ -17,7 +17,7 @@ import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 import { lesAbonnementsReels } from '@/app/_partage/les-abonnements-reels';
 
 const ID = /^[0-9a-f-]{36}$/;
-const retour = (id: string, q: Record<string, string>): never => redirect(`/projets/${id}?${new URLSearchParams(q)}`);
+const retour = (id: string, q: Record<string, string>, ecran = ''): never => redirect(`/projets/${id}${ecran ? `/${ecran}` : ''}?${new URLSearchParams(q)}`);
 
 export async function publier(id: string) {
   if (!ID.test(id)) redirect('/projets');
@@ -37,18 +37,18 @@ export async function revenir(id: string, version: number) {
   if (!ID.test(id) || !Number.isInteger(version) || version < 1) redirect('/projets');
   const c = await laConsole(`/projets/${id}`);
   const r = await revenirDepuisLaConsole({ compte: c.compte, projets: c.projets, base: c.base }, id, version);
-  if (!r.revenu) retour(id, { erreur: r.pourquoi });
-  retour(id, r.revenu && r.apercu === 'a_construire' ? { fait: 'revenu', version: String(r.version), construire: 'oui' } : { fait: 'revenu', version: String(r.revenu ? r.version : 0) });
+  if (!r.revenu) retour(id, { erreur: r.pourquoi }, 'versions');
+  retour(id, r.revenu && r.apercu === 'a_construire' ? { fait: 'revenu', version: String(r.version), construire: 'oui' } : { fait: 'revenu', version: String(r.revenu ? r.version : 0) }, 'versions');
 }
 
 export async function poserUnSecret(id: string, formulaire: FormData) {
   if (!ID.test(id)) redirect('/projets');
   const nom = String(formulaire.get('nom') ?? '').trim();
   const valeur = String(formulaire.get('valeur') ?? '');
-  if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(nom) || valeur.length === 0 || valeur.length > 8000) retour(id, { erreur: 'secret_mal_forme' });
+  if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(nom) || valeur.length === 0 || valeur.length > 8000) retour(id, { erreur: 'secret_mal_forme' }, 'secrets');
   const c = await laConsole(`/projets/${id}`);
   const r = await c.projets.poserUnSecret(c.compte, id, nom, scellerUnSecret(id, nom, valeur));
-  retour(id, r.lu ? { fait: 'secret', nom } : { erreur: 'panne' });
+  retour(id, r.lu ? { fait: 'secret', nom } : { erreur: 'panne' }, 'secrets');
 }
 
 /** Les passages d'un élément cliqué dans l'aperçu (`data-texte`), lus dans le fichier d'aujourd'hui. */

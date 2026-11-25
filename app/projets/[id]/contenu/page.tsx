@@ -56,7 +56,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   if (p.lu && !p.valeur) notFound();
   const f = await c.projets.fichiers(c.compte, id);
   const lu = f.lu ? leManifesteStocke(f.valeur.get('app.json')) : null;
-  const haut = <><Link href={`/projets/${id}`}>{m.retour}</Link><div className="entete"><h1>{m.titre}</h1>{p.lu && <span className="attenue">{p.valeur!.nom}</span>}</div></>;
+  const haut = <h1>{m.titre}</h1>;
   if (!p.lu || !f.lu || !lu?.lu) return <main className="console">{haut}<p role="alert">{m.erreurs.panne}</p></main>;
   const d = lu.manifeste.direction;
   const ref = leReferencementStocke(f.valeur.get(CHEMIN_DU_REFERENCEMENT));
