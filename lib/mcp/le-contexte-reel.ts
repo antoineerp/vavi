@@ -16,6 +16,7 @@ import { DOSSIER_DU_GABARIT } from '@/squelette/registre';
 import { lesPaquetsDuGabarit, type Refus } from '@/lib/consignes';
 import { adresseDeLaPlateforme } from './l-adresse';
 import { scellerUnSecret } from './les-jetons';
+import { lesFichiersEnEntier } from './la-vue';
 import { avecUneMemoire, etatSurSupabase, type EtatDeLAcces } from './l-etat-de-l-acces';
 import { configurationPublique } from '@/lib/supabase/configuration';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
@@ -91,8 +92,10 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
           const o = await magasin.magasin.lire(`${racineDuBuild(projet, empreinte)}/index.html`);
           if (o === 'absent') return null;
           const html = poserLEnvironnement(o.octets.toString('utf8'), { supabaseUrl: pub.valeur.url, cleAnonyme: pub.valeur.cleAnonyme, schema, base: '/', projet, console: adresseDeLaPlateforme() });
-          // La base des fichiers : l'aperçu ; la base du routeur : là où la vue tourne (le chemin de son cadre).
-          return html.replace('<base href="/">', `<base href="${adresse.replace(/"/g, '')}">`)
+          // Claude.ai refuse un `<base>` d'une autre origine (base-uri 'self', essai d'Antoine du 25/11) : les fichiers de
+          // la page sont nommés en entier, à l'aperçu ; ceux qu'ils chargent suivent leur propre adresse. Le routeur
+          // monte là où la vue tourne (le chemin de son cadre).
+          return lesFichiersEnEntier(html.replace('<base href="/">', ''), adresse)
             .replace('</script>', 'window.__VAVI_BASENAME__=location.pathname;</script>');
         },
         async messages(projet) { const m = await boiteSurSupabase(base).lister(projet, 100); return m.lu ? m.valeur.length : null; },
@@ -117,3 +120,4 @@ export async function compteDeLaSession(jeton: string): Promise<string | null> {
 let etat: EtatDeLAcces | null = null;
 /** Les codes échangés et les déconnexions de Claude, en base ; la révocation lue au plus toutes les 30 s par compte. */
 export const etatDeLAccesReel = (): EtatDeLAcces => (etat ??= avecUneMemoire(etatSurSupabase(clientDeService())));
+

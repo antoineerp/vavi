@@ -14,7 +14,7 @@ import { appelerUnOutil, lesOutils } from '@/lib/mcp/les-outils';
 import type { Contexte, Rendu } from '@/lib/mcp/les-gestes';
 import { servirLeMcp, type ContexteDuServeur } from '@/lib/mcp/le-serveur';
 import { ecrireUnJetonDeVue, lireUnJetonDeVue } from '@/lib/mcp/les-jetons';
-import { RESSOURCE_DE_LA_VUE, TYPE_DE_LA_VUE, lesCadresPermis } from '@/lib/mcp/la-vue';
+import { RESSOURCE_DE_LA_VUE, TYPE_DE_LA_VUE, lesCadresPermis, lesFichiersEnEntier } from '@/lib/mcp/la-vue';
 import { desProjetsEnMemoire } from '../aides/des-projets-en-memoire';
 import { unMagasinEnMemoire } from '../aides/un-magasin-en-memoire';
 import { unManifeste } from '../aides/un-manifeste';
@@ -70,12 +70,18 @@ describe('la vue dans Claude', () => {
       { result: { contents: { mimeType: string; text: string; _meta: { ui: { csp: { frameDomains: string[]; connectDomains: string[] } } } }[] } };
     const page = r.result.contents[0]!;
     expect(page.mimeType).toBe(TYPE_DE_LA_VUE);
-    expect(page._meta.ui.csp).toMatchObject({ frameDomains: ['https://*.apps.test'], connectDomains: [] });
+    expect(page._meta.ui.csp).toMatchObject({ frameDomains: [], connectDomains: [] });
     const jeton = JSON.parse(/var JETON=("[^"]+")/.exec(page.text)![1]!);
     expect(lireUnJetonDeVue(jeton, MOI)).toBe(true);
     expect(lireUnJetonDeVue(jeton, AUTRE)).toBe(false);
     const liste = await servirLeMcp({ jsonrpc: '2.0', id: 3, method: 'resources/list' }, ctx) as { result: { resources: { uri: string }[] } };
     expect(liste.result.resources.map((x) => x.uri)).not.toContain(RESSOURCE_DE_LA_VUE);
+  });
+
+  it('INCIDENT 25/11 — Claude.ai refuse un <base> d’une autre origine : les fichiers de la page sont nommés en entier', () => {
+    const a = 'https://vavi.test/p/x/';
+    expect(lesFichiersEnEntier('<script type="module" crossorigin src="./assets/i.js"></script><link href="assets/i.css"><link href="/favicon.svg"><a href="https://ailleurs.test/">', a))
+      .toBe('<script type="module" crossorigin src="https://vavi.test/p/x/assets/i.js"></script><link href="https://vavi.test/p/x/assets/i.css"><link href="https://vavi.test/p/x/favicon.svg"><a href="https://ailleurs.test/">');
   });
 
   it('sans domaine des apps, le cadre n’ouvre que la console', () => {
