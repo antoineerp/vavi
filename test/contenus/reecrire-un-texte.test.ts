@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { poserLesTextesSitues, textesDuCode } from '@/squelette/gabarit/src/lib/textes-situes';
 import { lesPassagesDesignes, reecrireLesPassages } from '@/lib/contenus/les-textes';
 import { reecrireUnTexte } from '@/lib/contenus/reecrire';
+import { empreinteDuFichier } from '@/lib/projets/les-empreintes';
 import { derive } from '@/squelette/poser';
 import { desProjetsEnMemoire } from '../aides/des-projets-en-memoire';
 import { unManifeste } from '../aides/un-manifeste';
@@ -75,13 +76,18 @@ describe('le geste de la console', () => {
     const f = await projets.fichiers(MOI, id);
     expect(f.lu && f.valeur.get('src/pages/Accueil.tsx')).toBe(PAGE.replace('Nos thés du monde', 'Nos thés choisis'));
   });
-  it('pendant que Claude travaille, rien ne s’écrit', async () => {
+  // INCIDENT 25/11 (Antoine) : un texte réécrit dans la console était refusé tant que Claude travaillait. Décision : toujours
+  // accepter ; l'empreinte empêche Claude d'écrire par-dessus sans relire.
+  it('pendant que Claude travaille, le texte s’écrit ; Claude, qui avait lu l’ancien fichier, reçoit le conflit', async () => {
     const { projets, id } = await unProjet();
-    await projets.ouvrirChantier(MOI, id, 'refaire le menu', false);
+    const o = await projets.ouvrirChantier(MOI, id, 'refaire le menu', false);
+    const chantier = o.lu && 'chantier' in o.valeur ? o.valeur.chantier : '';
     const r = await reecrireUnTexte({ compte: MOI, projets, construire: async () => ({ vert: true }) }, id, s, ['Nos thés choisis']);
-    expect(r).toEqual({ reecrit: false, pourquoi: 'chantier_ouvert' });
+    expect(r).toMatchObject({ reecrit: true });
+    const a = await projets.appliquer(MOI, id, { chantier, attendus: { 'src/pages/Accueil.tsx': empreinteDuFichier(PAGE) }, ecrits: new Map([['src/pages/Accueil.tsx', PAGE]]), supprimes: [], pourquoi: 'Claude' });
+    expect(a.lu && a.valeur.applique).toBe(false);
     const f = await projets.fichiers(MOI, id);
-    expect(f.lu && f.valeur.get('src/pages/Accueil.tsx')).toBe(PAGE);
+    expect(f.lu && f.valeur.get('src/pages/Accueil.tsx')).toBe(PAGE.replace('Nos thés du monde', 'Nos thés choisis'));
   });
   it('le même texte ne fait pas de version', async () => {
     const { projets, id } = await unProjet();

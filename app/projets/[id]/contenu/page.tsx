@@ -13,7 +13,6 @@ import { magasinS3 } from '@/lib/publication/le-magasin';
 import { racineDuBuild } from '@/lib/publication/publier';
 import { FICHIER_DE_DECOUVERTE, lireLaDecouverte, type PageDecouverte } from '@/lib/seo/la-decouverte';
 import { enregistrerLApparence, enregistrerLeReferencement } from './gestes';
-import { claudeAFini } from '../gestes';
 import { TEXTES } from '@/app/_partage/textes';
 
 export const dynamic = 'force-dynamic';
@@ -68,13 +67,6 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     <main className="console">
       {haut}
       {message && <div className="carte" role={q.erreur ? 'alert' : 'status'}>{message}</div>}
-      {p.valeur!.chantier && (
-        <form action={claudeAFini.bind(null, id, 'contenu')} className="carte" role="status">
-          <p>{m.erreurs.chantier_ouvert}</p>
-          <p className="attenue">{TEXTES[c.langue].claudeAFiniExplication}</p>
-          <button type="submit" className="discret">{TEXTES[c.langue].claudeAFini}</button>
-        </form>
-      )}
 
       <section className="carte">
         <h2>{m.apparence}</h2>

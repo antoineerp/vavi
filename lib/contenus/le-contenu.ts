@@ -1,7 +1,7 @@
 /**
  * GÉRER LE CONTENU DEPUIS LA CONSOLE — l'apparence (couleurs, polices, arrondi : la `direction` d'app.json) et le
  * référencement (titre et description de chaque page : `src/referencement.json`, que l'app lit), changés par la personne
- * elle-même, sans modèle. Exception à la règle 4 élargie par Antoine le 25/11 (« comme pour les textes ») : hors chantier,
+ * elle-même, sans modèle. Exception à la règle 4 élargie par Antoine le 25/11 (« comme pour les textes ») : même pendant le travail de Claude,
  * sur le fichier lu (empreinte attendue, jamais par-dessus un autre), en UNE version, l'aperçu rebâti ; elle publie.
  *
  * Remplace, pour vavi, « Gérer le contenu » du tableau de bord de constructor-v13 (`components/dashboard/EditeurDeContenus.tsx`).
@@ -60,7 +60,6 @@ export function leReferencementStocke(texte: string | undefined): Referencement 
 async function ecrire(d: DependancesDeLaReecriture, id: string, chemin: string, calculer: (avant: string | undefined) => { ok: true; texte: string } | { ok: false; detail: string }, pourquoi: string): Promise<Changement> {
   const p = await d.projets.lire(d.compte, id);
   if (!p.lu || !p.valeur) return { change: false, pourquoi: 'panne' };
-  if (p.valeur.chantier) return { change: false, pourquoi: 'chantier_ouvert' };
   const f = await d.projets.fichiers(d.compte, id);
   if (!f.lu) return { change: false, pourquoi: 'panne' };
   const avant = f.valeur.get(chemin);
