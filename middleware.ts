@@ -2,14 +2,15 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { rafraichirLaSession } from '@/lib/supabase/session';
 import { CORS_DES_APPS, estUneRouteDesApps, laDecision, leDomaineDesApps } from '@/lib/publication/les-adresses-des-apps';
 import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
+import { laCarteDesDomainesReelle } from '@/app/_partage/les-domaines-reels';
 
 /**
  * D'abord l'hôte (`lib/publication/les-adresses-des-apps.ts`) : une app est servie à son hôte à elle, jamais à
  * l'origine de la console ; la session de la console ne se rafraîchit que pour la console.
  */
-export function middleware(requete: NextRequest) {
+export async function middleware(requete: NextRequest) {
   const d = laDecision(requete.headers.get('host'), requete.nextUrl.pathname, requete.nextUrl.search,
-    { console: adresseDeLaPlateforme(), domaine: leDomaineDesApps(process.env) });
+    { console: adresseDeLaPlateforme(), domaine: leDomaineDesApps(process.env), domaines: await laCarteDesDomainesReelle() });
   if (d.faire === 'refuser') return new NextResponse('introuvable', { status: 404 });
   // Les routes des apps : à toute origine, sans la session de la console.
   if (estUneRouteDesApps(requete.nextUrl.pathname)) {

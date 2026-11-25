@@ -13,6 +13,8 @@
  * Neuf dans vavi (vague 0, faille critique 2 de l'audit du 24/11 : les apps servies à l'origine de la console).
  */
 export type Lequel = 'apercu' | 'en_ligne';
+/** Les domaines à soi branchés (`lib/domaines`, carte relue par le serveur) : hôte → projet, projet → hôte. */
+export interface DomainesActifs { readonly parHote: ReadonlyMap<string, string>; readonly parProjet: ReadonlyMap<string, string> }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -71,12 +73,21 @@ export type Decision =
   | { readonly faire: 'rediriger'; readonly adresse: string }
   | { readonly faire: 'refuser' };
 
-export function laDecision(hote: string | null, chemin: string, recherche: string, o: { readonly console: string; readonly domaine: string | null }): Decision {
-  if (!o.domaine) return { faire: 'passer' };
+export function laDecision(hote: string | null, chemin: string, recherche: string, o: { readonly console: string; readonly domaine: string | null; readonly domaines?: DomainesActifs }): Decision {
   const h = (hote ?? '').toLowerCase().split(':')[0]!;
+  // Le domaine à soi d'un site (`lib/domaines`) : tout y est le site en ligne, sauf les routes que l'app appelle.
+  const brancheIci = o.domaines?.parHote.get(h);
+  if (brancheIci && UUID.test(brancheIci)) {
+    if (estUneRouteDesApps(chemin)) return { faire: 'passer' };
+    return { faire: 'reecrire', chemin: `/s/${brancheIci}${chemin === '/' ? '/' : chemin}` };
+  }
+  if (!o.domaine) return { faire: 'passer' };
   const app = lAppDeLHote(h, o.domaine);
   if (app) {
     if (estUneRouteDesApps(chemin)) return { faire: 'passer' };
+    // Un site qui a son domaine branché n'a qu'une adresse : son sous-domaine y renvoie (l'aperçu, jamais).
+    const ailleurs = app.lequel === 'en_ligne' ? o.domaines?.parProjet.get(app.projet) : undefined;
+    if (ailleurs) return { faire: 'rediriger', adresse: `https://${ailleurs}${chemin}${recherche}` };
     return { faire: 'reecrire', chemin: `/${app.lequel === 'apercu' ? 'p' : 's'}/${app.projet}${chemin === '/' ? '/' : chemin}` };
   }
   if (h === o.domaine || h.endsWith(`.${o.domaine}`)) return { faire: 'refuser' };

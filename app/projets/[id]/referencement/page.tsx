@@ -19,6 +19,7 @@ import { lesVisites } from '@/lib/formulaires/sur-supabase';
 import { depuisLaRecherche } from '@/lib/formulaires/l-audience';
 import { lesCoordonneesManquantes, pourEtreTrouve, type EtatDUnPas } from '@/lib/seo/etre-trouve';
 import { adresseDeLApp } from '@/app/_partage/l-adresse-des-apps';
+import { leDomaineDuProjet } from '@/lib/domaines/les-domaines';
 import { reglerGoogle } from '../gestes';
 import { enregistrerLePartage, enregistrerLeReferencement, enregistrerLeSite } from '../contenu/gestes';
 import { leProjet, ERREURS } from '../le-projet';
@@ -144,10 +145,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     .map(([nom, i]) => ({ nom, alt: i.alt, vignette: i.sources[0]![1], partage: i.sources[i.sources.length - 1]![1] }));
   const notes = d ? lesNotes(d, { image: Boolean(ref.image) }) : [];
   const site = laNoteDuSite(notes);
-  const racine = enLigne ? adresseDeLApp(id, 'en_ligne').replace(/\/$/, '') : '';
+  const branche = await leDomaineDuProjet(c.base, id);
+  const domaineActif = branche.lu && Boolean(branche.valeur?.actifLe);
+  const racine = !enLigne ? '' : domaineActif && branche.lu ? `https://${branche.valeur!.hote}` : adresseDeLApp(id, 'en_ligne').replace(/\/$/, '');
   const pagesPubliques = (d?.pages ?? []).map((x) => x.adresse);
   const pas = pourEtreTrouve({
-    publie: enLigne && d !== null, adresse: racine, domaineActif: false, jetonGoogle: reglages.lu && Boolean(reglages.valeur.verificationGoogle),
+    publie: enLigne && d !== null, adresse: racine, domaineActif, jetonGoogle: reglages.lu && Boolean(reglages.valeur.verificationGoogle),
     pages: pagesPubliques, pagesDecrites: pagesPubliques.filter((a) => Boolean(ref.pages[a]?.description)), imageDePartage: Boolean(ref.image),
     coordonneesManquantes: lesCoordonneesManquantes(editeur), adressePostale: Boolean(editeur.adresse), assistantsAutorises: ref.ia?.assistants !== false,
   });

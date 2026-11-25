@@ -17,6 +17,7 @@ import { leBuildDesigne } from '@/lib/projets/les-projets';
 import { CHEMIN_DE_LA_PREUVE, DUREE_DE_LA_PREUVE_S, emettreLaPreuve, nomDeLaPreuve } from '@/lib/formulaires/le-jugement';
 import { secretDeLaPreuve } from './les-formulaires-reels';
 import { leSiteDuProprietaireEstServi } from './les-abonnements-reels';
+import { laCarteDesDomainesReelle } from './les-domaines-reels';
 
 const leCookie = (requete: Request): string | null =>
   (requete.headers.get('cookie') ?? '').split(';').map((x) => x.trim()).find((x) => x.startsWith(`${COOKIE_DU_BROUILLON}=`))?.slice(COOKIE_DU_BROUILLON.length + 1) ?? null;
@@ -47,7 +48,9 @@ export async function servirUnProjet(requete: Request, brut: string, chemin: rea
   // À son hôte (vague 0), l'app est servie à la racine ; sans domaine des apps, sous `/p/` ou `/s/` de la console.
   const hote = requete.headers.get('host');
   const ici = lAppDeLHote(hote, leDomaineDesApps(process.env));
-  const asonHote = ici?.projet === id && ici.lequel === lequel;
+  // Ou à son domaine à soi, branché (`lib/domaines`) : le site en ligne seul.
+  const sonDomaine = lequel === 'en_ligne' && (await laCarteDesDomainesReelle()).parHote.get((hote ?? '').toLowerCase().split(':')[0]!) === id;
+  const asonHote = (ici?.projet === id && ici.lequel === lequel) || sonDomaine;
   const base = asonHote ? '/' : `/${lequel === 'apercu' ? 'p' : 's'}/${id}/`;
   const racinePublique = asonHote ? `https://${hote!.toLowerCase().split(':')[0]}` : `${adresseDeLaPlateforme()}${base.replace(/\/$/, '')}`;
   const choix = lequel === 'apercu'
