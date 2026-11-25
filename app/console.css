@@ -18,7 +18,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .liste li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid var(--bord); flex-wrap: wrap; }
 .liste li:last-child { border-bottom: 0; }
 .etat { display: inline-block; font-size: 0.85rem; padding: 0.15rem 0.55rem; border-radius: 999px; border: 1px solid var(--bord); color: var(--attenue); }
-.etat.vert { border-color: var(--accent); color: var(--accent); }
+.etat.vert { border-color: var(--vert); color: var(--vert); background: var(--vert-doux); }
 .etat.rouge { border-color: var(--alerte); color: var(--alerte); }
 .ligne { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
 a { color: var(--accent); }
@@ -67,3 +67,35 @@ select, textarea { padding: 0.5rem 0.6rem; border: 1px solid var(--bord); border
 .graphique-jour { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 0.25rem; min-width: 0; }
 .graphique-barre { width: 100%; background: var(--accent); border-radius: 4px 4px 0 0; }
 .graphique-nombre, .graphique-nom { font-size: 0.8rem; color: var(--attenue); }
+/* Mes projets (Antoine, 25/11 : « un design plus abouti, le logo de vavi ») */
+.barre { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem; background: var(--surface); border-bottom: 1px solid var(--bord); position: sticky; top: 0; z-index: 10; }
+.marque { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 800; font-size: 1.35rem; color: var(--texte); text-decoration: none; letter-spacing: -0.01em; }
+.barre-droite { margin-left: auto; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.barre-droite a { color: var(--texte); text-decoration: none; font-weight: 500; }
+.barre-droite a:hover { color: var(--accent); }
+button.petit, .bouton.petit { padding: 0.4rem 0.9rem; font-size: 0.95rem; }
+.console.large { max-width: 1120px; padding-top: 2.5rem; }
+.tete-de-page { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.tete-de-page h1 { font-size: 2rem; margin: 0; letter-spacing: -0.02em; }
+.tete-de-page p { margin: 0.25rem 0 0; }
+.grille-projets { list-style: none; padding: 0; margin: 0 0 1.5rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+.carte-projet { background: var(--surface); border: 1px solid var(--bord); border-radius: 16px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.9rem; transition: box-shadow 0.15s, transform 0.15s; }
+.carte-projet:hover { box-shadow: 0 8px 24px rgba(16, 35, 63, 0.1); transform: translateY(-1px); }
+.carte-projet-lien { display: flex; gap: 0.85rem; align-items: center; color: var(--texte); text-decoration: none; }
+.carte-projet-titre { display: flex; flex-direction: column; min-width: 0; }
+.carte-projet-titre strong { font-size: 1.1rem; overflow-wrap: anywhere; }
+.carte-projet-titre .attenue { font-size: 0.9rem; }
+.initiale { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; font-size: 1.2rem; background: var(--accent-doux); color: var(--accent); }
+.carte-projet-actions { margin-top: auto; }
+.carte-projet-actions .bouton { padding: 0.45rem 1rem; font-size: 0.95rem; }
+.etat.ambre { border-color: #d97706; color: #b45309; }
+.etat.bleu { border-color: var(--accent); color: var(--accent); background: var(--accent-doux); display: inline-flex; align-items: center; gap: 0.4rem; }
+.etat .point { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .etat .point { animation: none; } .carte-projet, .carte-projet:hover { transition: none; transform: none; } }
+.carte.vide { text-align: center; padding: 2.5rem 1.5rem; }
+.bloc-claude { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.bloc-claude h2 { margin: 0 0 0.25rem; font-size: 1.05rem; }
+.bloc-claude p { margin: 0; max-width: 60ch; }
+button.danger { color: var(--alerte); border-color: color-mix(in oklab, var(--alerte) 45%, transparent); }
+@media (max-width: 640px) { .barre { padding: 0.6rem 1rem; } .barre-courriel { display: none; } .barre-droite { flex-wrap: nowrap; gap: 0.6rem; font-size: 0.9rem; } .barre-droite button.petit { padding: 0.35rem 0.7rem; font-size: 0.85rem; } .tete-de-page h1 { font-size: 1.6rem; } }
