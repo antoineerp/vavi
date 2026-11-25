@@ -2,7 +2,10 @@
  * LE SQL DES MEMBRES DE LA CONSOLE — le propriétaire d'un projet lit qui a quel rôle dans son app (`membres`) et qui est
  * invité (`membres_invitations`). Ces tables ne sont ouvertes à personne d'autre que la base : une fonction SECURITY
  * DEFINER, réservée à `service_role`, les lit pour la plateforme, qui a d'abord vérifié que le projet est au compte et
- * DÉRIVÉ le schéma du projet. Lecture seule : un rôle se donne dans l'app (invitation, inscription, paiement).
+ * DÉRIVÉ le schéma du projet. Un rôle se donne dans l'app (invitation, inscription, paiement) ; le propriétaire peut aussi
+ * en DONNER un ou en RETIRER un à un compte né dans SON app, depuis l'écran Utilisateurs (Antoine, 25/11 : son propre compte
+ * d'app restait « sans rôle » quand il s'était inscrit sans valider l'adresse, ou sous une autre adresse). Le rôle est vérifié
+ * contre app.json par la plateforme ; la base vérifie le schéma, la forme du rôle et que le compte est de cette app.
  *
  * Remplace, pour vavi, `?comptes=1` de `donnees-de-l-app` (constructor-v13@32d18f3, `ComptesDeLAppNeuve`).
  */
@@ -28,6 +31,24 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.vavi_console_les_membres(TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.vavi_console_les_membres(TEXT) TO service_role;
+-- Donner (p_donner) ou retirer un rôle à un compte de CETTE app. L'organisation suit le déclencheur de membres.
+CREATE OR REPLACE FUNCTION public.vavi_console_changer_un_role(p_schema TEXT, p_compte UUID, p_role TEXT, p_donner BOOLEAN)
+RETURNS BOOLEAN LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  IF p_schema IS NULL OR p_schema !~ '^app_[a-z0-9_]{1,59}$' THEN RAISE EXCEPTION 'membres : schéma refusé' USING ERRCODE = '22023'; END IF;
+  IF p_role IS NULL OR p_role !~ '^[a-z][a-z0-9_]{0,40}$' THEN RAISE EXCEPTION 'membres : rôle refusé' USING ERRCODE = '22023'; END IF;
+  IF to_regclass(format('%I.membres', p_schema)) IS NULL THEN RETURN false; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.vavi_comptes_d_app c WHERE c.id = p_compte AND c.schema_de_l_app = p_schema) THEN RETURN false; END IF;
+  IF p_donner THEN
+    EXECUTE format('INSERT INTO %I.membres (compte_id, email, role, organisation_id) VALUES ($1, $2, $3, NULL) ON CONFLICT DO NOTHING', p_schema)
+      USING p_compte, public.vavi_courriel_du_compte(p_compte), p_role;
+  ELSE
+    EXECUTE format('DELETE FROM %I.membres WHERE compte_id = $1 AND role = $2', p_schema) USING p_compte, p_role;
+  END IF;
+  RETURN true;
+END $$;
+REVOKE ALL ON FUNCTION public.vavi_console_changer_un_role(TEXT, UUID, TEXT, BOOLEAN) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.vavi_console_changer_un_role(TEXT, UUID, TEXT, BOOLEAN) TO service_role;
 NOTIFY pgrst, 'reload schema';
 `;
 

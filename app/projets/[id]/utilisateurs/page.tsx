@@ -6,7 +6,7 @@ import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 import { lesComptesAvecLeursRoles, lesComptesSurSupabase } from '@/lib/donnees/les-comptes-de-l-app';
 import { leProjet, ERREURS } from '../le-projet';
-import { deconnecter } from './gestes';
+import { changerLeRole, deconnecter } from './gestes';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +19,8 @@ const MOTS = {
     rolesNonLus: 'Les rôles s’afficheront après la prochaine mise à jour de la base de vavi.',
     invitations: 'Invitations en attente', invite: 'invité le', sansRoles: 'Cette app ne déclare pas de rôles : chaque compte voit ses propres données.',
     fait: 'Compte déconnecté : il devra se reconnecter sur tous ses appareils.',
+    donner: 'Donner', retirer: 'Retirer ce rôle', choisirRole: 'Rôle à donner', roleDonne: 'Rôle donné : il s’applique à la prochaine ouverture de l’app par ce compte.', roleRetire: 'Rôle retiré.',
+    erreurs: { role_inconnu: 'Ce rôle n’est pas déclaré par l’app.', compte_inconnu: 'Ce compte n’est pas un compte de cette app.', roles_non_poses: 'Les rôles ne se changent pas encore : la mise à jour de la base de vavi (migration des membres) n’est pas posée.' } as Record<string, string>,
   },
   en: {
     titre: 'Users', intro: 'Your app’s accounts: they sign up from the app, and each app has its own (an account of one app opens no other app). Roles are given in the app: at sign-up, by an invitation from its Team screen, or by a payment.',
@@ -28,6 +30,8 @@ const MOTS = {
     rolesNonLus: 'Roles will show after vavi’s next database update.',
     invitations: 'Pending invitations', invite: 'invited', sansRoles: 'This app declares no roles: each account sees its own data.',
     fait: 'Account signed out: it will have to sign in again on all its devices.',
+    donner: 'Give', retirer: 'Remove this role', choisirRole: 'Role to give', roleDonne: 'Role given: it applies the next time this account opens the app.', roleRetire: 'Role removed.',
+    erreurs: { role_inconnu: 'This role is not declared by the app.', compte_inconnu: 'This account is not an account of this app.', roles_non_poses: 'Roles cannot be changed yet: vavi’s database update (members migration) is not applied.' } as Record<string, string>,
   },
 };
 
@@ -42,7 +46,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const declares = manifeste?.lu ? manifeste.manifeste.roles : [];
   const libelles = Object.fromEntries(declares.map((r) => [r.nom, r.libelle]));
   const comptes = lus.lu ? lesComptesAvecLeursRoles(lus.valeur.comptes, lus.valeur.membres, lus.valeur.connectes, libelles) : [];
-  const message = q.fait === 'deconnecte' ? m.fait : q.erreur ? `${t.erreur} ${ERREURS[q.erreur]?.[c.langue] ?? q.erreur}` : null;
+  const message = q.fait === 'deconnecte' ? m.fait : q.fait === 'role_donne' ? m.roleDonne : q.fait === 'role_retire' ? m.roleRetire
+    : q.erreur ? `${t.erreur} ${m.erreurs[q.erreur] ?? ERREURS[q.erreur]?.[c.langue] ?? q.erreur}` : null;
   const rolesLus = lus.lu && lus.valeur.membres !== null;
   return (
     <main className="console">
@@ -65,8 +70,25 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                 <tbody>{comptes.map((x) => (
                   <tr key={x.id}>
                     <td>{x.email}</td>
-                    {declares.length > 0 && <td>{!rolesLus ? '—' : x.roles.length === 0 ? <span className="attenue">{m.aucunRole}</span>
-                      : x.roles.map((r) => <span key={r.role} className="etat" style={{ marginRight: 4 }}>{r.libelle}{r.expireLe ? ` (${m.jusquA} ${date(r.expireLe)})` : ''}</span>)}</td>}
+                    {declares.length > 0 && <td>{!rolesLus ? '—' : (
+                      <div className="ligne" style={{ gap: '0.35rem' }}>
+                        {x.roles.length === 0 && <span className="attenue">{m.aucunRole}</span>}
+                        {x.roles.map((r) => (
+                          <form key={r.role} action={changerLeRole.bind(null, id, x.id, false, r.role)} className="etat" style={{ gap: '0.3rem' }}>
+                            {r.libelle}{r.expireLe ? ` (${m.jusquA} ${date(r.expireLe)})` : ''}
+                            <button type="submit" className="discret" aria-label={`${m.retirer} : ${r.libelle}`} title={m.retirer} style={{ padding: '0 0.3rem', fontSize: '0.8rem', lineHeight: 1.2 }}>×</button>
+                          </form>
+                        ))}
+                        {declares.some((d) => !x.roles.some((r) => r.role === d.nom)) && (
+                          <form action={changerLeRole.bind(null, id, x.id, true, null)} className="ligne" style={{ gap: '0.3rem', flexWrap: 'nowrap' }}>
+                            <select name="role" aria-label={m.choisirRole} style={{ padding: '0.25rem 0.4rem', fontSize: '0.85rem' }}>
+                              {declares.filter((d) => !x.roles.some((r) => r.role === d.nom)).map((d) => <option key={d.nom} value={d.nom}>{d.libelle}</option>)}
+                            </select>
+                            <button type="submit" className="petit">{m.donner}</button>
+                          </form>
+                        )}
+                      </div>
+                    )}</td>}
                     <td><span className={`etat${x.confirme ? ' vert' : ' ambre'}`}>{x.confirme ? m.confirme : m.nonConfirme}</span>{x.connecte && <> <span className="etat bleu">{m.connecte}</span></>}</td>
                     <td className="attenue">{date(x.creeLe)}</td>
                     <td>{x.connecte && <form action={deconnecter.bind(null, id, x.id)}><button type="submit" className="petit discret">{m.deconnecter}</button></form>}</td>
