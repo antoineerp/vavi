@@ -4,11 +4,15 @@
  * elle-même, sans modèle. Exception à la règle 4 élargie par Antoine le 25/11 (« comme pour les textes ») : même pendant le travail de Claude,
  * sur le fichier lu (empreinte attendue, jamais par-dessus un autre), en UNE version, l'aperçu rebâti ; elle publie.
  *
+ * Les photos (`src/images.json`) : la personne remplace une photo posée par une autre de la banque, qu'elle choisit (Antoine,
+ * 25/11 : « Textes et images » comme le /manage de constructor) ; le nom reste celui que les pages montrent.
+ *
  * Remplace, pour vavi, « Gérer le contenu » du tableau de bord de constructor-v13 (`components/dashboard/EditeurDeContenus.tsx`).
  * Les couleurs choisies par la personne sont les siennes : `couleursDemandees` (la règle du violet vise le choix de Claude).
  */
 import { lireLeManifeste } from '@/lib/backend/app/manifeste';
 import { empreinteDuFichier } from '@/lib/projets/les-empreintes';
+import { CHEMIN_DES_IMAGES, lireLesImages, poser, type ImageTrouvee } from '@/lib/images/la-banque';
 import type { DependancesDeLaReecriture } from './reecrire';
 
 export const CHEMIN_DU_REFERENCEMENT = 'src/referencement.json';
@@ -78,3 +82,15 @@ export const changerLApparence = (d: DependancesDeLaReecriture, id: string, a: A
 
 export const changerLeReferencement = (d: DependancesDeLaReecriture, id: string, pages: Referencement['pages']): Promise<Changement> =>
   ecrire(d, id, CHEMIN_DU_REFERENCEMENT, (avant) => leReferencementRelu(pages, leReferencementStocke(avant).image), 'référencement changé dans la console');
+
+/** PURE — `src/images.json` où la photo `nom`, déjà posée, devient `trouvee` ; sa description est celle que la personne relit. */
+export function avecUneImage(avant: string | undefined, nom: string, trouvee: ImageTrouvee, alt: string): { readonly ok: true; readonly texte: string } | { readonly ok: false; readonly detail: string } {
+  const posees = lireLesImages(avant);
+  const texte = alt.trim().slice(0, 300) || posees[nom]?.alt || '';
+  if (!posees[nom]) return { ok: false, detail: `la photo ${nom} n’est pas dans l’app` };
+  if (!texte) return { ok: false, detail: 'la photo a besoin d’une description' };
+  return { ok: true, texte: `${JSON.stringify({ ...posees, [nom]: poser(trouvee, texte) }, null, 2)}\n` };
+}
+
+export const changerUneImage = (d: DependancesDeLaReecriture, id: string, nom: string, trouvee: ImageTrouvee, alt: string): Promise<Changement> =>
+  ecrire(d, id, CHEMIN_DES_IMAGES, (avant) => avecUneImage(avant, nom, trouvee, alt), `photo ${nom} changée dans la console`);

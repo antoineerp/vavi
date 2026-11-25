@@ -1,6 +1,6 @@
 /** « Gérer le contenu » : l'apparence et le référencement changés par la personne, relus avant d'être écrits. */
 import { describe, expect, it } from 'vitest';
-import { avecLApparence, changerLeReferencement, leReferencementRelu, leReferencementStocke, CHEMIN_DU_REFERENCEMENT } from '@/lib/contenus/le-contenu';
+import { avecLApparence, avecUneImage, changerUneImage, changerLeReferencement, leReferencementRelu, leReferencementStocke, CHEMIN_DU_REFERENCEMENT } from '@/lib/contenus/le-contenu';
 import { desProjetsEnMemoire } from '../aides/des-projets-en-memoire';
 import { lArbreDUnProjet } from '@/lib/projets/l-arbre-d-un-projet';
 import { NOTES } from '../donnees/une-app';
@@ -42,5 +42,23 @@ describe('gérer le contenu', () => {
     const r = await changerLeReferencement({ compte: MOI, projets, construire: async () => ({ vert: true }) }, id, { '/': { titre: 'Thés rares' } });
     expect(r.change).toBe(true);
     expect(leReferencementStocke(projets.etats.get(id)!.fichiers.get(CHEMIN_DU_REFERENCEMENT))).toEqual({ pages: { '/': { titre: 'Thés rares' } }, image: '/partage.jpg' });
+  });
+  it('remplace une photo posée par celle que la personne choisit, garde les autres, et refuse un nom que l’app ne montre pas', async () => {
+    const trouvee = { source: 'https://images.unsplash.com/photo-2', largeur: 2000, hauteur: 1300, decrit: 'sailboat', auteur: 'A', profil: 'p', banque: 'Unsplash', lienBanque: 'l' };
+    const avant = `${JSON.stringify({ hero: { alt: 'Un voilier', largeur: 1, hauteur: 1, sources: [[640, 'https://images.unsplash.com/photo-1?w=640']], auteur: 'B', profil: '', banque: 'Unsplash', lienBanque: '' }, autre: { alt: 'x' } })}`;
+    const r = avecUneImage(avant, 'hero', trouvee, '');
+    const j = JSON.parse(r.ok ? r.texte : '{}');
+    expect(j.hero.alt).toBe('Un voilier');
+    expect(j.hero.sources[0][1]).toContain('photo-2');
+    expect(j.autre).toEqual({ alt: 'x' });
+    expect(avecUneImage(avant, 'inconnue', trouvee, 'y').ok).toBe(false);
+    const projets = desProjetsEnMemoire();
+    const MOI = 'aaaaaaaa-0000-4000-8000-00000000000a';
+    const p = await projets.creer(MOI, 'Voile', APP_JSON);
+    const id = p.lu ? p.valeur.id : '';
+    projets.etats.get(id)!.fichiers.set('src/images.json', avant);
+    const c = await changerUneImage({ compte: MOI, projets, construire: async () => ({ vert: true }) }, id, 'hero', trouvee, 'Un voilier au large');
+    expect(c).toMatchObject({ change: true, apercu: 'a_jour' });
+    expect(JSON.parse(projets.etats.get(id)!.fichiers.get('src/images.json')!).hero.alt).toBe('Un voilier au large');
   });
 });

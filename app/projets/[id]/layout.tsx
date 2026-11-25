@@ -36,7 +36,7 @@ export default async function MiseEnPage({ children, params }: { children: React
         <span className="projet-haut-droite">
           {projet?.apercuEmpreinte && <a className="bouton discret" href={adresseDeLApp(id, 'apercu')} target="_blank" rel="noreferrer">{t.voirLApercu}</a>}
           {projet?.enLigneEmpreinte && <a className="bouton discret" href={adresseDeLApp(id, 'en_ligne')} target="_blank" rel="noreferrer">{t.voirLeSite}</a>}
-          <Link className="bouton pastille" href={`/projets/${id}/contenu`}>{c.langue === 'fr' ? 'Gérer le contenu' : 'Manage content'}</Link>
+          <Link className="bouton pastille" href={`/projets/${id}/gerer`}>{c.langue === 'fr' ? 'Gérer le contenu' : 'Manage content'}</Link>
         </span>
       </header>
       <div className="projet-corps">
