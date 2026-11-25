@@ -14,4 +14,9 @@ describe('le menu', () => {
   it('sans l’accueil, où mène la marque (Antoine, 25/11)', () => {
     expect(unMenuSeulementSIlChoisit([{ vers: '/' }, { vers: '/contact' }])).toEqual([{ vers: '/contact' }]);
   });
+  it('un écran de travail à « / » reste au menu (INCIDENT 25/11, Cap Équipage : les séjours avaient disparu)', () => {
+    const travail = [{ vers: '/', surface: 'travail' as const }, { vers: '/documents', surface: 'travail' as const }];
+    expect(unMenuSeulementSIlChoisit(travail)).toEqual(travail);
+    expect(unMenuSeulementSIlChoisit([{ vers: '/', surface: 'public' as const }, { vers: '/contact', surface: 'public' as const }])).toEqual([{ vers: '/contact', surface: 'public' }]);
+  });
 });

@@ -44,6 +44,29 @@ export const lesCadresPermis = (console: string, domaine: string | null): string
 export const lesFichiersEnEntier = (html: string, adresse: string): string =>
   html.replace(/\b(src|href)="(?!https?:|data:|#|\/\/)(?:\.\/|\/)?([^"]*)"/g, (_t, attribut: string, chemin: string) => `${attribut}="${adresse}${chemin}"`);
 
+/**
+ * Le script et les feuilles de style de la page, mis DANS la page (`<script type="module">`, `<style>`), lus par `lire`
+ * (le chemin sous `adresse`) ; un fichier illisible garde son adresse. Le cadre de Claude.ai ne charge un fichier que
+ * des domaines que la vue déclarait quand l'hôte l'a lue, et il la garde : une adresse de la console changée depuis
+ * (INCIDENT 25/11, `vavi-essai.fly.dev` → `www.vavi.dev`) laissait l'aperçu blanc, script et style « bloqués ».
+ * Ce qu'il remplace : le script et le style chargés depuis l'aperçu. `</script` et `</style` sont neutralisés.
+ */
+export async function lesFichiersDansLaPage(html: string, adresse: string, lire: (chemin: string) => Promise<string | null>): Promise<string> {
+  const echappe = adresse.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const scripts = [...html.matchAll(new RegExp(`<script\\b[^>]*\\bsrc="${echappe}([^"]+\\.js)"[^>]*>\\s*</script>`, 'g'))];
+  const styles = [...html.matchAll(new RegExp(`<link\\b[^>]*\\brel="stylesheet"[^>]*\\bhref="${echappe}([^"]+\\.css)"[^>]*>|<link\\b[^>]*\\bhref="${echappe}([^"]+\\.css)"[^>]*\\brel="stylesheet"[^>]*>`, 'g'))];
+  let page = html;
+  for (const m of scripts) {
+    const js = await lire(m[1]!).catch(() => null);
+    if (js !== null) page = page.replace(m[0], () => `<script type="module">${js.replace(/<\/script/gi, '<\\/script')}</script>`);
+  }
+  for (const m of styles) {
+    const css = await lire((m[1] ?? m[2])!).catch(() => null);
+    if (css !== null) page = page.replace(m[0], () => `<style>${css.replace(/<\/style/gi, '<\\/style')}</style>`);
+  }
+  return page;
+}
+
 function laPage(jeton: string): string {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
