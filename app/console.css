@@ -1,5 +1,5 @@
-:root { --fond: #eaf3fc; --surface: #f6faff; --menu: #dcebfa; --texte: #10233f; --attenue: #4a5d78; --bord: #cfe0f3; --accent: #1d4ed8; --accent-texte: #ffffff; --accent-doux: #dbe6fb; --vert: #0f7a55; --vert-doux: #dff4ea; --alerte: #b42318; }
-@media (prefers-color-scheme: dark) { :root { --fond: #0d1726; --surface: #14233a; --menu: #101d31; --texte: #eef4fc; --attenue: #a9bbd3; --bord: #24395a; --accent: #7aa2ff; --accent-texte: #0b1220; --accent-doux: #1b2d4d; --vert: #6fd3a8; --vert-doux: #133528; --alerte: #f97066; } }
+:root { color-scheme: dark; --fond: #070b14; --surface: #0e1524; --surface-haute: #131c2f; --menu: #0a101d; --texte: #e6edf7; --attenue: #8a9ab4; --bord: #1d2940; --bord-fort: #2a3a57; --accent: #22d3ee; --accent-texte: #03141a; --accent-doux: rgba(34, 211, 238, 0.12); --vert: #34d399; --vert-doux: rgba(52, 211, 153, 0.12); --ambre: #fbbf24; --ambre-doux: rgba(251, 191, 36, 0.12); --alerte: #f87171; --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas, monospace; }
+/* Le thème de pilotage (Antoine, 25/11 : « quelque chose de plus tech, des écrans de pilotage modernes ») : sombre, chiffres en chasse fixe, états lumineux. */
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--fond); color: var(--texte); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; line-height: 1.5; }
 .console { max-width: 960px; margin: 0 auto; padding: 2rem 1rem 4rem; }
@@ -119,3 +119,88 @@ button.danger { color: var(--alerte); border-color: color-mix(in oklab, var(--al
 .tableau-simple { width: 100%; border-collapse: collapse; }
 .tableau-simple th, .tableau-simple td { text-align: left; padding: 0.55rem 0.5rem; border-bottom: 1px solid var(--bord); font-size: 0.95rem; }
 .tableau-simple th { color: var(--attenue); font-weight: 600; font-size: 0.85rem; }
+/* ─── Pilotage ─────────────────────────────────────────────────────────────────────────────────────────────────── */
+body { background-color: var(--fond); background-image: linear-gradient(rgba(138, 154, 180, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(138, 154, 180, 0.045) 1px, transparent 1px); background-size: 32px 32px; background-attachment: fixed; font-variant-numeric: tabular-nums; }
+::selection { background: var(--accent); color: var(--accent-texte); }
+.barre, .projet-haut { background: rgba(10, 16, 29, 0.82); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom-color: var(--bord); }
+.barre { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+.marque { font-size: 1.2rem; }
+.barre-menu a { font-size: 0.9rem; font-weight: 600; border-radius: 8px; }
+.barre-menu a.actif { color: var(--accent); background: var(--accent-doux); box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.35); }
+.barre-courriel { font-family: var(--mono); font-size: 0.8rem; }
+.carte, .carte-projet, .chiffre-du-compte, .carte-offre { background: var(--surface); border-color: var(--bord); border-radius: 12px; }
+.carte-projet:hover { box-shadow: 0 0 0 1px var(--bord-fort), 0 12px 32px rgba(0, 0, 0, 0.35); }
+input, select, textarea { background: var(--menu); border-color: var(--bord-fort); color: var(--texte); }
+input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button, .bouton { border-radius: 8px; font-size: 0.95rem; }
+button:not(.discret):not(:disabled):hover, .bouton:not(.discret):not(.pastille):hover { box-shadow: 0 0 0 3px var(--accent-doux); }
+button.discret:hover, .bouton.discret:hover { border-color: var(--bord-fort); background: var(--surface-haute); }
+.bouton.pastille { background: var(--vert-doux); color: var(--vert); border-color: rgba(52, 211, 153, 0.4); }
+.tete-de-page h1, .console h1 { letter-spacing: -0.02em; }
+.surtitre { font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin: 0 0 0.35rem; }
+.console h2 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--attenue); font-weight: 700; }
+.carte h2 { color: var(--texte); }
+/* Les états : un point lumineux et un mot, jamais la couleur seule. */
+.etat { font-size: 0.78rem; font-weight: 600; border-radius: 6px; padding: 0.15rem 0.5rem; display: inline-flex; align-items: center; gap: 0.4rem; background: var(--surface-haute); border-color: var(--bord-fort); }
+.etat::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.6; }
+.etat.vert { color: var(--vert); border-color: rgba(52, 211, 153, 0.35); background: var(--vert-doux); }
+.etat.vert::before { opacity: 1; box-shadow: 0 0 8px currentColor; }
+.etat.ambre { color: var(--ambre); border-color: rgba(251, 191, 36, 0.35); background: var(--ambre-doux); }
+.etat.ambre::before { opacity: 1; }
+.etat.bleu { color: var(--accent); border-color: rgba(34, 211, 238, 0.35); background: var(--accent-doux); }
+.etat.bleu::before, .etat.rouge::before { display: none; }
+.etat.rouge { color: var(--alerte); background: rgba(248, 113, 113, 0.1); }
+/* Les indicateurs : un libellé, un chiffre en chasse fixe, une ligne qui le situe. */
+.indicateurs { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; margin: 0 0 1.5rem; }
+.indicateur, .chiffre-du-compte, .chiffres .carte { position: relative; overflow: hidden; background: var(--surface); border: 1px solid var(--bord); border-radius: 12px; padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; margin: 0; }
+.indicateur::before, .chiffre-du-compte::before, .chiffres .carte::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--accent); opacity: 0.7; }
+.indicateur > .attenue:first-child, .chiffre-du-compte > .attenue:first-child, .chiffres .carte > .attenue:first-child { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.indicateur strong, .chiffre-du-compte strong, .chiffres .carte strong { font-family: var(--mono); font-size: 1.75rem; font-weight: 600; letter-spacing: -0.03em; line-height: 1.15; }
+.indicateur small, .chiffre-du-compte span:not(:first-child):not(.etat) { font-size: 0.8rem; color: var(--attenue); }
+.indicateur .courbe { margin-top: 0.25rem; }
+.jauge { height: 6px; border-radius: 3px; background: var(--surface-haute); overflow: hidden; margin-top: 0.35rem; }
+.jauge > span { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+.jauge.pleine > span { background: var(--ambre); }
+/* La courbe d'une ligne. */
+.courbe { display: block; overflow: visible; }
+.courbe-ligne { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.courbe-aire { fill: var(--accent-doux); }
+.courbe-point { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+/* Le tableau de pilotage des projets : une ligne par projet, qui devient une carte sur un téléphone. */
+.pilotage { background: var(--surface); border: 1px solid var(--bord); border-radius: 12px; overflow: hidden; margin: 0 0 1.5rem; }
+.pilotage-tete, .pilotage-ligne { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.7fr) minmax(0, 0.5fr) 140px minmax(0, 0.9fr) 210px; gap: 1rem; align-items: center; padding: 0.8rem 1.1rem; }
+.pilotage-tete { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--attenue); background: var(--menu); border-bottom: 1px solid var(--bord); }
+.pilotage-ligne { border-bottom: 1px solid var(--bord); transition: background 0.12s; }
+.pilotage-ligne:last-child { border-bottom: 0; }
+.pilotage-ligne:hover { background: var(--surface-haute); }
+.pilotage-ligne .carte-projet-lien { min-width: 0; }
+.pilotage-ligne .initiale { width: 36px; height: 36px; border-radius: 9px; font-size: 1rem; background: var(--accent-doux); color: var(--accent); box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.3); }
+.pilotage-ligne .carte-projet-titre strong { font-size: 1rem; }
+.pilotage-etats { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+.mono { font-family: var(--mono); font-size: 0.9rem; }
+.pilotage-actions { display: flex; gap: 0.4rem; justify-content: flex-end; }
+.pilotage-actions .bouton { padding: 0.35rem 0.75rem; font-size: 0.85rem; }
+.pilotage-libelle { display: none; }
+@media (max-width: 900px) {
+  .pilotage-tete { display: none; }
+  .pilotage-ligne { grid-template-columns: 1fr 1fr; gap: 0.6rem 1rem; }
+  .pilotage-ligne > :first-child, .pilotage-etats, .pilotage-actions { grid-column: 1 / -1; }
+  .pilotage-actions { justify-content: flex-start; }
+  .pilotage-libelle { display: block; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--attenue); }
+}
+/* Le projet : menu latéral et graphique dans le même thème. */
+.projet-menu { background: rgba(10, 16, 29, 0.7); }
+.projet-menu-titre { font-family: var(--mono); font-size: 0.68rem; color: var(--attenue); font-weight: 700; letter-spacing: 0.12em; }
+.projet-menu a { border-radius: 8px; border-left: 2px solid transparent; }
+.projet-menu a:hover { background: var(--surface-haute); }
+.projet-menu a.actif { background: var(--accent-doux); color: var(--accent); box-shadow: none; border-left-color: var(--accent); border-radius: 0 8px 8px 0; }
+.projet-nom { font-size: 1.05rem; }
+.graphique { gap: 6px; border-bottom: 1px solid var(--bord-fort); padding-bottom: 0; margin-bottom: 0.5rem; }
+.graphique-barre { background: linear-gradient(to top, rgba(34, 211, 238, 0.55), var(--accent)); border-radius: 4px 4px 0 0; }
+.graphique-nombre, .graphique-nom { font-family: var(--mono); font-size: 0.72rem; }
+.tableau th, .tableau-simple th { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.tableau td, .tableau-simple td { border-bottom-color: var(--bord); }
+.tableau tbody tr:hover, .tableau-simple tbody tr:hover { background: var(--surface-haute); }
+.carte-offre.choisie { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 24px rgba(34, 211, 238, 0.12); }
+.carte-offre .prix { font-family: var(--mono); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .pilotage-ligne { transition: none; } }

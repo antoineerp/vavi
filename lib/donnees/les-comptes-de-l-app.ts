@@ -1,7 +1,8 @@
 /**
  * LES COMPTES DE L'APP DANS LA CONSOLE — qui s'est inscrit dans l'app du projet (comptes tenus par vavi, un par app,
  * décision d'Antoine du 25/11), son courriel confirmé ou non, ses rôles (`membres`), s'il est connecté en ce moment ; et
- * qui est invité. Le propriétaire peut DÉCONNECTER un compte partout (ses sessions effacées) ; un rôle se donne dans l'app.
+ * qui est invité. Le propriétaire peut DÉCONNECTER un compte partout (ses sessions effacées), et donner ou retirer un rôle
+ * déclaré à un compte de son app (`le-sql-des-membres.ts`).
  *
  * Repris de `UsersManager` et `ComptesDeLAppNeuve` (constructor-v13@32d18f3), en lecture comme eux : la console ne crée
  * pas de compte métier.
@@ -60,4 +61,13 @@ export async function deconnecterPartout(base: SupabaseClient, schema: string, c
   if (!c.data) return lu(false);
   const s = await base.from('vavi_sessions_d_app').delete().eq('compte', compte);
   return s.error ? { lu: false, pourquoi: s.error.message } : lu(true);
+}
+
+/** Le rôle, s'il est déclaré par app.json (le seul à pouvoir se donner depuis la console). PURE. */
+export const unRoleDeclare = (role: string, declares: readonly string[]): boolean => declares.includes(role);
+
+/** Donner ou retirer un rôle déclaré à un compte de CE schéma ; `false` si le compte n'est pas de cette app. */
+export async function changerUnRole(base: SupabaseClient, schema: string, compte: string, role: string, donner: boolean): Promise<Issue<boolean>> {
+  const r = await base.rpc('vavi_console_changer_un_role', { p_schema: schema, p_compte: compte, p_role: role, p_donner: donner });
+  return r.error ? { lu: false, pourquoi: r.error.message } : lu(r.data === true);
 }

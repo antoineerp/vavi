@@ -60,7 +60,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     <div className="accueil-console">
       <BarreDuCompte langue={c.langue} courriel={c.courriel} ici="compte" />
       <main className="console large">
-        <div className="tete-de-page"><div><h1>{t.titre}</h1><p className="attenue">{m.sousTitre}</p></div></div>
+        <div className="tete-de-page"><div><p className="surtitre">{c.langue === 'fr' ? 'Compte' : 'Account'}</p><h1>{t.titre}</h1><p className="attenue">{m.sousTitre}</p></div></div>
         {q.fait === 'abonne' && <div className="carte" role="status">{t.merci}</div>}
         {q.fait === 'resilie' && <div className="carte" role="status">{t.resilie}</div>}
         {q.erreur && <div className="carte" role="alert">{t.erreurs[q.erreur] ?? q.erreur}</div>}
@@ -69,7 +69,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           <div className="chiffre-du-compte"><span className="attenue">{m.offre}</span><strong>{offre ? OFFRES[offre].nom[c.langue] : m.essai}</strong>{offert && <span className="etat vert">{m.offert}</span>}</div>
           <div className="chiffre-du-compte"><span className="attenue">{m.parMois}</span><strong>{offre && !offert ? euros(leMontant(offre, enPlus, grille)) : euros(0)}</strong><span className="attenue">TTC</span></div>
           <div className="chiffre-du-compte"><span className="attenue">{m.echeance}</span><strong>{echeance}</strong></div>
-          <div className="chiffre-du-compte"><span className="attenue">{m.enLigne}</span><strong>{enLigne.length}</strong><span className="attenue">{compris ? m.compris(compris) : m.aucunCompris}</span></div>
+          <div className="chiffre-du-compte"><span className="attenue">{m.enLigne}</span><strong>{enLigne.length}</strong><span className="attenue">{compris ? m.compris(compris) : m.aucunCompris}</span>{compris > 0 && <div className={`jauge ${enLigne.length >= compris ? 'pleine' : ''}`} role="meter" aria-valuemin={0} aria-valuemax={compris} aria-valuenow={enLigne.length} aria-label={m.enLigne}><span style={{ width: `${Math.min(100, (enLigne.length / compris) * 100)}%` }} /></div>}</div>
         </div>
         {!e.lu ? <p role="alert">{TEXTES[c.langue].erreur} {e.pourquoi}</p> : <div className="carte"><p style={{ margin: 0 }}>{etat}</p></div>}
 

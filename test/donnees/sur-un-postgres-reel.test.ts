@@ -84,4 +84,22 @@ describe.runIf(POSTGRES_PRESENT)('les données de la console, sur un PostgreSQL 
     expect(service(`select public.vavi_console_les_membres('public');`).ok).toBe(false);
     for (const qui of [MOI, null]) expect(pg.comme(qui, `select public.vavi_console_les_membres('${S}');`).ok).toBe(false);
   });
+
+  it('le propriétaire donne et retire un rôle à un compte de SON app, jamais d’une autre (incident du 25/11 : compte d’app sans rôle)', () => {
+    const SIEN = '22222222-2222-2222-2222-222222222222', AILLEURS = '33333333-3333-3333-3333-333333333333';
+    pg.admin(`insert into public.vavi_comptes_d_app (id, schema_de_l_app, email) values ('${SIEN}', '${S}', 'tech@a.fr'), ('${AILLEURS}', 'app_autre', 'x@a.fr');`);
+    const changer = (compte: string, role: string, donner: boolean) => service(`select public.vavi_console_changer_un_role('${S}', '${compte}', '${role}', ${donner});`);
+    const roles = (compte: string) => (json(`select public.vavi_console_les_membres('${S}');`).membres as Array<{ compte: string; role: string; email: string }>).filter((m) => m.compte === compte);
+    expect(changer(SIEN, 'salarie', true).sortie.trim()).toBe('t');
+    expect(roles(SIEN)).toEqual([expect.objectContaining({ role: 'salarie', email: 'tech@a.fr' })]);
+    expect(changer(SIEN, 'salarie', true).sortie.trim()).toBe('t');
+    expect(roles(SIEN)).toHaveLength(1);
+    expect(changer(AILLEURS, 'salarie', true).sortie.trim()).toBe('f');
+    expect(roles(AILLEURS)).toEqual([]);
+    expect(changer(SIEN, 'salarie; drop', true).ok).toBe(false);
+    expect(service(`select public.vavi_console_changer_un_role('public', '${SIEN}', 'salarie', true);`).ok).toBe(false);
+    for (const qui of [SIEN, null]) expect(pg.comme(qui, `select public.vavi_console_changer_un_role('${S}', '${SIEN}', 'responsable', true);`).ok).toBe(false);
+    expect(changer(SIEN, 'salarie', false).sortie.trim()).toBe('t');
+    expect(roles(SIEN)).toEqual([]);
+  });
 });
