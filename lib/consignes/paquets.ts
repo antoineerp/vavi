@@ -33,8 +33,13 @@ export function paquetInconnu(fichier: string, texte: string, permis: readonly s
   return null;
 }
 
-/** `pasEncore` : les fonctions qu'app.json sait déclarer mais que vavi ne sert pas encore (`squelette`) : jamais promises. */
-export function laRessourceDesCapacites(permis: readonly string[], pasEncore: readonly string[] = []): string {
+/**
+ * `pasEncore` : les fonctions qu'app.json sait déclarer mais que vavi ne sert pas encore (`squelette`), avec ce que Claude
+ * en fait lui-même dans la page (`dansLaPage`), ou null quand elles demandent une clé secrète et attendent vavi.
+ */
+export function laRessourceDesCapacites(permis: readonly string[], pasEncore: readonly { nom: string; dansLaPage: string | null }[] = []): string {
+  const seul = pasEncore.filter((f) => f.dansLaPage);
+  const attend = pasEncore.filter((f) => !f.dansLaPage);
   return [
     '# What you can use in a vavi app',
     '',
@@ -42,7 +47,9 @@ export function laRessourceDesCapacites(permis: readonly string[], pasEncore: re
     ...permis.map((p) => `- ${p}`),
     '',
     'Capabilities that vavi provides (declared in app.json `fonctions`) are typed in `src/lib/capacites.ts`: read it with `read_files` before calling one.',
-    ...(pasEncore.length ? [`Not provided by vavi yet, even if app.json can declare them: ${pasEncore.join(', ')}. Do not promise them to the person; say this part is not available yet.`] : []),
+    ...(seul.length ? ['', 'Not served by vavi as capabilities, so build them yourself in the app\'s code when the person asks:', ...seul.map((f) => `- ${f.nom}: ${f.dansLaPage}`)] : []),
+    ...(attend.length ? ['', `Waiting for vavi, because they need a secret key that never goes into the page: ${attend.map((f) => f.nom).join(', ')}. Build everything around them, leave a clearly marked place, and tell the person this part arrives with vavi.`] : []),
+    '',
     'Tables and columns are typed from app.json in `src/donnees/types.ts`: a column that is not declared does not compile.',
   ].join('\n');
 }

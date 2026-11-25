@@ -15,7 +15,7 @@ import { appelerUnOutil, lesOutils } from './les-outils';
 import { estUnRefus, type Contexte } from './les-gestes';
 import { RESSOURCE_DE_LA_VUE, laRessourceDeLaVue, lesCadresPermis } from './la-vue';
 import { ecrireUnJetonDeVue } from './les-jetons';
-import { FONCTIONS_PAS_ENCORE_SERVIES } from '@/squelette/les-types-des-tables';
+import { FONCTIONS_PAS_ENCORE_SERVIES, lesFonctionsAFaireDansLaPage } from '@/squelette/les-types-des-tables';
 
 export const VERSION_DU_PROTOCOLE = '2025-06-18';
 const VERSIONS_ACCEPTEES = ['2025-06-18', '2025-03-26', '2024-11-05'];
@@ -75,7 +75,7 @@ async function repondre(r: Requete, ctx: ContexteDuServeur): Promise<ReponseRpc 
         const o = ctx.outils;
         return resultat(id, laRessourceDeLaVue({ jeton: ecrireUnJetonDeVue(o.compte), cadres: lesCadresPermis(o.adresse, o.domaineDesApps ?? null), ressources: o.vue?.domaines?.ressources ?? [], connexions: o.vue?.domaines?.connexions ?? [] }));
       }
-      const u = await uneRessource(typeof p.uri === 'string' ? p.uri : '', { ...ctx, fonctionsPasEncoreServies: FONCTIONS_PAS_ENCORE_SERVIES });
+      const u = await uneRessource(typeof p.uri === 'string' ? p.uri : '', { ...ctx, fonctionsPasEncoreServies: lesFonctionsAFaireDansLaPage(FONCTIONS_PAS_ENCORE_SERVIES) });
       return 'erreur' in u ? erreur(id, -32602, u.erreur) : resultat(id, u);
     }
     default: return erreur(id, -32601, `Method not found: ${r.method}`);

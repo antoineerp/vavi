@@ -36,11 +36,12 @@ export const refus = (statut: Refus['statut'], error: string, detail?: string): 
 
 /**
  * Ce que la porte garde : une capacité déclarée, ou les pièces jointes des lignes — pas une capacité (elles suivent
- * les colonnes `fichier` d'app.json, que la base tient), toujours derrière un compte membre.
+ * les colonnes `fichier` d'app.json, que la base tient), toujours derrière un compte membre ; l'IA (`fonctions.ia`), qui
+ * dépense sur la clé du propriétaire, aussi.
  */
-export type Service = Capacite | 'pieces';
+export type Service = Capacite | 'pieces' | 'ia';
 
-export const derriereUnCompte = (c: Service): boolean => c === 'pieces' || CAPACITES_DERRIERE_UN_COMPTE.includes(c);
+export const derriereUnCompte = (c: Service): boolean => c === 'pieces' || c === 'ia' || CAPACITES_DERRIERE_UN_COMPTE.includes(c);
 
 /** Le jeton d'une requête : `Authorization: Bearer …`. */
 export const leJeton = (entete: string | null): string | null => /^Bearer\s+(\S+)$/i.exec(entete ?? '')?.[1] ?? null;
