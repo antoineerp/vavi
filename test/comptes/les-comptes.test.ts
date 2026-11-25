@@ -107,3 +107,16 @@ describe('la clé posée depuis un terminal (incident 25/11 : « illisible »)',
     expect(laCleDesComptes({ VAVI_CLE_DES_COMPTES: jwk.replace(/"/g, '') })).toBeNull();
   });
 });
+
+describe('pourquoi la clé est illisible, sans la montrer (25/11)', () => {
+  it('dit la forme vue et ce qui manque ; jamais une valeur de la clé', async () => {
+    const { laRaisonDeLaCle } = await import('@/lib/comptes/les-jetons');
+    const jwk = { ...generateKeyPairSync('ec', { namedCurve: 'P-256' }).privateKey.export({ format: 'jwk' }), kid: 'k3' } as Record<string, string>;
+    expect(laRaisonDeLaCle(JSON.stringify(jwk))).toBe('readable');
+    const sansD = laRaisonDeLaCle(JSON.stringify({ ...jwk, d: undefined }));
+    expect(sansD).toMatch(/^missing d \(fields: crv,kid,kty,x,y\)$/);
+    const casse = laRaisonDeLaCle('{crv:P-256,d:' + jwk.d + '}');
+    expect(casse).toMatch(/^not JSON \(\d+ characters, starts with "\{", ends with "\}"\)$/);
+    for (const r of [sansD, casse]) expect(r).not.toContain(jwk.d!.slice(0, 8));
+  });
+});

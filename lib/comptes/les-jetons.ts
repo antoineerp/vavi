@@ -63,6 +63,24 @@ export function lireUnJeton(cle: CleDesComptes, jeton: string, maintenantS: numb
   } catch { return null; }
 }
 
+/**
+ * Pourquoi la clé posée ne se lit pas, sans jamais en montrer le contenu (essai d'Antoine du 25/11 : « illisible »
+ * trois fois, sans rien pour savoir quoi corriger). Rend la forme vue (longueur, premier et dernier caractère, les noms
+ * des champs) et ce qui manque. PURE.
+ */
+export function laRaisonDeLaCle(pose: string | undefined): string {
+  const t = leTexteDeLaCle(pose);
+  const forme = `${t.length} characters, starts with ${JSON.stringify(t.slice(0, 1))}, ends with ${JSON.stringify(t.slice(-1))}`;
+  let jwk: Record<string, unknown>;
+  try { jwk = JSON.parse(t) as Record<string, unknown>; } catch { return `not JSON (${forme})`; }
+  if (!jwk || typeof jwk !== 'object' || Array.isArray(jwk)) return `not a JSON object (${forme})`;
+  const champs = Object.keys(jwk).sort().join(',');
+  const manque = ['kty', 'crv', 'x', 'y', 'd', 'kid'].filter((k) => typeof jwk[k] !== 'string' || !jwk[k]);
+  if (manque.length) return `missing ${manque.join(', ')} (fields: ${champs})`;
+  if (jwk.kty !== 'EC' || jwk.crv !== 'P-256') return `not an EC P-256 key (kty ${String(jwk.kty)}, crv ${String(jwk.crv)})`;
+  return laCleDesComptes({ VAVI_CLE_DES_COMPTES: t }) ? 'readable' : `the key values are not a valid P-256 private key (fields: ${champs})`;
+}
+
 /** La clé des comptes, vue par la santé de vavi : posée, lisible, et publiée par Supabase (son `kid` dans les clés publiques). */
 export async function lEtatDeLaCle(env: Readonly<Record<string, string | undefined>>, urlSupabase: string | null): Promise<'absente' | 'illisible' | 'publiee' | 'non_publiee' | 'injoignable'> {
   if (!(env.VAVI_CLE_DES_COMPTES ?? '').trim()) return 'absente';
