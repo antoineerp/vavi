@@ -29,14 +29,15 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
   return (
     <main className="console">
+      <p className="surtitre">{fr ? 'Pilotage' : 'Control room'}</p>
       <h1>{fr ? 'Vue d’ensemble' : 'Overview'}</h1>
       {message && <div className="carte" role="status">{message}{q.erreur && ['aucune_offre', 'suspendu', 'nature', 'quota', 'export_reserve'].includes(q.erreur) && <> <Link href="/abonnement">{t.abonnement.titre}</Link></>}</div>}
 
       <div className="chiffres">
-        <div className="carte"><span className="attenue">{fr ? 'Site' : 'Site'}</span><strong>{etat === 'en_ligne' ? t.enLigne : etat === 'a_publier' ? t.aPublier : t.rienAPublier}</strong></div>
+        <div className="carte"><span className="attenue">{fr ? 'Site' : 'Site'}</span><span><span className={`etat ${etat === 'en_ligne' ? 'vert' : etat === 'a_publier' ? 'ambre' : ''}`}>{etat === 'en_ligne' ? t.enLigne : etat === 'a_publier' ? t.aPublier : t.rienAPublier}</span></span></div>
         <div className="carte"><span className="attenue">{fr ? 'Visites (7 jours)' : 'Visits (7 days)'}</span><strong>{audience ? audience.total : '—'}</strong></div>
         <div className="carte"><span className="attenue">{t.messages}</span><strong>{recus === null ? '—' : recus >= 100 ? '100+' : recus}</strong></div>
-        <div className="carte"><span className="attenue">{t.version}</span><strong>{projet.version}</strong></div>
+        <div className="carte"><span className="attenue">{t.version}</span><strong>v{projet.version}</strong></div>
       </div>
 
       {projet.chantier && (
