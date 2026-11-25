@@ -36,6 +36,8 @@ export interface ImagePosee {
   readonly profil: string;
   readonly banque: string;
   readonly lienBanque: string;
+  /** La photo que la personne a fournie (« Gérer le contenu », `la-photo-fournie.ts`) : montrée à la place, celle-ci gardée. */
+  readonly fournie?: { readonly source: string; readonly largeur: number; readonly hauteur: number; readonly alt: string };
 }
 
 export const CHEMIN_DES_IMAGES = 'src/images.json';

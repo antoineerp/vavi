@@ -86,8 +86,9 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         domaines: (() => {
           const pub = configurationPublique(process.env);
           const domaine = leDomaineDesApps(process.env);
-          // Les photos de la banque (`search_images`) s'affichent aussi dans l'app montrée par la vue.
-          const ressources = [...(domaine ? [`https://*.${domaine}`] : [new URL(adresseDeLaPlateforme()).origin]), 'https://images.unsplash.com'];
+          // Les photos de la banque (`search_images`) et celles que la personne a fournies (servies par la console) s'affichent
+          // aussi dans l'app montrée par la vue.
+          const ressources = [...(domaine ? [`https://*.${domaine}`] : []), new URL(adresseDeLaPlateforme()).origin, 'https://images.unsplash.com'];
           return { ressources, connexions: [...ressources, ...(pub.lue ? [new URL(pub.valeur.url).origin] : [])] };
         })(),
         async pageDeLApercu(projet, empreinte, adresse) {

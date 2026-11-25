@@ -13,6 +13,7 @@
 import { lireLeManifeste } from '@/lib/backend/app/manifeste';
 import { empreinteDuFichier } from '@/lib/projets/les-empreintes';
 import { CHEMIN_DES_IMAGES, lireLesImages, poser, type ImageTrouvee } from '@/lib/images/la-banque';
+import { avecLaPhotoFournie } from '@/lib/images/la-photo-fournie';
 import type { DependancesDeLaReecriture } from './reecrire';
 
 export const CHEMIN_DU_REFERENCEMENT = 'src/referencement.json';
@@ -133,3 +134,7 @@ export function avecUneImage(avant: string | undefined, nom: string, trouvee: Im
 
 export const changerUneImage = (d: DependancesDeLaReecriture, id: string, nom: string, trouvee: ImageTrouvee, alt: string): Promise<Changement> =>
   ecrire(d, id, CHEMIN_DES_IMAGES, (avant) => avecUneImage(avant, nom, trouvee, alt), `photo ${nom} changée dans la console`);
+
+/** La photo `nom` montre celle que la personne a fournie (déjà gardée au magasin), ou revient à celle de la banque (`null`). */
+export const changerLaPhotoFournie = (d: DependancesDeLaReecriture, id: string, nom: string, fournie: Parameters<typeof avecLaPhotoFournie>[2]): Promise<Changement> =>
+  ecrire(d, id, CHEMIN_DES_IMAGES, (avant) => avecLaPhotoFournie(avant, nom, fournie), fournie ? `photo ${nom} fournie dans la console` : `photo ${nom} rendue à la banque dans la console`);
