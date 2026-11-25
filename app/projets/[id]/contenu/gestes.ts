@@ -10,6 +10,10 @@ import { leContexteReel } from '@/lib/mcp/le-contexte-reel';
 import { changerLApparence, changerLeReferencement, changerLeSite, changerUneImage, CHEMIN_DU_REFERENCEMENT, COULEURS, leReferencementStocke, RAYONS, type Apparence, type Changement } from '@/lib/contenus/le-contenu';
 import { CHEMIN_DES_IMAGES, lireLesImages } from '@/lib/images/la-banque';
 import { banqueDeLaPlateforme } from '@/lib/images/la-banque';
+import { TAILLE_MAX_D_UNE_PHOTO, laCleDeLaPhoto, leFichierDeLaPhoto, leFormatDUnePhoto, sansLesMetadonnees } from '@/lib/images/la-photo-fournie';
+import { changerLaPhotoFournie } from '@/lib/contenus/le-contenu';
+import { magasinS3 } from '@/lib/publication/le-magasin';
+import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -69,6 +73,44 @@ export async function choisirUnePhoto(id: string, nom: string, f: FormData) {
   if (!banque || !trouvee) retour(id, { change: false, pourquoi: 'mal_forme', detail: 'cette photo n’est plus proposée : relancez la recherche' }, 'photo', 'gerer');
   const r = await changerUneImage(await lesDependances(id), id, nom, trouvee!, String(f.get('alt') ?? ''));
   if (r.change) { await banque!.signaler(trouvee!); console.log(`[contenu] ${id.slice(0, 8)} photo ${nom} (version ${r.version}, aperçu ${r.apercu})`); }
+  retour(id, r, 'photo', 'gerer');
+}
+
+/**
+ * « Votre photo » : la personne fournit la sienne à la place de celle de la banque (JPEG, PNG ou WebP, 8 Mo au plus), sans
+ * ses métadonnées (le lieu de la prise de vue) ; gardée au magasin sous son empreinte, l'aperçu est rebâti. La photo de la
+ * banque reste, pour y revenir.
+ */
+export async function fournirUnePhoto(id: string, nom: string, f: FormData) {
+  if (!ID.test(id) || !NOM_DE_PHOTO.test(nom)) redirect('/projets');
+  const echec = (detail: string): never => retour(id, { change: false, pourquoi: 'mal_forme', detail }, 'photo', 'gerer');
+  const fichier = f.get('photo');
+  if (!(fichier instanceof File) || fichier.size === 0) echec('choisissez une photo');
+  const photo = fichier as File;
+  if (photo.size > TAILLE_MAX_D_UNE_PHOTO) echec('la photo dépasse 8 Mo');
+  const brute = new Uint8Array(await photo.arrayBuffer());
+  const format = leFormatDUnePhoto(brute);
+  if (!format) echec('la photo doit être un JPEG, un PNG ou un WebP');
+  const d = await lesDependances(id);
+  // Le projet est au compte avant que rien ne soit gardé.
+  const p = await d.projets.lire(d.compte, id);
+  if (!p.lu || !p.valeur) retour(id, { change: false, pourquoi: 'panne' }, 'photo', 'gerer');
+  const magasin = magasinS3();
+  if (!magasin.lu) retour(id, { change: false, pourquoi: 'panne', detail: 'le magasin des photos n’est pas configuré' }, 'photo', 'gerer');
+  const octets = sansLesMetadonnees(brute, format!);
+  const nomDuFichier = leFichierDeLaPhoto(octets, format!);
+  const garde = await (magasin as Extract<typeof magasin, { lu: true }>).magasin.poser(laCleDeLaPhoto(id, nomDuFichier), Buffer.from(octets), { type: format!.type, cache: 'public, max-age=31536000, immutable' }).then(() => true, () => false);
+  if (!garde) retour(id, { change: false, pourquoi: 'panne', detail: 'la photo n’a pas pu être gardée' }, 'photo', 'gerer');
+  const r = await changerLaPhotoFournie(d, id, nom, { source: `${adresseDeLaPlateforme()}/photos/${id}/${nomDuFichier}`, largeur: format!.largeur, hauteur: format!.hauteur, alt: String(f.get('alt') ?? '') });
+  if (r.change) console.log(`[contenu] ${id.slice(0, 8)} photo ${nom} fournie, ${Math.round(octets.length / 1024)} Ko (version ${r.version}, aperçu ${r.apercu})`);
+  retour(id, r, 'photo', 'gerer');
+}
+
+/** « Revenir à la photo de la banque » : la photo fournie n'est plus montrée ; l'aperçu est rebâti. */
+export async function rendreLaPhotoALaBanque(id: string, nom: string) {
+  if (!ID.test(id) || !NOM_DE_PHOTO.test(nom)) redirect('/projets');
+  const r = await changerLaPhotoFournie(await lesDependances(id), id, nom, null);
+  if (r.change) console.log(`[contenu] ${id.slice(0, 8)} photo ${nom} rendue à la banque (version ${r.version}, aperçu ${r.apercu})`);
   retour(id, r, 'photo', 'gerer');
 }
 

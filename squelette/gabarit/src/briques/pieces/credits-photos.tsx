@@ -5,8 +5,8 @@ import { libellesPour } from '../../lib/libelles';
 
 export default function CreditsPhotos() {
   const L = libellesPour(langueCourante());
-  // Une image jointe par la personne (son logo) n'a ni auteur ni banque à créditer.
-  const images = Object.values(IMAGES as Readonly<Record<string, ImageDeLApp>>).filter((i) => i.banque);
+  // Une image jointe par la personne (son logo), ou fournie à la place de celle de la banque, n’a rien à créditer.
+  const images = Object.values(IMAGES as Readonly<Record<string, ImageDeLApp>>).filter((i) => i.banque && !i.fournie);
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
       <h1 className="font-titre text-3xl">{L.creditsPhotos}</h1>
