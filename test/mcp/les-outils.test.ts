@@ -55,7 +55,7 @@ const empreinteDe = async (project: string, path: string) => {
 beforeEach(() => {
   const ctx = {
     compte: MOI, projets: desProjetsEnMemoire(), magasin: unMagasinEnMemoire(), permis: lesPaquetsDuGabarit(GABARIT),
-    adresse: 'https://vavi.test', refusPrecedents: new Map<string, Refus>(), scellerUnSecret: (_p: string, _n: string, v: string) => `scelle(${v.length})`,
+    adresse: 'https://vavi.test', refusPrecedents: new Map<string, Refus>(), buildsRouges: new Map<string, number>(), scellerUnSecret: (_p: string, _n: string, v: string) => `scelle(${v.length})`,
     prochain: vert(), construits: 0, sqlRefuse: null as string | null,
     base: { rpc: async (f: string, a: Record<string, unknown>) => (f === 'create_app_schema' ? { data: schemaDuProjet(String(a.project_id)), error: null }
       : ctx.sqlRefuse ? { data: null, error: { message: ctx.sqlRefuse } } : { data: null, error: null }) },
@@ -203,6 +203,37 @@ describe('on ne publie que le build vert de l’arbre courant', () => {
     expect(r.build).toMatchObject({ green: false, code: 'build_rouge', file: 'src/pages/index.tsx', line: 2 });
     const f = await ok('read_files', { project: w.project, paths: ['src/pages/index.tsx'] });
     expect((f.files as { content: string }[])[0]!.content).toContain('return x');
+  });
+});
+
+describe('INCIDENT 25/11 — les deux garde-fous du 24/11 disparus de main', () => {
+  const rouge = (n: number): Construction => ({ construite: false, etape: 'types', duree: 3, ecarts: [{ fichier: 'src/pages/index.tsx', fait: `ligne ${n} : Cannot find name 'x${n}'. (TS2304)` }] });
+  it('trois builds rouges de suite, aux erreurs toutes différentes, disent d’arrêter et de proposer rollback ; un vert remet à zéro', async () => {
+    const w = await unChantier();
+    const changer = async (n: number) => (await ok('apply_changes', { ...w, why: `essai ${n}`, changes: [{ path: `src/F${n}.tsx`, content: `export const a${n} = 1;` }] })).build as Record<string, unknown>;
+    c.prochain = rouge(1); expect((await changer(1)).stop).toBeUndefined();
+    c.prochain = rouge(2); expect((await changer(2)).stop).toBeUndefined();
+    c.prochain = rouge(3); expect((await changer(3)).stop).toMatch(/third red build in a row.*`rollback`/);
+    c.prochain = rouge(4); expect(await refus('build_preview', { project: w.project })).toMatchObject({ code: 'build_rouge', arreter: expect.stringMatching(/third red build/) });
+    c.prochain = vert(); expect((await changer(5)).green).toBe(true);
+    c.prochain = rouge(6); expect((await changer(6)).stop).toBeUndefined();
+  });
+  it('@ts-ignore, @ts-nocheck, as any, : any sont refusés à leur ligne ; un texte affiché qui dit « as any » passe', async () => {
+    const w = await unChantier();
+    const ecrire = (content: string, path = 'src/pages/A.tsx') => appel('apply_changes', { ...w, why: 'essai', build: false, changes: [{ path, content }] });
+    expect(await ecrire('const a = 1;\n// @ts-ignore\nconst b: number = "x";')).toMatchObject({ code: 'erreur_masquee', fichier: 'src/pages/A.tsx', ligne: 2 });
+    expect(await ecrire('// @ts-nocheck\n')).toMatchObject({ code: 'erreur_masquee', ligne: 1 });
+    expect(await ecrire('const r = (x as any).y;')).toMatchObject({ code: 'erreur_masquee', fait: expect.stringContaining('`as any`') });
+    expect(await ecrire('function f(v: any) { return v; }')).toMatchObject({ code: 'erreur_masquee' });
+    expect(await ecrire('const l: any[] = [];')).toMatchObject({ code: 'erreur_masquee' });
+    expect(await ecrire('export default () => <p>Good as any other day: anytime.</p>;\nconst t = "as any";')).toMatchObject({ ok: true });
+  });
+  it('une ligne déjà là avant n’empêche pas de modifier ailleurs le même fichier ; une nouvelle, si', async () => {
+    const w = await unChantier();
+    await ok('apply_changes', { ...w, why: 'la page', build: false, changes: [{ path: 'src/B.tsx', content: 'export const a = 1;' }] });
+    const e = await empreinteDe(w.project, 'src/B.tsx');
+    expect(await appel('apply_changes', { ...w, why: 'ancienne', build: false, changes: [{ path: 'src/B.tsx', read_fingerprint: e, replace: [{ passage: 'export const a = 1;', by: 'export const a = 2;\nconst v = (window as any).x;' }] }] }))
+      .toMatchObject({ code: 'erreur_masquee', ligne: 2 });
   });
 });
 

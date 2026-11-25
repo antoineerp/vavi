@@ -112,3 +112,13 @@ describe('les ressources', () => {
     expect(await uneRessource('vavi://autre', ctx)).toHaveProperty('erreur');
   });
 });
+
+describe('les erreurs masquées (INCIDENT 25/11 : le refus du 24/11 avait disparu)', () => {
+  it('ne refuse que la ligne NOUVELLE : une ligne déjà dans le fichier passe', async () => {
+    const { uneErreurMasquee } = await import('@/lib/consignes');
+    const avant = 'const v = (window as any).x;\nexport const a = 1;';
+    expect(uneErreurMasquee('src/B.tsx', 'const v = (window as any).x;\nexport const a = 2;', avant)).toBeNull();
+    expect(uneErreurMasquee('src/B.tsx', 'const v = (window as any).x;\nconst w = (document as any).y;', avant)).toMatchObject({ code: 'erreur_masquee', ligne: 2 });
+    expect(uneErreurMasquee('src/B.css', '/* @ts-ignore */')).toBeNull();
+  });
+});
