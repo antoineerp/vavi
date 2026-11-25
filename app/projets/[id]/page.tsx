@@ -64,7 +64,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     <main className="console">
       <div className="ligne" style={{ justifyContent: 'space-between' }}><Link href="/projets">{t.retour}</Link><form action={seDeconnecter}><button type="submit" className="discret">{t.deconnexion}</button></form></div>
       <div className="entete"><h1>{projet.nom}</h1><span className="attenue">{t.version} {projet.version}</span></div>
-      <nav className="ligne"><Link className="bouton discret" href={`/projets/${id}/donnees`}>{c.langue === 'fr' ? 'Données de l’app' : 'App data'}</Link></nav>
+      <nav className="ligne"><Link className="bouton discret" href={`/projets/${id}/donnees`}>{c.langue === 'fr' ? 'Données de l’app' : 'App data'}</Link><Link className="bouton discret" href={`/projets/${id}/fonctions`}>{c.langue === 'fr' ? 'Fonctions de l’app' : 'App functions'}</Link><Link className="bouton discret" href={`/projets/${id}/contenu`}>{c.langue === 'fr' ? 'Gérer le contenu' : 'Manage content'}</Link></nav>
       {message && <div className="carte" role="status">{message}{q.erreur && ['aucune_offre', 'suspendu', 'nature', 'quota', 'export_reserve'].includes(q.erreur) && <> <Link href="/abonnement">{t.abonnement.titre}</Link></>}</div>}
       {projet.chantier && <div className="carte"><strong>{t.travailEnCours}</strong> : {projet.chantier.intention} <span className="attenue">({t.depuis} {date(projet.chantier.ouvertLe)})</span></div>}
 
@@ -86,7 +86,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       {projet.apercuEmpreinte && <EditeurDeTextes id={id} apercu={adresseDeLApp(id, 'apercu')} t={{ textes: t.textes, textesExplication: t.textesExplication, textesActif: t.textesActif, textesChoisir: t.textesChoisir,
         textesPasIci: t.textesPasIci, enregistrer: t.enregistrer, annuler: t.annuler, enCours: t.enCours, textesFait: t.textesFait, textesRouge: t.textesRouge, textesRefus: t.textesRefus }} />}
 
-      <h2>{t.messages}</h2>
+      <h2 id="messages">{t.messages}</h2>
       {!leCourrierDeLaPlateforme() && <p className="attenue">{t.messagesSansCourriel}</p>}
       {!messages.lu ? <p role="alert">{t.erreur} {messages.pourquoi}</p> : messages.valeur.length === 0 ? <div className="carte"><p className="attenue">{t.messagesVide}</p></div> : (
         <ul className="liste carte">
@@ -127,7 +127,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
       {vend && (
         <>
-          <h2>{t.encaisser}</h2>
+          <h2 id="encaisser">{t.encaisser}</h2>
           <div className="carte">
             <p>{t.encaisserExplication}</p>
             {!cleStripe ? <p className="attenue">{t.stripeNonRelie}</p>
@@ -142,7 +142,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
       {registre && (
         <>
-          <h2>{t.registre}</h2>
+          <h2 id="registre">{t.registre}</h2>
           <p className="attenue">{t.registreExplication}</p>
           <ul className="liste carte">
             {registre.traitements.map((x) => (
@@ -164,7 +164,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         </>
       )}
 
-      <h2>{t.secrets}</h2>
+      <h2 id="secrets">{t.secrets}</h2>
       <p className="attenue">{t.secretsExplication}</p>
       <div className="carte">
         {secrets.lu && secrets.valeur.length > 0 ? <ul className="liste">{secrets.valeur.map((n) => <li key={n}><code>{n}</code></li>)}</ul> : <p className="attenue">{t.aucunSecret}</p>}
