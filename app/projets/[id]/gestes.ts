@@ -50,7 +50,6 @@ export async function claudeAFini(id: string, ecran = '') {
   retour(id, r.lu ? { fait: 'claude_a_fini' } : { erreur: 'panne' }, ecran);
 }
 
-<<<<<<< HEAD
 /** L'adresse qui reçoit les messages des formulaires ; vide : celle du compte. */
 export async function reglerLeCourriel(id: string, formulaire: FormData) {
   if (!ID.test(id)) redirect('/projets');
@@ -61,8 +60,6 @@ export async function reglerLeCourriel(id: string, formulaire: FormData) {
   retour(id, r.lu ? { fait: 'courriel' } : { erreur: 'panne' }, 'messages');
 }
 
-=======
->>>>>>> 3faab1bc6afce178c75275a5fec037a989886da5
 export async function revenir(id: string, version: number) {
   if (!ID.test(id) || !Number.isInteger(version) || version < 1) redirect('/projets');
   const c = await laConsole(`/projets/${id}`);
