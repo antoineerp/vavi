@@ -21,7 +21,7 @@
  * Fonction pure : chaque identifiant vient d'app.json, déjà validé par son schéma (`Identifiant`), et chaque valeur
  * écrite est citée.
  */
-import { estCalcule, estTenu, rolesDesClients, rolesQuiGerent, VISITEUR, type Manifeste } from '../app/manifeste';
+import { estCalcule, estTenu, rolesDesClients, rolesQuiGerent, seLitSansCompte, VISITEUR, type Manifeste } from '../app/manifeste';
 import { seFige, sqlDesBornes, sqlDuFige } from './l-integrite-en-base';
 import { TABLE_DE_LA_COMMANDE, tablesDeLaBase, type TableDeLaBase } from '../app/la-commande';
 import { CONFIANCES, sqlDeLaVente, sqlDesPieces, sqlDesPropositions } from './la-base-de-la-plateforme';
@@ -167,33 +167,63 @@ const colonneDeLaMere = (t: Table): string | null => (t.appartenance === 'rattac
 const dansSonOrganisation = (m: Manifeste, s: string, l: string): string => (m.organisations === 'une' ? 'true'
   : m.organisations === 'clients' ? `(${l}.organisation_id = ${s}.organisation_courante() or ${s}.equipe())` : `${l}.organisation_id = ${s}.organisation_courante()`);
 
-/** Qui peut voir la ligne `l` d'une table, en SQL. La même expression sert la RLS et les transitions. */
-function lisible(m: Manifeste, s: string, t: Table, l: string): string {
-  const roles = t.lecture.filter((r) => r !== VISITEUR);
-  const avecRole = roles.length > 0 ? `${s}.a_un_role(${tableau(roles)})` : 'false';
-  const visiteur = t.lecture.includes(VISITEUR) && t.appartenance === 'publique';
-  const org = dansSonOrganisation(m, s, l);
-  const parAppartenance = {
-    publique: 'true',
-    organisation: org,
-    personnelle: `(${l}.owner_id = auth.uid() or ${s}.encadre(${l}.owner_id) or (${s}.gere_l_organisation() and ${org}))`,
-    rattachee: `${s}.${t.parent}_lisible(${l}.${colonneDeLaMere(t)})`,
-  }[t.appartenance];
-  return visiteur ? 'true' : `(${avecRole} and ${parAppartenance})`;
+/**
+ * Qui vient du dehors : dans une app à organisation unique, qui s'inscrit seul ou paie son accès n'est le collègue de
+ * personne (INCIDENT 25/11 : deux clients d'une même app lisaient et changeaient les réservations l'un de l'autre). Il
+ * ne change que ses lignes et, d'une table que le dehors écrit, ne lit que les siennes ; l'équipe garde l'organisation.
+ */
+export const rolesDuDehors = (m: Pick<Manifeste, 'organisations' | 'roles'>): string[] =>
+  (m.organisations === 'une' ? m.roles.filter((r) => r.obtenu === 'inscription' || r.obtenu === 'paiement').map((r) => r.nom) : []);
+
+/** `roles` en SQL, chacun avec sa condition : l'équipe d'un côté, le dehors (ses seules lignes) de l'autre. */
+function parRole(m: Manifeste, s: string, roles: readonly string[], l: string, equipe: string, dehors: string): string {
+  const ext = rolesDuDehors(m);
+  const e = roles.filter((r) => !ext.includes(r)), d = roles.filter((r) => ext.includes(r));
+  const parts = [...(e.length ? [`(${s}.a_un_role(${tableau(e)}) and ${equipe})`] : []), ...(d.length ? [`(${s}.a_un_role(${tableau(d)}) and ${dehors})`] : [])];
+  return parts.length ? `(${parts.join(' or ')})` : 'false';
 }
 
+/** Les rôles qui écrivent la table (qui gère reçoit ce qu'un visiteur envoie, `app/l-envoi-sans-compte.ts`). */
+const ecrivains = (m: Manifeste, t: Table): string[] =>
+  [...new Set([...t.ecriture, ...(t.ecriture.includes(VISITEUR) ? rolesQuiGerent(m) : [])])].filter((r) => r !== VISITEUR);
+
+/**
+ * Qui peut voir la ligne `l` d'une table, en SQL. La même expression sert la RLS et les transitions. L'auteur relit
+ * toujours ce qu'il a écrit (INCIDENT 25/11 : une table écrite par un rôle qui ne la lit pas refusait chaque création,
+ * le relais rendant la ligne créée).
+ */
+function lisible(m: Manifeste, s: string, t: Table, l: string): string {
+  if (seLitSansCompte(m.tables, t)) return t.appartenance === 'rattachee' ? `${s}.${t.parent}_lisible(${l}.${colonneDeLaMere(t)})` : 'true';
+  const roles = t.lecture.filter((r) => r !== VISITEUR);
+  const org = dansSonOrganisation(m, s, l);
+  const siens = `${l}.owner_id = auth.uid()`;
+  const ecritParLeDehors = t.ecriture.some((r) => rolesDuDehors(m).includes(r));
+  const parAppartenance = {
+    publique: parRole(m, s, roles, l, 'true', 'true'),
+    organisation: parRole(m, s, roles, l, org, ecritParLeDehors ? siens : org),
+    personnelle: roles.length ? `(${s}.a_un_role(${tableau(roles)}) and (${siens} or ${s}.encadre(${l}.owner_id) or (${s}.gere_l_organisation() and ${org})))` : 'false',
+    rattachee: roles.length ? `(${s}.a_un_role(${tableau(roles)}) and ${s}.${t.parent}_lisible(${l}.${colonneDeLaMere(t)}))` : 'false',
+  }[t.appartenance];
+  const auteurs = ecrivains(m, t);
+  return auteurs.length ? `(${parAppartenance} or (${siens} and ${s}.a_un_role(${tableau(auteurs)})))` : parAppartenance;
+}
+
+/**
+ * Qui peut changer la ligne `l`. Le dehors ne change que ses lignes ; une ligne rattachée se change par qui change sa
+ * mère, ou par son auteur tant qu'il voit sa mère (INCIDENT 25/11 : un client changeait l'avis d'un autre client).
+ */
 function modifiable(m: Manifeste, s: string, t: Table, l: string): string {
-  // Ce qu'un visiteur envoie, la plateforme l'écrit au nom du propriétaire (`app/l-envoi-sans-compte.ts`) : qui gère l'écrit aussi.
-  const roles = [...new Set([...t.ecriture, ...(t.ecriture.includes(VISITEUR) ? rolesQuiGerent(m) : [])])].filter((r) => r !== VISITEUR);
+  const roles = ecrivains(m, t);
   if (roles.length === 0) return 'false';
   const org = dansSonOrganisation(m, s, l);
-  const parAppartenance = {
-    publique: org,
-    organisation: org,
-    personnelle: `(${l}.owner_id = auth.uid() or (${s}.gere_l_organisation() and ${org}))`,
-    rattachee: `${s}.${t.parent}_lisible(${l}.${colonneDeLaMere(t)})`,
+  const siens = `${l}.owner_id = auth.uid()`;
+  const mere = colonneDeLaMere(t);
+  return {
+    publique: parRole(m, s, roles, l, org, `(${siens} and ${org})`),
+    organisation: parRole(m, s, roles, l, org, `(${siens} and ${org})`),
+    personnelle: `(${s}.a_un_role(${tableau(roles)}) and (${siens} or (${s}.gere_l_organisation() and ${org})))`,
+    rattachee: `(${s}.a_un_role(${tableau(roles)}) and (${s}.${t.parent}_modifiable(${l}.${mere}) or (${siens} and ${s}.${t.parent}_lisible(${l}.${mere}))))`,
   }[t.appartenance];
-  return `(${s}.a_un_role(${tableau(roles)}) and ${parAppartenance})`;
 }
 
 function sqlDeLaTable(m: Manifeste, s: string, t: Table): string[] {
@@ -238,7 +268,7 @@ function sqlDeLaTable(m: Manifeste, s: string, t: Table): string[] {
     // Le navigateur n'écrit que les champs : l'auteur, l'organisation et l'état sont posés par la base, jamais fournis.
     `grant select on ${T} to authenticated;`,
     ...(t.ecriture.length > 0 ? [`grant insert (id, ${ecrivables.join(', ')}), update (${ecrivables.join(', ')}), delete on ${T} to authenticated;`] : []),
-    ...(t.lecture.includes(VISITEUR) && t.appartenance === 'publique' ? [`grant select on ${T} to anon;`] : []),
+    ...(seLitSansCompte(m.tables, t) ? [`grant select on ${T} to anon;`] : []),
     `grant select, insert, update, delete on ${T} to service_role;`,
     ...(t.cycle ? sqlDuCycle(m, s, t) : []),
     ...(t.nom === TABLE_DE_LA_COMMANDE ? sqlDeLaVente(s, t, m.tables) : []),
