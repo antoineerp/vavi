@@ -68,11 +68,11 @@ button.principal{background:var(--accent);border-color:var(--accent);color:#fff}
   var T=fr?{attente:'Chargement du projet…',enLigne:'En ligne',aPublier:'Changements à publier',rien:'Pas encore d’aperçu',grand:'Voir l’aperçu',
     site:'Voir le site en ligne',publier:'Publier',publierQ:'Confirmer : mettre en ligne cet aperçu',publie:'C’est en ligne.',console:'Console vavi',
     versions:'Dernières versions',messages:'Messages reçus',visites:'Visites (30 jours)',aucun:'Aucun',offre:'Choisir une offre',
-    travail:'Travail en cours avec Claude',ici:'Essayer l’app ici',erreur:'Cela n’a pas marché :',sansApercu:'Demandez à Claude de construire l’aperçu.'}
+    travail:'Travail en cours avec Claude',ici:'Essayer l’app ici',cote:'Garder l’app à côté',enGrand:'Ouvrir l’app en grand',erreur:'Cela n’a pas marché :',sansApercu:'Demandez à Claude de construire l’aperçu.'}
   :{attente:'Loading the project…',enLigne:'Online',aPublier:'Changes to publish',rien:'No preview yet',grand:'See the preview',
     site:'See the live site',publier:'Publish',publierQ:'Confirm: put this preview online',publie:'It is online.',console:'vavi console',
     versions:'Latest versions',messages:'Messages received',visites:'Visits (30 days)',aucun:'None',offre:'Choose a plan',
-    travail:'Work in progress with Claude',ici:'Try the app here',erreur:'That did not work:',sansApercu:'Ask Claude to build the preview.'};
+    travail:'Work in progress with Claude',ici:'Try the app here',cote:'Keep the app alongside',enGrand:'Open the app large',erreur:'That did not work:',sansApercu:'Ask Claude to build the preview.'};
   document.getElementById('attente').textContent=T.attente;
   var n=0,attendus={};
   function envoyer(methode,params,notif){var m={jsonrpc:'2.0',method:methode,params:params||{}};if(!notif){m.id=++n;}
@@ -82,7 +82,13 @@ button.principal{background:var(--accent);border-color:var(--accent);color:#fff}
   function el(tag,attrs,enfants){var e=document.createElement(tag);for(var k in attrs||{}){if(k==='texte')e.textContent=attrs[k];else if(k.indexOf('on')===0)e.addEventListener(k.slice(2),attrs[k]);else e.setAttribute(k,attrs[k]);}
     (enfants||[]).forEach(function(c){if(c)e.appendChild(c);});return e;}
   function outil(nom,args){return envoyer('tools/call',{name:nom,arguments:args}).then(function(r){var s=r&&r.structuredContent;if(!s||s.refuse)throw new Error((s&&s.fait)||'refus');return s;});}
-  var projet=null,entree=null;
+  var projet=null,entree=null,modes=[];
+  // L'app à la place de la fiche, dans le mode demandé à l'hôte (une fenêtre flottante qui reste visible, ou en grand) ;
+  // l'hôte répond le mode qu'il accorde, et sans réponse en 1,5 s l'app s'ouvre là où est la fiche.
+  function lApp(html,mode){var ouvrir=function(){envoyer('ui/notifications/size-changed',{width:document.body.scrollWidth,height:720},true);
+    document.open();document.write(html);document.close();};
+    if(!mode)return ouvrir();var fait=false,une=function(){if(!fait){fait=true;ouvrir();}};
+    envoyer('ui/request-display-mode',{mode:mode}).then(function(r){console.log('[vavi] mode accordé',r&&r.mode);une();},function(x){console.log('[vavi] mode refusé',x&&x.message);une();});setTimeout(une,1500);}
   function montrer(f,message){
     var v=document.getElementById('vue');v.textContent='';
     var etat=f.state==='en_ligne'?T.enLigne:f.state==='a_publier'?T.aPublier:T.rien;
@@ -95,8 +101,9 @@ button.principal{background:var(--accent);border-color:var(--accent);color:#fff}
     var b=el('div',{class:'boutons'});
     if(f.preview_url)b.appendChild(el('button',{texte:T.grand,onclick:function(){lien(f.preview_url);}}));
     // ESSAI du 24/11 : la vue devient l'app (son code chargé de vavi, sa base jointe), sans cadre extérieur.
-    if(f.app_html)b.appendChild(el('button',{texte:T.ici,onclick:function(){envoyer('ui/notifications/size-changed',{width:document.body.scrollWidth,height:720},true);
-      document.open();document.write(f.app_html);document.close();}}));
+    if(f.app_html){b.appendChild(el('button',{texte:T.ici,onclick:function(){lApp(f.app_html);}}));
+      if(modes.indexOf('pip')>=0)b.appendChild(el('button',{texte:T.cote,onclick:function(){lApp(f.app_html,'pip');}}));
+      if(modes.indexOf('fullscreen')>=0)b.appendChild(el('button',{texte:T.enGrand,onclick:function(){lApp(f.app_html,'fullscreen');}}));}
     // Deux clics, dans la vue : le cadre de l'hôte peut interdire window.confirm (bac à sable sans « allow-modals »).
     if(f.state==='a_publier')b.appendChild(el('button',{class:'principal',texte:T.publier,onclick:function(e){var x=e.target;
       if(!x.dataset.sur){x.dataset.sur='1';x.textContent=T.publierQ;return;}
@@ -120,8 +127,8 @@ button.principal{background:var(--accent);border-color:var(--accent);color:#fff}
     if(m.method==='ui/notifications/tool-result'){var s=(m.params&&m.params.structuredContent)||{};var id=s.project||s.id||entree;if(id)charger(id);}
     if(m.method==='ui/resource-teardown'&&m.id!=null)window.parent.postMessage({jsonrpc:'2.0',id:m.id,result:{}},'*');
   });
-  envoyer('ui/initialize',{protocolVersion:'2026-01-26',appInfo:{name:'vavi',version:'1'},clientInfo:{name:'vavi',version:'1'},appCapabilities:{availableDisplayModes:['inline','fullscreen']}})
-    .then(function(){envoyer('ui/notifications/initialized',{},true);taille();}).catch(function(){taille();});
+  envoyer('ui/initialize',{protocolVersion:'2026-01-26',appInfo:{name:'vavi',version:'1'},clientInfo:{name:'vavi',version:'1'},appCapabilities:{availableDisplayModes:['inline','fullscreen','pip']}})
+    .then(function(r){modes=(r&&r.hostContext&&r.hostContext.availableDisplayModes)||[];console.log('[vavi] modes de l’hôte',JSON.stringify(modes));envoyer('ui/notifications/initialized',{},true);taille();}).catch(function(){taille();});
 })();
 </script></body></html>`;
 }

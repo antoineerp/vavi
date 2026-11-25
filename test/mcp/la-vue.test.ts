@@ -78,6 +78,16 @@ describe('la vue dans Claude', () => {
     expect(liste.result.resources.map((x) => x.uri)).not.toContain(RESSOURCE_DE_LA_VUE);
   });
 
+  it('la page de la vue est un script valide, qui demande à l’hôte les modes d’affichage qu’il offre', async () => {
+    const ctx = { outils: c, langue: 'fr', gabaritPackageJson: GABARIT, noteDuChantier: async () => null } as ContexteDuServeur;
+    const r = await servirLeMcp({ jsonrpc: '2.0', id: 2, method: 'resources/read', params: { uri: RESSOURCE_DE_LA_VUE } }, ctx) as { result: { contents: { text: string }[] } };
+    const page = r.result.contents[0]!.text;
+    const script = page.slice(page.lastIndexOf('<script>') + 8, page.lastIndexOf('</script>'));
+    expect(() => new Function(script)).not.toThrow();
+    expect(script).toContain("availableDisplayModes:['inline','fullscreen','pip']");
+    expect(script).toContain("'ui/request-display-mode'");
+  });
+
   it('INCIDENT 25/11 — Claude.ai refuse un <base> d’une autre origine : les fichiers de la page sont nommés en entier', () => {
     const a = 'https://vavi.test/p/x/';
     expect(lesFichiersEnEntier('<script type="module" crossorigin src="./assets/i.js"></script><link href="assets/i.css"><link href="/favicon.svg"><a href="https://ailleurs.test/">', a))
