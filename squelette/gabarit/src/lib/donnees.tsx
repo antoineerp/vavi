@@ -18,6 +18,7 @@ import type { Resultat } from './resultat';
 import { Patience, Panne } from '../briques/etats';
 import { libellesPour } from './libelles';
 import { langueCourante } from './langue';
+import { surLeCompte } from './comptes';
 
 export type Json = string | number | boolean | null | { readonly [cle: string]: Json } | readonly Json[];
 
@@ -217,6 +218,4 @@ export function useTransitionsPossibles<T extends TableAvecCycle>(table: T, id: 
 export const clientDesLectures = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 } },
 });
-supabase?.auth.onAuthStateChange((evenement) => {
-  if (evenement === 'SIGNED_IN' || evenement === 'SIGNED_OUT' || evenement === 'USER_UPDATED') clientDesLectures.clear();
-});
+surLeCompte(() => { clientDesLectures.clear(); });

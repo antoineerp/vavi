@@ -7,6 +7,7 @@ import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import type { DependancesDeLEffacement } from '@/lib/conformite/l-effacement';
 import { effacerLesPiecesOrphelines, GRACE_D_UN_COMPTE_QUI_PART_MIN } from '@/lib/capacites/les-pieces-orphelines';
 import { lesOrphelinesReelles } from './les-fichiers-reels';
+import { laPersonneDuJeton } from './les-comptes-reels';
 
 export function lEffacementReel(): DependancesDeLEffacement {
   const base = clientDeService();
@@ -16,11 +17,7 @@ export function lEffacementReel(): DependancesDeLEffacement {
     courrier: courrier ? (m) => courrier({ a: m.a, sujet: m.sujet, texte: m.texte, repondreA: null }) : null,
     adresse: adresseDeLaPlateforme(),
     maintenant: Date.now(),
-    async laPersonne(jeton) {
-      const r = await base.auth.getUser(jeton);
-      const u = r.error ? null : r.data.user;
-      return u ? { compte: u.id, courriel: u.email ?? null, confirme: Boolean(u.email_confirmed_at) } : null;
-    },
+    laPersonne: (jeton) => laPersonneDuJeton(jeton, null),
     async leProjet(id) {
       const schema = schemaDuProjet(id);
       if (!schema) return { lu: true, valeur: null };

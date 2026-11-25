@@ -143,3 +143,11 @@ export async function reecrire(id: string, situation: string, apres: string[]): 
   if (r.reecrit) console.log(`[console] ${id.slice(0, 8)} texte réécrit (version ${r.version}, aperçu ${r.apercu})`);
   return r;
 }
+
+/** L'inscription à l'app : avec la validation de l'adresse par un lien, ou sans (décision d'Antoine du 25/11). */
+export async function reglerLInscription(id: string, formulaire: FormData) {
+  if (!ID.test(id)) redirect('/projets');
+  const c = await laConsole(`/projets/${id}/fonctions`);
+  const r = await c.projets.regler(c.compte, id, { inscriptionSansValidation: formulaire.get('validation') === 'sans' });
+  retour(id, r.lu ? { fait: 'inscription' } : { erreur: 'panne' }, 'fonctions');
+}

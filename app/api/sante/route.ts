@@ -3,10 +3,11 @@ import { NextResponse } from 'next/server';
 import { configurationPublique, cleDeService } from '@/lib/supabase/configuration';
 import { lesReglagesDuMagasin } from '@/lib/publication/les-reglages-du-magasin';
 import { leDomaineDesApps } from '@/lib/publication/les-adresses-des-apps';
+import { lEtatDeLaCle } from '@/lib/comptes/les-jetons';
 
 export const dynamic = 'force-dynamic';
 
-export function GET() {
+export async function GET() {
   const publique = configurationPublique(process.env);
   const service = cleDeService(process.env);
   const magasin = lesReglagesDuMagasin(process.env);
@@ -20,5 +21,7 @@ export function GET() {
     manque,
     // Où les apps sont servies : à leur hôte (le domaine des apps), ou encore sous /p/ et /s/ de la console (à éviter).
     apps: leDomaineDesApps(process.env) ? 'a_leur_hote' : 'sous_la_console',
+    // La clé qui signe les connexions des comptes d'app (`lib/comptes`) : `publiee` quand Supabase la reconnaît.
+    cle_des_comptes: await lEtatDeLaCle(process.env, publique.lue ? publique.valeur.url : null),
   }, { status: vital.length === 0 ? 200 : 503 });
 }

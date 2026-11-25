@@ -91,7 +91,7 @@ function sqlDesMembres(m: Manifeste, s: string, proprietaire: string): string[] 
     ...fn('roles_courants', '', 'text[]', `select coalesce(array_agg(role order by role), '{}'::text[]) from ${s}.membres where compte_id = auth.uid() and ${essai(s)}`),
     ...fn('role_courant', '', 'text', `select min(role) from ${s}.membres where compte_id = auth.uid() and ${essai(s)}`),
     ...fn('a_un_role', 'p_roles text[]', 'boolean', `select exists (select 1 from ${s}.membres where compte_id = auth.uid() and role = any(p_roles) and ${essai(s)})`),
-    ...fn('courriel_courant', '', 'text', 'select lower(email) from auth.users where id = auth.uid()'),
+    ...fn('courriel_courant', '', 'text', 'select public.vavi_courriel_du_compte(auth.uid())'),
     ...fn('organisation_courante', '', 'uuid', `select min(organisation_id::text)::uuid from ${s}.membres where compte_id = auth.uid()`),
     ...fn('gere_l_organisation', '', 'boolean', gerants.length > 0 ? `select ${s}.a_un_role(${tableau(gerants)})` : 'select false'),
     // L'équipe du propriétaire, quand il sert des clients : ses rôles qui ne sont pas ceux d'un client, dans son organisation.
@@ -107,14 +107,19 @@ function sqlDesMembres(m: Manifeste, s: string, proprietaire: string): string[] 
       'declare v_moi uuid := auth.uid(); v_email text; v_org uuid;',
       'begin',
       "  if v_moi is null then return '{}'::text[]; end if;",
-      '  select lower(email) into v_email from auth.users where id = v_moi;',
-      `  if v_moi = ${cite(proprietaire)}::uuid then`,
+      '  v_email := public.vavi_courriel_du_compte(v_moi);',
+      // Le propriétaire : son compte de la console, ou son compte dans cette app, à la même adresse, confirmée (25/11 : chaque
+      // app a ses comptes, il s'y inscrit comme tout le monde).
+      `  if v_moi = ${cite(proprietaire)}::uuid or (public.vavi_courriel_confirme(v_moi) and v_email = (select lower(u.email) from auth.users u where u.id = ${cite(proprietaire)}::uuid)) then`,
       `    insert into ${s}.membres (compte_id, email, role, organisation_id) select v_moi, v_email, r, ${parOrganisation ? 'v_moi' : cite(ORGANISATION_UNIQUE) + '::uuid'}`,
       `      from unnest(${tableau(tous)}) r on conflict do nothing;`,
       '  end if;',
-      `  insert into ${s}.membres (compte_id, email, role, organisation_id, responsable_id)`,
-      `    select v_moi, v_email, i.role, i.organisation_id, i.responsable_id from ${s}.membres_invitations i where lower(i.email) = v_email on conflict do nothing;`,
-      `  delete from ${s}.membres_invitations where lower(email) = v_email;`,
+      // Une invitation ne se prend qu'avec une adresse confirmée (une app peut inscrire sans validation : décision du 25/11).
+      '  if public.vavi_courriel_confirme(v_moi) then',
+      `    insert into ${s}.membres (compte_id, email, role, organisation_id, responsable_id)`,
+      `      select v_moi, v_email, i.role, i.organisation_id, i.responsable_id from ${s}.membres_invitations i where lower(i.email) = v_email on conflict do nothing;`,
+      `    delete from ${s}.membres_invitations where lower(email) = v_email;`,
+      '  end if;',
       ...(inscription.length > 0 ? [
         `  if not exists (select 1 from ${s}.membres where compte_id = v_moi) then`,
         `    v_org := ${parOrganisation ? 'v_moi' : cite(ORGANISATION_UNIQUE) + '::uuid'};`,
@@ -133,7 +138,7 @@ function sqlDesMembres(m: Manifeste, s: string, proprietaire: string): string[] 
       `  if not ${s}.gere_l_organisation() then raise exception 'seul qui gère l''équipe donne un rôle' using errcode = '42501'; end if;`,
       `  if not (p_role = any(${tableau(invitables)})) then raise exception 'le rôle % ne se donne pas ainsi', p_role using errcode = '22023'; end if;`,
       "  if v_email !~ '^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$' then raise exception 'adresse invalide' using errcode = '22023'; end if;",
-      '  select id into v_compte from auth.users where lower(email) = v_email;',
+      `  v_compte := public.vavi_compte_par_courriel(${cite(s)}, v_email);`,
       ...(clients.length > 0 ? [
         `  if exists (select 1 from ${s}.membres where compte_id = v_compte and role = p_role) then return 'donne'; end if;`,
         `  if p_role = any(${tableau(clients)}) then insert into ${s}.membres_espaces (nom) values (v_email) returning id into v_org; end if;`,

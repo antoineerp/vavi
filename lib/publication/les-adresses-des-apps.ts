@@ -17,7 +17,7 @@ export type Lequel = 'apercu' | 'en_ligne';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** Les routes `/api/<x>/` qu'une app appelle, servies sur son hôte. Rien d'autre de la console n'y passe. */
-export const API_DES_APPS = ['audience', 'coffre', 'compte', 'entreprises', 'ephemeride', 'forms', 'geocode', 'mail', 'pay', 'pieces', 'sms'] as const;
+export const API_DES_APPS = ['audience', 'coffre', 'compte', 'comptes', 'entreprises', 'ephemeride', 'forms', 'geocode', 'mail', 'pay', 'pieces', 'sms'] as const;
 
 /** Le domaine des apps, net ; `null` sans lui. */
 export function leDomaineDesApps(env: Readonly<Record<string, string | undefined>>): string | null {

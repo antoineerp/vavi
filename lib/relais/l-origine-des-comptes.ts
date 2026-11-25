@@ -14,8 +14,8 @@
  * la première app qu'il rejoint, qui le garde), ou si l'app l'INVITE (son courriel confirmé). L'origine se tient en
  * base, écrite par la base seule. Le relais lit cette décision (`voie_neuve_appeler`) ; il ne la prend pas.
  *
- * CE QUI RESTE (étape 2, décidée) : une liste de comptes par app — un projet Supabase par app. Ici, une adresse ne peut
- * pas avoir deux comptes séparés dans deux apps ; une invitation reste possible.
+ * ÉTAPE 2 (25/11, décision d'Antoine : comptes tenus par vavi) : chaque app a ses comptes (`les-comptes-des-apps.ts`) ;
+ * un compte d'app ne rejoint que son app. Ce qui suit vaut encore pour les comptes nés dans `auth.users` avant.
  *
  * Posé au démarrage AVANT le relais (`ensureCanonicalAppRpcSignatures`, `PRIMITIVES_DE_LA_VOIE_NEUVE`), miroir
  * `supabase/migrations/20261012_l_origine_des_comptes.sql`. Preuve : PostgreSQL réel,
@@ -75,6 +75,10 @@ BEGIN
   IF to_regclass(format('%I.membres', p_schema)) IS NOT NULL THEN
     EXECUTE format('SELECT EXISTS (SELECT 1 FROM %I.membres WHERE compte_id = $1)', p_schema) INTO v_oui USING v_compte;
     IF v_oui THEN RETURN true; END IF;
+  END IF;
+  -- Un compte d'app (25/11) est né dans son app et n'en rejoint aucune autre.
+  IF EXISTS (SELECT 1 FROM public.vavi_comptes_d_app c WHERE c.id = v_compte) THEN
+    RETURN EXISTS (SELECT 1 FROM public.vavi_comptes_d_app c WHERE c.id = v_compte AND c.schema_de_l_app = p_schema);
   END IF;
   SELECT o.origine INTO v_origine FROM public.origine_des_comptes o WHERE o.compte = v_compte;
   IF v_origine = p_schema THEN RETURN true; END IF;

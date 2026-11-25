@@ -4,19 +4,19 @@
  * Les rôles viennent de la base, par la fonction `rejoindre` du schéma de l'app (qui pose d'abord ceux que l'inscription
  * donne). « Pas de rôle » et « rôles illisibles » ne se confondent pas : une panne réseau n'enferme personne dehors.
  *
- * Dans l'aperçu, la plateforme fait entrer le propriétaire avec son compte : un jeton à usage unique après `#entree=`,
- * échangé contre une session quand l'onglet n'en a pas, et effacé de l'adresse dès la lecture.
+ * Les comptes sont ceux de CETTE app, tenus par vavi (`comptes.ts`, décision du 25/11) : un lien reçu par courriel
+ * (confirmer l'adresse, se connecter, un nouveau mot de passe) ramène ici avec son code après `#vavi=`, échangé contre
+ * une session, et effacé de l'adresse dès la lecture.
  */
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import type { AuthError, Session as SessionSupabase } from '@supabase/supabase-js';
 import { roleParDefaut, supabase, schema } from './supabase';
 import { APP } from './app';
 import { appelerAuRelais } from './relais';
 import { arriveePour } from './navigation';
 import { libellesPour, type Libelles } from './libelles';
 import { langueCourante } from './langue';
-import { BASE_DE_MONTAGE } from './env';
+import { appelerLesComptes, CODE_DU_LIEN, compteCourant, prendreLaSession, sortir, surLeCompte, jetonValable, type CompteDeLApp } from './comptes';
 
 export interface Compte { readonly id: string; readonly email: string }
 
@@ -47,30 +47,18 @@ export function useSession(): Session {
   return s;
 }
 
-function motif(erreur: AuthError | null, L: Libelles): string | null {
-  if (!erreur) return null;
-  const code = (erreur as { code?: string }).code ?? '';
-  if (code === 'invalid_credentials') return L.identifiantsInvalides;
-  if (code === 'user_already_exists') return L.compteExistant;
-  if (code === 'email_not_confirmed') return L.courrielNonConfirme;
-  if (code === 'weak_password') return L.motDePasseFaible;
-  if (code === 'over_request_rate_limit' || erreur.status === 429) return L.tropDeTentatives;
+/** Ce que la personne lit d'un refus des comptes. */
+function motif(code: string, L: Libelles): string {
+  if (code === 'identifiants_invalides') return L.identifiantsInvalides;
+  if (code === 'compte_existant') return L.compteExistant;
+  if (code === 'courriel_non_confirme') return L.courrielNonConfirme;
+  if (code === 'mot_de_passe_faible' || code === 'adresse_invalide') return L.motDePasseFaible;
+  if (code === 'trop_d_appels') return L.tropDeTentatives;
+  if (code === 'comptes_indisponibles' || code === 'courrier_absent') return L.sansBackend;
   return L.connexionImpossible;
 }
 
-const adresseDansLApp = (chemin: string): string =>
-  new URL(`${(BASE_DE_MONTAGE ?? '').replace(/\/$/, '')}${chemin}`, window.location.origin).toString();
-
-/** Le jeton d'entrée posé par l'aperçu, lu une fois et retiré de l'adresse avant que le routeur ne la lise. */
-const JETON_D_ENTREE: string | null = (() => {
-  if (typeof window === 'undefined') return null;
-  const jeton = /^#entree=([^&]+)$/.exec(window.location.hash)?.[1];
-  if (!jeton) return null;
-  window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
-  return decodeURIComponent(jeton);
-})();
-
-const compteDe = (s: SessionSupabase | null): Compte | null => (s?.user ? { id: s.user.id, email: s.user.email ?? '' } : null);
+const compteDe = (c: CompteDeLApp | null): Compte | null => (c ? { id: c.id, email: c.email } : null);
 
 async function lireLesRoles(): Promise<readonly string[] | null> {
   const r = await appelerAuRelais<unknown>('rejoindre');
@@ -90,8 +78,7 @@ export function FournisseurDeSession({ children }: { children: ReactNode }) {
   const relire = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
-    const client = supabase;
-    if (!client) return;
+    if (!supabase) return;
     let vivant = true;
     const lire = async (c: Compte | null) => {
       const n = ++lecture.current;
@@ -105,23 +92,28 @@ export function FournisseurDeSession({ children }: { children: ReactNode }) {
       setRolesDe(c.id);
       if (vientDEntrer.current && actifs !== null) { vientDEntrer.current = false; naviguer(arriveePour(actifs), { replace: true }); }
     };
-    void client.auth.getSession().then(async ({ data }) => {
-      const entree = !data.session && JETON_D_ENTREE
-        ? await client.auth.verifyOtp({ token_hash: JETON_D_ENTREE, type: 'magiclink' }).then((r) => r.data.session, () => null) : null;
-      const c = compteDe(data.session ?? entree);
+    void (async () => {
+      // Un lien reçu par courriel : son code contre une session (il confirme l'adresse), avant de lire le compte.
+      if (CODE_DU_LIEN) {
+        const r = await appelerLesComptes('echanger', { code: CODE_DU_LIEN });
+        if (r.ok && prendreLaSession(r.donnee)) vientDEntrer.current = true;
+      }
+      // Une session gardée dont le renouvellement est refusé n'est plus une session.
+      if (compteCourant()) await jetonValable();
+      const c = compteDe(compteCourant());
       if (!vivant) return;
       setCompte(c);
       relire.current = () => lire(c);
       await lire(c);
       if (vivant) setEnChargement(false);
-    });
-    const { data: abonnement } = client.auth.onAuthStateChange((_e, s) => {
-      const c = compteDe(s);
+    })();
+    const fin = surLeCompte((x) => {
+      const c = compteDe(x);
       setCompte(c);
       relire.current = () => lire(c);
       void lire(c);
     });
-    return () => { vivant = false; abonnement.subscription.unsubscribe(); };
+    return () => { vivant = false; fin(); };
   }, [naviguer]);
 
   const valeur = useMemo<Session>(() => {
@@ -131,31 +123,32 @@ export function FournisseurDeSession({ children }: { children: ReactNode }) {
       return { compte: null, roles: [], rolesLus: true, rolesIllisibles: false, enChargement: false, seConnecter: sans, sInscrire: sans,
         seDeconnecter: async () => {}, relireLesRoles: async () => {}, reinitialiserLeMotDePasse: sans, changerLeMotDePasse: sans };
     }
-    const client = supabase;
     return {
       compte, roles, rolesIllisibles, enChargement, rolesLus: compte === null || rolesDe === compte.id,
       seConnecter: async (email, motDePasse) => {
-        const { error } = await client.auth.signInWithPassword({ email, password: motDePasse });
-        if (!error) vientDEntrer.current = true;
-        return { erreur: motif(error, L) };
-      },
-      sInscrire: async (email, motDePasse, resterIci) => {
-        const { data, error } = await client.auth.signUp({ email, password: motDePasse,
-          options: { data: { constructor_app: schema }, emailRedirectTo: adresseDansLApp(PORTE) } });
-        if (error) return { erreur: motif(error, L) };
-        if (!data.session) return { erreur: null, aConfirmer: true };
-        vientDEntrer.current = !resterIci;
+        const r = await appelerLesComptes('entrer', { email, motDePasse });
+        if (!r.ok) return { erreur: motif(r.code, L) };
+        vientDEntrer.current = true;
+        prendreLaSession(r.donnee);
         return { erreur: null };
       },
-      seDeconnecter: async () => { await client.auth.signOut({ scope: 'local' }); },
+      sInscrire: async (email, motDePasse, resterIci) => {
+        const r = await appelerLesComptes('inscrire', { email, motDePasse }, { chemin: PORTE });
+        if (!r.ok) return { erreur: motif(r.code, L) };
+        if (r.donnee.aConfirmer === true) return { erreur: null, aConfirmer: true };
+        vientDEntrer.current = !resterIci;
+        prendreLaSession(r.donnee);
+        return { erreur: null };
+      },
+      seDeconnecter: () => sortir(),
       relireLesRoles: () => relire.current(),
       reinitialiserLeMotDePasse: async (email) => {
-        const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: adresseDansLApp(MON_COMPTE) });
-        return { erreur: motif(error, L) };
+        const r = await appelerLesComptes('oublie', { email }, { chemin: MON_COMPTE });
+        return { erreur: r.ok ? null : motif(r.code, L) };
       },
       changerLeMotDePasse: async (motDePasse) => {
-        const { error } = await client.auth.updateUser({ password: motDePasse });
-        return { erreur: motif(error, L) };
+        const r = await appelerLesComptes('changer', { motDePasse }, { jeton: await jetonValable() });
+        return { erreur: r.ok ? null : motif(r.code, L) };
       },
     };
   }, [compte, roles, rolesDe, rolesIllisibles, enChargement]);

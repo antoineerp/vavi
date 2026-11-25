@@ -13,6 +13,7 @@ import type { DependancesDesCommandes, LaPersonne } from '@/lib/vente/les-comman
 import { agirPourUnCompte } from '@/lib/relais/agir-pour-un-compte';
 import { TABLE_DE_LA_COMMANDE } from '@/lib/backend/app/la-commande';
 import { leCourrierDeLaPlateforme } from '@/lib/formulaires/sur-supabase';
+import { laPersonneDuJeton } from './les-comptes-reels';
 
 export function laVenteReelle(): DependancesDeLaVente {
   const base = clientDeService();
@@ -34,9 +35,7 @@ export function laVenteReelle(): DependancesDeLaVente {
 /** L'acheteur connecté : le jeton de sa session, relu auprès de Supabase ; `null` : un achat sans compte. */
 export async function lAcheteurConnecte(requete: Request): Promise<string | null> {
   const jeton = /^Bearer\s+(\S+)$/i.exec(requete.headers.get('authorization') ?? '')?.[1];
-  if (!jeton) return null;
-  const r = await clientDeService().auth.getUser(jeton);
-  return r.error ? null : r.data.user?.id ?? null;
+  return (await laPersonneDuJeton(jeton ?? null, null))?.compte ?? null;
 }
 
 /** Le corps JSON d'une requête, un objet ; sinon `{}` (la vente dit ce qui manque). */
@@ -61,8 +60,5 @@ export function lesCommandesReelles(): DependancesDesCommandes {
 /** La personne d'une session d'app : son compte, son adresse et si elle l'a confirmée ; `null` : pas de session valide. */
 export async function laPersonneConnectee(requete: Request): Promise<LaPersonne | null> {
   const jeton = /^Bearer\s+(\S+)$/i.exec(requete.headers.get('authorization') ?? '')?.[1];
-  if (!jeton) return null;
-  const r = await clientDeService().auth.getUser(jeton);
-  const u = r.error ? null : r.data.user;
-  return u ? { compte: u.id, courriel: u.email ?? null, confirme: Boolean(u.email_confirmed_at) } : null;
+  return laPersonneDuJeton(jeton ?? null, null);
 }

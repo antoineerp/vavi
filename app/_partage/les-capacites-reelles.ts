@@ -7,6 +7,7 @@ import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 import { ouvrirUnSecret } from '@/lib/mcp/les-jetons';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { leJeton, ouvrirLaPorte, type DependancesDeLaPorte, type Plafonds, type Porte, type Service } from '@/lib/capacites/la-porte';
+import { laPersonneDuJeton } from './les-comptes-reels';
 
 function laPorteReelle(): DependancesDeLaPorte {
   const base = clientDeService();
@@ -18,10 +19,7 @@ function laPorteReelle(): DependancesDeLaPorte {
       const m = leManifesteStocke(p.valeur.appJson);
       return { lu: true, valeur: m.lu ? m.manifeste : null };
     },
-    async laPersonne(jeton) {
-      const r = await base.auth.getUser(jeton);
-      return r.error ? null : r.data.user?.id ?? null;
-    },
+    async laPersonne(jeton) { return (await laPersonneDuJeton(jeton, null))?.compte ?? null; },
     async estMembre(projet, compte) {
       const schema = schemaDuProjet(projet);
       if (!schema) return { lu: true, valeur: false };

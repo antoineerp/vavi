@@ -80,7 +80,7 @@ export interface Projets {
 }
 
 /** Les réglages d'un projet que la personne pose dans la console. `null` : rien de posé (le courriel du compte sert). */
-export interface Reglages { readonly courrielDesMessages: string | null; readonly verificationGoogle: string | null }
+export interface Reglages { readonly courrielDesMessages: string | null; readonly verificationGoogle: string | null; readonly inscriptionSansValidation: boolean }
 
 interface LigneDeProjet { id: string; nom: string; version: number; apercu_empreinte: string | null; en_ligne_empreinte: string | null; en_ligne_le: string | null; base_posee_le: string | null; modifie_le: string }
 interface LigneDeChantier { id: string; projet: string; intention: string; version_de_depart: number; ouvert_le: string; dernier_geste_le: string; gestes: number; fait: string[]; reste: string | null }
@@ -175,14 +175,17 @@ export function projetsSurSupabase(base: SupabaseClient): Projets {
     async reglages(compte, id) {
       const refus = await aLui(compte, id);
       if (refus) return pasLu(refus);
-      const r = await base.from('vavi_projets').select('courriel_des_messages, verification_google').eq('id', id)
-        .maybeSingle<{ courriel_des_messages: string | null; verification_google: string | null }>();
-      return r.error ? pasLu(r.error.message) : lu({ courrielDesMessages: r.data?.courriel_des_messages ?? null, verificationGoogle: r.data?.verification_google ?? null });
+      // `*` : un réglage dont la colonne n'est pas encore posée (migration à coller) se lit à sa valeur par défaut.
+      const r = await base.from('vavi_projets').select('*').eq('id', id)
+        .maybeSingle<{ courriel_des_messages?: string | null; verification_google?: string | null; inscription_sans_validation?: boolean }>();
+      return r.error ? pasLu(r.error.message) : lu({ courrielDesMessages: r.data?.courriel_des_messages ?? null, verificationGoogle: r.data?.verification_google ?? null,
+        inscriptionSansValidation: r.data?.inscription_sans_validation === true });
     },
     async regler(compte, id, x) {
       const refus = await aLui(compte, id);
       if (refus) return pasLu(refus);
-      const maj = { ...('courrielDesMessages' in x ? { courriel_des_messages: x.courrielDesMessages } : {}), ...('verificationGoogle' in x ? { verification_google: x.verificationGoogle } : {}) };
+      const maj = { ...('courrielDesMessages' in x ? { courriel_des_messages: x.courrielDesMessages } : {}), ...('verificationGoogle' in x ? { verification_google: x.verificationGoogle } : {}),
+        ...('inscriptionSansValidation' in x ? { inscription_sans_validation: x.inscriptionSansValidation } : {}) };
       return ok(await base.from('vavi_projets').update(maj).eq('id', id));
     },
     async fermerChantier(compte, id, chantier, issue) {
