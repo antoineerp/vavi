@@ -6,6 +6,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sqlDeLaBase } from '@/lib/backend/pipeline/la-base';
 import { laMigrationDesDonnees } from '@/lib/donnees/le-sql-des-donnees';
+import { laMigrationDesMembres } from '@/lib/donnees/le-sql-des-membres';
 import { demarrer, POSTGRES_PRESENT, type UnPostgres } from '../aides/un-postgres';
 import { NOTES, lu } from './une-app';
 
@@ -26,6 +27,7 @@ describe.runIf(POSTGRES_PRESENT)('les données de la console, sur un PostgreSQL 
     for (const g of sqlDeLaBase(lu(NOTES), { schema: S, proprietaire: MOI })) pg.admin(`begin;\nset search_path to '';\n${g.sql}\ncommit;`);
     pg.admin(laMigrationDesDonnees());
     pg.admin(laMigrationDesDonnees());
+    pg.admin(laMigrationDesMembres());
   }, 120_000);
   afterAll(() => pg?.arreter());
 
@@ -70,5 +72,16 @@ describe.runIf(POSTGRES_PRESENT)('les données de la console, sur un PostgreSQL 
       expect(pg.comme(qui, `select public.vavi_console_lire('${S}', 'notes', null, 0, 5);`).ok).toBe(false);
       expect(pg.comme(qui, `select public.vavi_console_supprimer('${S}', 'notes', '${MOI}', null);`).ok).toBe(false);
     }
+  });
+
+  it('les membres de l’app se lisent pour la plateforme seule, rôles et invitations compris', () => {
+    pg.admin(`insert into ${S}.membres (compte_id, email, role) values ('${MOI}', 'moi@a.fr', 'responsable') on conflict do nothing;\n`
+      + `insert into ${S}.membres_invitations (email, role, organisation_id) values ('sam@a.fr', 'salarie', '${MOI}') on conflict do nothing;`);
+    const r = json(`select public.vavi_console_les_membres('${S}');`) as { membres: Array<{ email: string; role: string }>; invitations: Array<{ email: string }> };
+    expect(r.membres.map((m) => [m.email, m.role])).toContainEqual(['moi@a.fr', 'responsable']);
+    expect(r.invitations.map((i) => i.email)).toEqual(['sam@a.fr']);
+    expect(json(`select public.vavi_console_les_membres('app_absente');`)).toEqual({ membres: [], invitations: [] });
+    expect(service(`select public.vavi_console_les_membres('public');`).ok).toBe(false);
+    for (const qui of [MOI, null]) expect(pg.comme(qui, `select public.vavi_console_les_membres('${S}');`).ok).toBe(false);
   });
 });

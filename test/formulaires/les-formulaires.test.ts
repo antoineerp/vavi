@@ -115,3 +115,22 @@ describe('la migration des formulaires', () => {
     expect(readFileSync(join(__dirname, '../..', CHEMIN_DE_LA_MIGRATION_DES_FORMULAIRES), 'utf8')).toBe(laMigrationDesFormulaires());
   });
 });
+
+describe('l’audience par source et par période', async () => {
+  const { lesSources, lesDeuxPeriodes, estUnReseau } = await import('@/lib/formulaires/l-audience');
+  it('range chaque visite dans une famille : direct, moteur, assistant IA, réseau social, autre site', () => {
+    const v = (referent: string | null) => ({ chemin: '/', referent, campagne: null });
+    expect(lesSources([v(null), v('www.google.fr'), v('chatgpt.com'), v('l.facebook.com'), v('t.co'), v('blog.exemple.fr')]))
+      .toEqual({ direct: 1, moteurs: 1, assistants: 1, reseaux: 2, sites: 1 });
+    expect(estUnReseau('fr.pinterest.com')).toBe(true);
+    expect(estUnReseau('monx.com')).toBe(false);
+  });
+  it('coupe la période choisie et celle d’avant, de même longueur, et dit l’écart', () => {
+    const l = (jour: string) => ({ jour });
+    const p = lesDeuxPeriodes([l('2026-11-25'), l('2026-11-19'), l('2026-11-18'), l('2026-11-12'), l('2026-11-11')], 7, '2026-11-25');
+    expect(p.actuelle.map((x) => x.jour)).toEqual(['2026-11-25', '2026-11-19']);
+    expect(p.precedente.map((x) => x.jour)).toEqual(['2026-11-18', '2026-11-12']);
+    expect(p.ecart).toBe(0);
+    expect(lesDeuxPeriodes([l('2026-11-25')], 7, '2026-11-25').ecart).toBeNull();
+  });
+});

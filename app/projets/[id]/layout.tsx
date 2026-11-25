@@ -25,6 +25,8 @@ export default async function MiseEnPage({ children, params }: { children: React
   if (p.lu && !p.valeur) notFound();
   const m = f.lu ? leManifesteStocke(f.valeur.get('app.json')) : null;
   const vend = m?.lu ? laBoutique(m.manifeste) !== null : false;
+  // Une app a des comptes dès qu'elle déclare des rôles ou des tables (on s'y inscrit pour écrire).
+  const comptes = m?.lu ? m.manifeste.roles.length > 0 || m.manifeste.tables.length > 0 : false;
   const projet = p.lu ? p.valeur : null;
   return (
     <div className="projet">
@@ -40,7 +42,7 @@ export default async function MiseEnPage({ children, params }: { children: React
         </span>
       </header>
       <div className="projet-corps">
-        <BarreLaterale id={id} menu={leMenu(c.langue, { vend })} />
+        <BarreLaterale id={id} menu={leMenu(c.langue, { vend, comptes })} />
         <div className="projet-contenu">{children}</div>
       </div>
     </div>
