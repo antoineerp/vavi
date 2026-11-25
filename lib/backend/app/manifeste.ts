@@ -389,12 +389,31 @@ export function relireUnManifesteLivre(json: unknown): Manifeste | null {
   return forme.success ? forme.data : null;
 }
 
+/**
+ * INCIDENT 25/11 (Antoine, une boutique de bières) : le catalogue d'une table publique qui se vend était lu du seul
+ * propriétaire ; le visiteur, qui achète, voyait « Votre compte ne peut pas faire ce geste ». Ce qui se vend sur une table
+ * publique se lit de qui l'achète : `visiteur` est ajouté à sa `lecture`, et c'est dit. PURE.
+ */
+export function lesVentesVisibles(json: unknown): { readonly valeur: unknown; readonly repare: readonly string[] } {
+  const brut = json as { tables?: unknown } | null;
+  if (!brut || typeof brut !== 'object' || !Array.isArray(brut.tables)) return { valeur: json, repare: [] };
+  const repare: string[] = [];
+  const tables = (brut.tables as unknown[]).map((t) => {
+    const x = t as { nom?: unknown; vente?: unknown; appartenance?: unknown; lecture?: unknown };
+    if (!x || typeof x !== 'object' || !x.vente || x.appartenance !== 'publique' || !Array.isArray(x.lecture) || x.lecture.includes(VISITEUR)) return t;
+    repare.push(`${String(x.nom)} se vend : ses lignes sont lues de qui achète (\`${VISITEUR}\` ajouté à \`lecture\`)`);
+    return { ...x, lecture: [...x.lecture, VISITEUR] };
+  });
+  return repare.length ? { valeur: { ...brut, tables }, repare } : { valeur: json, repare: [] };
+}
+
 /** Lit app.json au cadrage, ses liens et ses cycles réparés et dits. Rend le manifeste, ou la liste exacte de ce qui ne tient pas. */
 export function lireLeManifeste(json: unknown): { ok: true; manifeste: Manifeste; repare: readonly string[] } | { ok: false; erreurs: string[]; repare: readonly string[] } {
   const liens = lesLiensRepares(json);
   const cycles = lesCyclesRepares(liens.valeur);
-  const envois = lesEnvoisRepares(cycles.valeur), repare = [...liens.repare, ...cycles.repare, ...envois.repare];
-  const r = Manifeste.safeParse(envois.valeur);
+  const envois = lesEnvoisRepares(cycles.valeur);
+  const ventes = lesVentesVisibles(envois.valeur), repare = [...liens.repare, ...cycles.repare, ...envois.repare, ...ventes.repare];
+  const r = Manifeste.safeParse(ventes.valeur);
   if (r.success) return { ok: true, manifeste: avecSesEtatsOuverts(r.data), repare };
   return { ok: false, erreurs: r.error.issues.map((i) => (i.path.length ? `${i.path.join('.')} : ${i.message}` : i.message)), repare };
 }
