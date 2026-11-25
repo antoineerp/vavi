@@ -9,7 +9,7 @@ import { CENTIMES_D_UN_PROJET_EN_PLUS, OFFRES } from '@/lib/abonnements/les-offr
 import { TEXTES } from '@/app/_partage/textes';
 
 const ADRESSE = 'https://vavi.test/api/mcp';
-const page = laPageDAccueil(TEXTES.fr.commencer.premierTexte, ADRESSE);
+const page = laPageDAccueil(TEXTES.fr.commencer.premierTexte, ADRESSE, 'https://vavi.test');
 
 describe('la page d’accueil', () => {
   it('le bouton « Ajouter vavi à Claude » ouvre le connecteur rempli ; l’adresse et le premier message se copient', () => {
@@ -32,14 +32,15 @@ describe('la page d’accueil', () => {
     expect(page).toContain(`<b>${CENTIMES_D_UN_PROJET_EN_PLUS / 100} € / mois</b>`);
   });
 
-  it('les liens mènent aux pages qui existent, et le script de la page se lit', () => {
-    for (const h of ['/commencer', '/projets', '/confidentialite']) expect(page).toContain(`href="${h}"`);
+  it('les liens mènent aux pages de la console, à son adresse (la page servie sous un autre nom y envoie), et le script se lit', () => {
+    for (const h of ['/commencer', '/projets', '/confidentialite']) expect(page).toContain(`href="https://vavi.test${h}"`);
+    expect(page).not.toMatch(/href="\/(commencer|projets|confidentialite)"/);
     expect(page).not.toContain('href="#haut">Mentions');
     const script = page.slice(page.lastIndexOf('<script>') + 8, page.lastIndexOf('</script>'));
     expect(() => new Function(script)).not.toThrow();
   });
 
   it('un texte avec des signes HTML ne casse pas la page', () => {
-    expect(laPageDAccueil('a "b" <c> & d', ADRESSE)).toContain('a &quot;b&quot; &lt;c&gt; &amp; d');
+    expect(laPageDAccueil('a "b" <c> & d', ADRESSE, 'https://vavi.test')).toContain('a &quot;b&quot; &lt;c&gt; &amp; d');
   });
 });

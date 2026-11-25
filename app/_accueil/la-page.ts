@@ -5,7 +5,7 @@
  * Claude » ouvre le connecteur déjà rempli, et une animation dessinée montre les trois étapes. Les trous `__…__` sont
  * remplis par `laPageDAccueil`.
  */
-import { adresseMcp, lienDInstallation } from '@/lib/mcp/l-adresse';
+import { adresseDeLaPlateforme, adresseMcp, lienDInstallation } from '@/lib/mcp/l-adresse';
 
 const GABARIT = String.raw`<!doctype html>
 <html lang="fr">
@@ -321,7 +321,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
       <a href="#prix">Prix</a>
       <a href="#questions">Questions</a>
     </nav>
-    <a class="bouton" href="/projets">Ma console</a>
+    <a class="bouton" href="__CONSOLE__/projets">Ma console</a>
   </div>
 </header>
 
@@ -857,7 +857,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
     </ol>
 
     <div class="bloque" aria-label="Si vous êtes bloqué">
-      <div><span class="main" style="font-size:1.3rem;color:var(--marge)">Bloqué ?</span><b>Claude ne me laisse pas ajouter vavi</b><p>Sur l'offre gratuite de Claude, un seul connecteur personnalisé est permis : retirez d'abord l'autre, ou passez à une offre payante. Le bouton ne s'ouvre pas ? La <a href="/commencer">page Commencer</a> donne l'adresse à copier.</p></div>
+      <div><span class="main" style="font-size:1.3rem;color:var(--marge)">Bloqué ?</span><b>Claude ne me laisse pas ajouter vavi</b><p>Sur l'offre gratuite de Claude, un seul connecteur personnalisé est permis : retirez d'abord l'autre, ou passez à une offre payante. Le bouton ne s'ouvre pas ? La <a href="__CONSOLE__/commencer">page Commencer</a> donne l'adresse à copier.</p></div>
       <div><span class="main" style="font-size:1.3rem;color:var(--marge)">Bloqué ?</span><b>Je n'ai pas reçu le courriel de connexion</b><p>Regardez dans les indésirables. Le lien reste valable quelques minutes : au besoin, cliquez de nouveau sur Se connecter.</p></div>
       <div><span class="main" style="font-size:1.3rem;color:var(--marge)">Bloqué ?</span><b>Claude ne parle pas de vavi</b><p>vavi n'est pas activé dans cette conversation. Ouvrez le menu des outils sous la zone de texte et cochez vavi.</p></div>
     </div>
@@ -1028,7 +1028,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
 <footer class="pied">
   <div class="enveloppe">
     <span>vavi · hébergé en Europe</span>
-    <nav aria-label="Pied de page"><a href="#prix">Prix</a><a href="#questions">Questions</a><a href="/commencer">Commencer</a><a href="/projets">Console</a><a href="/confidentialite">Confidentialité</a><a href="mailto:info@vavi.dev">Contact</a></nav>
+    <nav aria-label="Pied de page"><a href="#prix">Prix</a><a href="#questions">Questions</a><a href="__CONSOLE__/commencer">Commencer</a><a href="__CONSOLE__/projets">Console</a><a href="__CONSOLE__/confidentialite">Confidentialité</a><a href="mailto:info@vavi.dev">Contact</a></nav>
   </div>
 </footer>
 
@@ -1051,9 +1051,11 @@ document.querySelectorAll('[data-copier]').forEach(function(b){
 /** Le texte, sûr dans un attribut comme dans un élément. */
 const enHtml = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/** PURE : la page, l'adresse du connecteur et le premier message posés. `premier` : le message de la page Commencer. */
-export function laPageDAccueil(premier: string, adresse: string = adresseMcp()): string {
-  return GABARIT.split('__LIEN_D_INSTALLATION__').join(enHtml(lienDInstallation(adresse)))
+/** PURE : la page, l'adresse du connecteur et le premier message posés. `premier` : le message de la page Commencer.
+ * Les liens vers la console sont absolus : servie sous vavi.dev, la page envoie à la console, là où la connexion est réglée. */
+export function laPageDAccueil(premier: string, adresse: string = adresseMcp(), console: string = adresseDeLaPlateforme()): string {
+  return GABARIT.split('__CONSOLE__').join(enHtml(console))
+    .split('__LIEN_D_INSTALLATION__').join(enHtml(lienDInstallation(adresse)))
     .split('__ADRESSE_MCP__').join(enHtml(adresse))
     .split('__PREMIER_MESSAGE__').join(enHtml(premier.trim()));
 }
