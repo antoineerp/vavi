@@ -22,7 +22,7 @@ const libelleDuRole = (nom: string): string => APP.roles.find((r) => r.nom === n
 export function EssaiDeRole() {
   const L = libellesPour(langueCourante());
   const { compte } = useSession();
-  const miens = useLecture('membres', { egal: { compte_id: compte?.id ?? '' } });
+  const miens = useLecture('membres', { egal: { compte_id: compte?.id ?? '' } }, Boolean(compte));
   const roles = miens.forme === 'donnee' ? [...new Set(miens.donnee.lignes.map((m) => m.role))].sort() : [];
   if (!compte || roles.length < 2) return null;
   const essaye = roleEssaye();
@@ -51,7 +51,7 @@ export function BandeauDEssai() {
   const L = libellesPour(langueCourante());
   const { compte, roles, seDeconnecter } = useSession();
   const ici = useLocation().pathname;
-  const miens = useLecture('membres', { egal: { compte_id: compte?.id ?? '' } });
+  const miens = useLecture('membres', { egal: { compte_id: compte?.id ?? '' } }, Boolean(compte));
   const essaye = roleEssaye();
   if (!essaye || !compte) return null;
   const autres = miens.forme === 'donnee' ? [...new Set(miens.donnee.lignes.map((m) => m.role))].filter((r) => r !== essaye).sort() : [];
@@ -75,11 +75,11 @@ export function BandeauDEssai() {
 export function EcranDUnAutreRole({ acces }: { readonly acces: Acces }) {
   const { compte, roles, seDeconnecter } = useSession();
   const ici = useLocation().pathname;
-  const miens = useLecture('membres', { egal: { compte_id: compte?.id ?? '' } });
+  const miens = useLecture('membres', { egal: { compte_id: compte?.id ?? '' } }, Boolean(compte));
   const essaye = roleEssaye();
   const autre = miens.forme === 'donnee' ? unAutreRoleQuiOuvre(acces, miens.donnee.lignes.map((m) => m.role), essaye) : null;
   useEffect(() => { if (essaye && autre) essayerEnTantQue(autre); }, [essaye, autre]);
-  if (essaye && miens.forme === 'attente') return <Patience />;
+  if (essaye && compte && miens.forme === 'attente') return <Patience />;
   if (essaye && autre) return <Patience />;
   const suite = apresUnEcranFerme(ici, roles, arriveePour(roles));
   if (suite.rendre === 'sans-role') return <SansRole seDeconnecter={() => void seDeconnecter()} />;

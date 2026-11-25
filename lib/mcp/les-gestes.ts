@@ -27,7 +27,8 @@ import { publierLeDist, racineDuBuild } from '@/lib/publication/publier';
 import { refuser, suiteDeRefus, paquetInconnu, type Refus } from '@/lib/consignes';
 import { estUnFichierDEnvironnement, unSecretDans } from './les-secrets';
 import { connecteurDuSecret, PREFIXE_DU_SECRET } from '@/lib/connecteurs/les-connecteurs';
-import { lArbreDUnProjet } from '@/lib/projets/l-arbre-d-un-projet';
+import { CHEMIN_DU_GABARIT, garderLeGabaritCourant, lArbreLu, laVersionFixee, leFichierDuGabarit } from '@/lib/projets/le-gabarit-du-projet';
+import { leGabaritCourant } from '@/squelette/registre';
 import { revenirA } from '@/lib/versions/revenir';
 import type { LecturesDeLaVue } from './les-gestes-de-la-vue';
 import { leGuideDeDesign } from '@/lib/design/le-guide';
@@ -213,7 +214,7 @@ export async function lEtatDuProjet(c: Contexte, a: { project: string }): Promis
   if (!p.ok) return p.refus;
   const f = await lesFichiers(c, a.project);
   if (!f.ok) return f.refus;
-  const arbre = lArbreDUnProjet(f.valeur);
+  const arbre = await lArbreLu(f.valeur, c.magasin);
   const build = arbre.lu ? await c.projets.leBuild(c.compte, a.project, arbre.empreinte) : null;
   const ch = p.valeur.chantier;
   const plan = c.abonnement ? await c.abonnement() : null;
@@ -230,6 +231,7 @@ export async function lEtatDuProjet(c: Contexte, a: { project: string }): Promis
     your_files: [...f.valeur].filter(([chemin]) => chemin !== 'app.json').map(([chemin, t]) => ({ path: chemin, fingerprint: empreinteDuFichier(t), size: t.length })),
     app_json: f.valeur.has('app.json') ? { fingerprint: empreinteDuFichier(f.valeur.get('app.json')!) } : null,
     platform_files: { read_first: CHEMINS_MONTRES, all: arbre.lu ? [...arbre.fige.keys()] : [] },
+    ...(arbre.repli ? { template: arbre.repli } : {}),
     current_build: !arbre.lu ? `app.json does not hold: ${arbre.erreurs.join(' | ')}`
       : !build || !build.lu ? 'unknown' : !build.valeur ? 'not built yet: run `build_preview`'
         : build.valeur.vert ? { green: true, draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), published: p.valeur.apercuEmpreinte === arbre.empreinte }
@@ -242,7 +244,7 @@ export async function lireDesFichiers(c: Contexte, a: { project: string; paths: 
   if (!p.ok) return p.refus;
   const f = await lesFichiers(c, a.project);
   if (!f.ok) return f.refus;
-  const arbre = lArbreDUnProjet(f.valeur);
+  const arbre = await lArbreLu(f.valeur, c.magasin);
   let lus = 0;
   const files = a.paths.map((chemin) => {
     const platform = estFige(chemin) && chemin !== 'app.json';
@@ -266,9 +268,32 @@ export async function ouvrirUnChantier(c: Contexte, a: { project: string; intent
     const x = o.valeur.autre;
     return refuser('chantier_ouvert', `A work session is already open: "${x.intention}" (opened ${x.ouvertLe}, last change ${x.dernierGesteLe}). Call again with \`resume: true\` to continue it here, or abandon it with \`abandonner_chantier\`.`);
   }
+  const montee = await monterLeGabarit(c, a.project, o.valeur.chantier);
   const ch = (await leProjet(c, a.project));
   const note = ch.ok && ch.valeur.chantier ? { done: ch.valeur.chantier.fait, remaining: ch.valeur.chantier.reste } : null;
-  return fait({ work_session: o.valeur.chantier, resumed: o.valeur.repris, version: p.valeur.version, ...(o.valeur.repris ? { notes: note } : {}) });
+  return fait({ work_session: o.valeur.chantier, resumed: o.valeur.repris, version: montee?.version ?? p.valeur.version, ...(o.valeur.repris ? { notes: note } : {}),
+    ...(montee ? { template: 'vavi updated the platform files of this project to the current template: run `build_preview` before `publish`, even if you change nothing else.' } : {}) });
+}
+
+/**
+ * À l'ouverture d'un chantier, le projet passe au gabarit du jour (Antoine, 25/11 : « Gabarit fixé par projet ») : la
+ * version est gardée au magasin, puis fixée dans `vavi-gabarit.json`, en une version du chantier (un abandon la ramène).
+ * Sans magasin, rien n'est fixé : le projet suit le gabarit du jour, comme avant. Rien n'est refusé pour autant.
+ */
+async function monterLeGabarit(c: Contexte, id: string, chantier: string): Promise<{ version: number } | null> {
+  if (!c.magasin) return null;
+  const f = await c.projets.fichiers(c.compte, id);
+  if (!f.lu || laVersionFixee(f.valeur) === leGabaritCourant().empreinte) return null;
+  try {
+    const version = await garderLeGabaritCourant(c.magasin);
+    const avant = f.valeur.get(CHEMIN_DU_GABARIT);
+    const r = await c.projets.appliquer(c.compte, id, { chantier, attendus: { [CHEMIN_DU_GABARIT]: avant === undefined ? null : empreinteDuFichier(avant) },
+      ecrits: new Map([[CHEMIN_DU_GABARIT, leFichierDuGabarit(version)]]), supprimes: [], pourquoi: `gabarit de la plateforme : version ${version.slice(0, 12)}` });
+    return r.lu && r.valeur.applique ? { version: r.valeur.version } : null;
+  } catch (e) {
+    console.error(`[gabarit] ${id.slice(0, 8)} non fixé : ${(e as Error).message}`);
+    return null;
+  }
 }
 
 /** Ramène l'arbre stocké à `cible` en une version (rollback, abandon), par `lib/versions` ; traduit en refus de Claude. */
@@ -426,7 +451,7 @@ export async function leGuideDuDesign(c: Contexte, a: { project: string }): Prom
   if (!p.ok) return p.refus;
   const f = await lesFichiers(c, a.project);
   if (!f.ok) return f.refus;
-  const arbre = lArbreDUnProjet(f.valeur);
+  const arbre = await lArbreLu(f.valeur, c.magasin);
   if (!arbre.lu) return refuser('app_json_refuse', `app.json does not hold: ${arbre.erreurs.join(' | ')}`, { fichier: 'app.json' });
   const g = leGuideDeDesign(arbre.manifeste);
   return fait({ guide: g.guide, rules: g.regles.map((r) => r.texte) });
@@ -503,7 +528,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   if (!c.magasin) return refuser('plateforme_en_panne', 'The storage of the builds is not configured on this vavi server.');
   const f = await lesFichiers(c, a.project);
   if (!f.ok) return f.refus;
-  const arbre = lArbreDUnProjet(f.valeur);
+  const arbre = await lArbreLu(f.valeur, c.magasin);
   if (!arbre.lu) return refuser('app_json_refuse', `app.json does not hold: ${arbre.erreurs.join(' | ')}`, { fichier: 'app.json' });
   // Un fichier hors de src/ et public/, écrit avant la vague 0, n'entre jamais dans un build : Claude le retire.
   const dehors = [...f.valeur.keys()].filter((ch) => ch !== 'app.json' && !estFige(ch) && !dansLePerimetre(ch));
@@ -568,7 +593,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   return fait({
     project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree, timings_ms: temps,
     preview_updated: designe.lu,
-    next: 'When the person’s request is done, call `publish` to close the work session: until then the person cannot change texts or appearance in the console.',
+    next: 'When the person’s request is done, call `publish` to close the work session.',
     checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the preview and check.',
     prerendered: pre === 'en_fond' ? 'running in the background: the public pages are rendered for search engines after this answer'
       : pre === null ? 'skipped: no browser on this vavi server, public pages need JavaScript to be read'
@@ -581,7 +606,7 @@ export async function publierLApercu(c: Contexte, a: { project: string; work_ses
   if (!p.ok) return p.refus;
   const f = await lesFichiers(c, a.project);
   if (!f.ok) return f.refus;
-  const arbre = lArbreDUnProjet(f.valeur);
+  const arbre = await lArbreLu(f.valeur, c.magasin);
   if (!arbre.lu) return refuser('app_json_refuse', `app.json does not hold: ${arbre.erreurs.join(' | ')}`, { fichier: 'app.json' });
   const b = await c.projets.leBuild(c.compte, a.project, arbre.empreinte);
   if (!b.lu) return panne(b.pourquoi);

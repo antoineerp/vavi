@@ -16,6 +16,7 @@ import { GESTES_D_UNE_LONGUE_CONVERSATION, type Contexte, type Rendu } from '@/l
 import { servirLeMcp } from '@/lib/mcp/le-serveur';
 import { desProjetsEnMemoire } from '../aides/des-projets-en-memoire';
 import { unMagasinEnMemoire } from '../aides/un-magasin-en-memoire';
+import { leGabaritCourant } from '@/squelette/registre';
 import { unManifeste } from '../aides/un-manifeste';
 
 const MOI = 'aaaaaaaa-0000-4000-8000-00000000000a';
@@ -164,7 +165,7 @@ describe('aucune clé secrète, aucun paquet inventé', () => {
     expect(JSON.stringify(r)).not.toContain('valeur_tres_secrete');
     c.prochain = vert(`fetch('x',{headers:{a:'${'sk_live_'}${'a1B2c3D4e5F6g7H8i9J0k1L2'}'}})`);
     expect((await refus('build_preview', { project: w.project })).code).toBe('secret_dans_le_code');
-    expect((c.magasin as ReturnType<typeof unMagasinEnMemoire>).ecrits).toEqual([]);
+    expect((c.magasin as ReturnType<typeof unMagasinEnMemoire>).ecrits.filter((k) => !k.startsWith('gabarits/'))).toEqual([]);
   });
 });
 
@@ -210,20 +211,33 @@ describe('app.json passe par configure_backend : la base d’abord, rien de rép
   });
 });
 
+describe('le gabarit fixé par projet (Antoine, 25/11)', () => {
+  it('ouvrir un chantier fixe le projet sur le gabarit du jour, en une version, et dit de reconstruire ; un abandon le ramène, le chantier suivant le refixe', async () => {
+    const p = await ok('create_project', { app_json: APP_JSON });
+    const ch = await ok('ouvrir_chantier', { project: p.project, intention: 'un essai' });
+    expect(ch.template).toContain('build_preview');
+    const f = await ok('read_files', { project: p.project, paths: ['vavi-gabarit.json'] });
+    expect((f.files as { content: string }[])[0]!.content).toContain(leGabaritCourant().empreinte);
+    await ok('abandonner_chantier', { project: p.project, work_session: ch.work_session });
+    const ch2 = await ok('ouvrir_chantier', { project: p.project, intention: 'encore' });
+    expect(ch2.template).toContain('build_preview');
+  });
+});
+
 describe('revenir en arrière', () => {
   it('rollback ramène les fichiers d’une version en une version nouvelle ; abandonner ramène le départ du chantier et le ferme', async () => {
     const w = await unChantier();
     await ok('apply_changes', { ...w, why: 'le premier', changes: [{ path: 'src/A.tsx', content: 'un' }] });
     const e = await empreinteDe(w.project, 'src/A.tsx');
     await ok('apply_changes', { ...w, why: 'deux', changes: [{ path: 'src/A.tsx', read_fingerprint: e, content: 'deux' }, { path: 'src/B.tsx', content: 'b' }] });
-    const r = await ok('rollback', { ...w, version: 2, why: 'le deux était moins bien' });
-    expect(r.version).toBe(4);
+    const r = await ok('rollback', { ...w, version: 3, why: 'le deux était moins bien' });
+    expect(r.version).toBe(5);
     const f = await ok('read_files', { project: w.project, paths: ['src/A.tsx', 'src/B.tsx'] });
     expect(f.files).toEqual([expect.objectContaining({ content: 'un' }), { path: 'src/B.tsx', missing: true }]);
     await ok('abandonner_chantier', w);
     const g = await ok('read_files', { project: w.project, paths: ['src/A.tsx'] });
     expect(g.files).toEqual([{ path: 'src/A.tsx', missing: true }]);
-    expect((await ok('history', { project: w.project })).versions).toHaveLength(5);
+    expect((await ok('history', { project: w.project })).versions).toHaveLength(6);
   });
 });
 

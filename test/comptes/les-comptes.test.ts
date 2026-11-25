@@ -99,3 +99,11 @@ describe('les comptes d’app', () => {
     expect(lireUnJeton(autre, s!.jeton, 1000)).toBeNull();
   });
 });
+
+describe('la clé posée depuis un terminal (incident 25/11 : « illisible »)', () => {
+  const jwk = JSON.stringify({ ...generateKeyPairSync('ec', { namedCurve: 'P-256' }).privateKey.export({ format: 'jwk' }), kid: 'k2', alg: 'ES256' });
+  it('entre apostrophes ou guillemets, ou en base64, la clé se lit ; mutilée, non', () => {
+    for (const pose of [jwk, `'${jwk}'`, `"${jwk}"`, ` '${jwk}' `, Buffer.from(jwk).toString('base64')]) expect(laCleDesComptes({ VAVI_CLE_DES_COMPTES: pose })?.kid).toBe('k2');
+    expect(laCleDesComptes({ VAVI_CLE_DES_COMPTES: jwk.replace(/"/g, '') })).toBeNull();
+  });
+});

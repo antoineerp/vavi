@@ -29,3 +29,19 @@ export async function mettreLApercuEnLigne(projets: Projets, compte: string, id:
   const r = await projets.mettreEnLigne(compte, id, e);
   return r.lu ? { publie: true, empreinte: e } : { publie: false, pourquoi: 'panne', detail: r.pourquoi };
 }
+
+const enCours = new Map<string, Promise<unknown>>();
+
+/**
+ * Un travail après l'autre pour un même compte, sur ce serveur : le droit de publier (le quota de l'offre) se lit puis la
+ * mise en ligne se fait sans qu'un autre « Publier » du même compte s'intercale (audit du 25/11 : deux projets publiés au
+ * même instant dépassaient l'offre d'un). vavi tourne sur une machine ; à plusieurs, ce verrou passera en base.
+ */
+export function uneAUneParCompte<T>(compte: string, travail: () => Promise<T>): Promise<T> {
+  const avant = enCours.get(compte) ?? Promise.resolve();
+  const suite = avant.then(travail, travail);
+  const fin = suite.then(() => undefined, () => undefined);
+  enCours.set(compte, fin);
+  void fin.then(() => { if (enCours.get(compte) === fin) enCours.delete(compte); });
+  return suite;
+}

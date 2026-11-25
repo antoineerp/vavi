@@ -3,12 +3,12 @@
  *
  * Le stockage ne garde que app.json et les fichiers de Claude. Les fichiers figés (gabarit, types des tables, jetons de
  * la peau) sont posés à chaque lecture depuis app.json : jamais stockés, ils ne peuvent pas dériver de leur source, et
- * une app reçoit le squelette du jour à son prochain build. L'arbre construit est ce que l'app TIRE (`ceQueLAppTire`) ;
+ * une app garde la version du gabarit fixée sur elle (`le-gabarit-du-projet`) jusqu'à son prochain chantier. L'arbre construit est ce que l'app TIRE (`ceQueLAppTire`) ;
  * son empreinte désigne le build, et c'est elle que `publish` compare. PUR à la lecture du gabarit près.
  */
 import { lireLeManifeste, type Manifeste } from '@/lib/backend/app/manifeste';
 import { ceQueLAppTire, poserLeFige } from '@/squelette/poser';
-import { estFige, POSES_PAR_UN_OUTIL } from '@/squelette/registre';
+import { estFige, leGabaritCourant, POSES_PAR_UN_OUTIL, type Gabarit } from '@/squelette/registre';
 import { empreinteDeLArbre } from '@/lib/projets/les-empreintes';
 import { CHEMIN_DES_PAQUETS, lePackageJsonAvec, lesPaquetsAjoutes } from '@/lib/paquets/les-paquets';
 
@@ -25,10 +25,11 @@ export function leManifesteStocke(texte: string | undefined): { readonly lu: tru
   return r.ok ? { lu: true, manifeste: r.manifeste } : { lu: false, erreurs: r.erreurs };
 }
 
-export function lArbreDUnProjet(stockes: ReadonlyMap<string, string>): ArbreDUnProjet {
+/** `gabarit` : la version fixée sur le projet (`le-gabarit-du-projet`), le gabarit du jour par défaut. */
+export function lArbreDUnProjet(stockes: ReadonlyMap<string, string>, gabarit: Gabarit = leGabaritCourant()): ArbreDUnProjet {
   const m = leManifesteStocke(stockes.get('app.json'));
   if (!m.lu) return m;
-  const fige = poserLeFige(m.manifeste);
+  const fige = poserLeFige(m.manifeste, gabarit);
   // Les fichiers de Claude, puis le figé par-dessus : un chemin du cadre est toujours celui que la plateforme pose.
   const complet = new Map([...stockes].filter(([c]) => !estFige(c)));
   for (const [c, t] of fige) complet.set(c, t);
