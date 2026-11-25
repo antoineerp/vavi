@@ -112,6 +112,14 @@ function servir(dist: ReadonlyMap<string, Buffer>, env: Omit<EnvDeLApp, 'base'>)
   return new Promise((ok) => serveur.listen(0, '127.0.0.1', () => ok({ adresse: `http://127.0.0.1:${(serveur.address() as AddressInfo).port}`, serveur })));
 }
 
+/** Le choix des robots d'IA que le build porte (`referencement.json`, émis par le gabarit depuis `src/referencement.json`). */
+function lesChoixDesIa(dist: ReadonlyMap<string, Buffer>): { assistants: boolean; entrainement: boolean } | null {
+  try {
+    const ia = (JSON.parse(dist.get('referencement.json')?.toString('utf8') ?? '{}') as { ia?: Record<string, unknown> }).ia;
+    return ia && typeof ia === 'object' ? { assistants: ia.assistants !== false, entrainement: ia.entrainement !== false } : null;
+  } catch { return null; }
+}
+
 export async function preRendre(navigateur: UnNavigateur, dist: ReadonlyMap<string, Buffer>, o: {
   readonly env: Omit<EnvDeLApp, 'base'>;
   readonly app: { readonly nom: string; readonly description: string; readonly langue: string; readonly autres: readonly string[]; readonly editeur: Editeur | null };
@@ -159,6 +167,6 @@ export async function preRendre(navigateur: UnNavigateur, dist: ReadonlyMap<stri
   const fichiers = new Map<string, Buffer>(gardees.map((g) => [fichierDuPreRendu(g.adresse), Buffer.from(g.html, 'utf8')]));
   fichiers.set(FICHIER_DE_DECOUVERTE, Buffer.from(`${JSON.stringify({ version: 1, nom: o.app.nom, description: o.app.description, langue: o.app.langue,
     pages: gardees.map((g) => ({ adresse: g.adresse, titre: g.titre, description: g.description, ...(g.texte ? { texte: g.texte } : {}) })),
-    routes: [...new Set(routes)], ...(o.app.editeur ? { editeur: o.app.editeur } : {}) }, null, 2)}\n`, 'utf8'));
+    routes: [...new Set(routes)], ...(o.app.editeur ? { editeur: o.app.editeur } : {}), ...(lesChoixDesIa(dist) ? { ia: lesChoixDesIa(dist) } : {}) }, null, 2)}\n`, 'utf8'));
   return { fichiers, gardees: gardees.map((g) => g.adresse), ecartees };
 }

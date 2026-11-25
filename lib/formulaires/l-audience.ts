@@ -55,3 +55,20 @@ export function resumerLAudience(lignes: readonly LigneDeVisite[]): Resume {
     campagnes: compte(lignes.flatMap((l) => (l.campagne ? [l.campagne] : [])), 5).map(([campagne, visites]) => ({ campagne, visites })),
   };
 }
+
+/**
+ * Les moteurs de recherche et les assistants IA qui répondent en citant le site, reconnus à l'hôte d'où l'on vient.
+ * Repris de constructor-v13@32d18f3 (`lib/audience/visite.ts`) : la liste ne fait que regrouper, l'hôte reste lu.
+ */
+export const HOTES_D_ASSISTANTS = ['perplexity.ai', 'chatgpt.com', 'chat.openai.com', 'claude.ai', 'copilot.microsoft.com', 'gemini.google.com'] as const;
+const MOTEURS = ['google.', 'bing.com', 'duckduckgo.com', 'qwant.com', 'ecosia.org', 'search.brave.com', 'yandex.', 'baidu.com', 'yahoo.', 'startpage.com'] as const;
+const sansWww = (h: string): string => (h.startsWith('www.') ? h.slice(4) : h);
+export const estUnAssistant = (hote: string): boolean => HOTES_D_ASSISTANTS.some((h) => sansWww(hote) === h || hote.endsWith(`.${h}`));
+export const estUnMoteur = (hote: string): boolean => !estUnAssistant(hote) && MOTEURS.some((m) => (m.endsWith('.') ? sansWww(hote).startsWith(m) || hote.includes(`.${m}`) : sansWww(hote) === m || hote.endsWith(`.${m}`)));
+
+/** Les visites venues d'un moteur, d'un assistant IA, et de quel assistant. PURE. */
+export function depuisLaRecherche(lignes: readonly Visite[]): { readonly moteurs: number; readonly assistants: number; readonly parAssistant: readonly { readonly hote: string; readonly visites: number }[] } {
+  const hotes = lignes.flatMap((l) => (l.referent ? [l.referent] : []));
+  const assistants = hotes.filter(estUnAssistant);
+  return { moteurs: hotes.filter(estUnMoteur).length, assistants: assistants.length, parAssistant: compte(assistants.map(sansWww), 6).map(([hote, visites]) => ({ hote, visites })) };
+}
