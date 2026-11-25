@@ -21,6 +21,7 @@ import { avecUneMemoire, etatSurSupabase, type EtatDeLAcces } from './l-etat-de-
 import { configurationPublique } from '@/lib/supabase/configuration';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { ouvrirLeNavigateur, preRendre } from '@/lib/seo/le-pre-rendu';
+import { capturer, type NavigateurAPhotographier } from '@/lib/seo/les-captures';
 import type { ContexteDuServeur } from './le-serveur';
 import { abonnementsSurSupabase } from '@/lib/abonnements/sur-supabase';
 import { lEtatDuCompte, laVueDeLAbonnement, leDroitDePublier } from '@/lib/abonnements/l-abonnement';
@@ -69,6 +70,16 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         if ('raison' in o) throw new Error(`no browser: ${o.raison}`);
         return preRendre(o.navigateur, dist, { env: { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet },
           app: { nom: m.nom, description: m.description, langue: m.langues.principale, autres: m.langues.autres, editeur: m.editeur ?? null } });
+      },
+      async capturer(projet, dist, m) {
+        const publique = configurationPublique(process.env);
+        const schema = schemaDuProjet(projet);
+        if (!publique.lue || !schema) return null;
+        const images = [new URL(adresseDeLaPlateforme()).origin, 'https://images.unsplash.com'];
+        const o = await ouvrirLeNavigateur([publique.valeur.url, ...images]);
+        if ('raison' in o) return { captures: [], manquees: [o.raison] };
+        return capturer(o.navigateur as unknown as NavigateurAPhotographier, dist, {
+          env: { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet }, langue: m.langues.principale, hotesDesImages: images });
       },
       // Après la réponse de l'outil : le serveur de vavi est un processus qui dure (Fly), le travail va au bout.
       enArrierePlan(nom, travail) { void travail().catch((e: unknown) => console.error(`[arrière-plan] ${nom} : ${(e as Error)?.message ?? e}`)); },
