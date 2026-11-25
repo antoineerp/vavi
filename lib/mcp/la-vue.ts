@@ -28,7 +28,7 @@ export function laRessourceDeLaVue(o: { readonly jeton: string; readonly cadres:
   return {
     contents: [{
       uri: RESSOURCE_DE_LA_VUE, mimeType: TYPE_DE_LA_VUE, text: laPage(o.jeton),
-      _meta: { ui: { csp: { frameDomains: [...o.cadres], resourceDomains: [...(o.ressources ?? [])], connectDomains: [...(o.connexions ?? [])] }, prefersBorder: true } },
+      _meta: { ui: { csp: { frameDomains: [], resourceDomains: [...(o.ressources ?? [])], connectDomains: [...(o.connexions ?? [])] }, prefersBorder: true } },
     }],
   };
 }
@@ -36,6 +36,11 @@ export function laRessourceDeLaVue(o: { readonly jeton: string; readonly cadres:
 /** Les domaines que le cadre de la vue ouvre : les hôtes des apps, sinon l'origine de la console (`/p/`). PURE. */
 export const lesCadresPermis = (console: string, domaine: string | null): string[] =>
   domaine ? [`https://*.${domaine}`] : [new URL(console).origin];
+
+/** Les adresses relatives (`./assets/…`, `assets/…`, `/assets/…`) des attributs `src` et `href` d'une page, nommées en
+ * entier sous `adresse` (qui finit par `/`). PURE. */
+export const lesFichiersEnEntier = (html: string, adresse: string): string =>
+  html.replace(/\b(src|href)="(?!https?:|data:|#|\/\/)(?:\.\/|\/)?([^"]*)"/g, (_t, attribut: string, chemin: string) => `${attribut}="${adresse}${chemin}"`);
 
 function laPage(jeton: string): string {
   return `<!doctype html>
