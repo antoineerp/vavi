@@ -358,7 +358,7 @@ export function leNouveauTexte(chemin: string, actuel: string | undefined, ch: C
   return { texte };
 }
 
-export async function appliquerDesChangements(c: Contexte, a: { project: string; work_session: string; why: string; changes: readonly Changement[]; remaining?: string }): Promise<Rendu> {
+export async function appliquerDesChangements(c: Contexte, a: { project: string; work_session: string; why: string; changes: readonly Changement[]; remaining?: string; build?: boolean }): Promise<Rendu> {
   const p = await leChantier(c, a.project, a.work_session);
   if (!p.ok) return p.refus;
   const f = await lesFichiers(c, a.project);
@@ -401,13 +401,26 @@ export async function appliquerDesChangements(c: Contexte, a: { project: string;
   }
   if (a.remaining !== undefined) await c.projets.noterLeReste(c.compte, a.project, a.work_session, a.remaining);
   const gestes = p.valeur.chantier!.gestes + 1;
+  // Chaque changement se construit dans la même réponse (Antoine, 25/11, « comme Lovable » ; audit : « Thème astral »,
+  // 8 versions écrites, aucun build). Un build rouge ne défait rien : les fichiers sont écrits, Claude corrige au tour.
+  const build = a.build === false ? null : await leBuildDuChangement(c, a.project);
   return fait({
     version: r.valeur.version,
     written: [...ecrits].map(([chemin, t]) => ({ path: chemin, fingerprint: empreinteDuFichier(t) })),
     deleted: supprimes,
-    next: 'Run `build_preview` to check the change.',
+    ...(build ? { build } : { next: 'Not built (`build: false`): the next `apply_changes` builds, or run `build_preview`.' }),
     ...(gestes >= GESTES_D_UNE_LONGUE_CONVERSATION ? { long_conversation: LONGUE } : {}),
   });
+}
+
+/** Le build d'après un changement, rendu dans la réponse de `apply_changes` : vert (l'aperçu) ou ses erreurs, à corriger. */
+async function leBuildDuChangement(c: Contexte, id: string): Promise<Record<string, unknown>> {
+  const b = await construireLApercu(c, { project: id });
+  if (!estUnRefus(b)) {
+    const { ok: _ok, project: _p, ...vert } = b as Record<string, unknown>;
+    return vert;
+  }
+  return { green: false, code: b.code, errors: b.fait, ...(b.fichier ? { file: b.fichier } : {}), ...(b.ligne ? { line: b.ligne } : {}), next: b.geste };
 }
 
 export async function configurerLeBackend(c: Contexte, a: { project: string; work_session: string; app_json: unknown; read_fingerprint: string; why: string }): Promise<Rendu> {

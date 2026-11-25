@@ -79,8 +79,9 @@ export const DEFINITIONS = {
   apply_changes: def({
     title: 'Change files', lecture: false, destructeur: true,
     entree: z.object({ project: projet, work_session: chantier, why: pourquoi, changes: z.array(Changement).min(1).max(50),
-      remaining: z.string().max(2000).optional().describe('What is still to do in this session, for a later conversation.') }),
-    description: 'Writes your files in one version, only if each one is still the version you read. app.json and the platform files are refused: use `configure_backend`.',
+      remaining: z.string().max(2000).optional().describe('What is still to do in this session, for a later conversation.'),
+      build: z.boolean().optional().describe('false: do not build after writing (only when another apply_changes follows at once). Default: build.') }),
+    description: 'Writes your files in one version, only if each one is still the version you read, then builds the project and returns the result (errors with file and line, or the preview). app.json and the platform files are refused: use `configure_backend`.',
     geste: (c, a) => g.appliquerDesChangements(c, a),
   }),
   configure_backend: def({
