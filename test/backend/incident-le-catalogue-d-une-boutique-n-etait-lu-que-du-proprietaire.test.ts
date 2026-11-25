@@ -1,6 +1,6 @@
 /**
  * INCIDENT 25/11 (Antoine, une boutique de bières) : la table qui se vend, publique, déclarée `lecture: ['gerant']` ;
- * le visiteur qui achète voyait « Les bières n'ont pas pu être chargées ». Rouge avant `lesVentesVisibles`, vert après.
+ * le visiteur qui achète voyait « Les bières n'ont pas pu être chargées ». Rouge avant `lesLecturesReparees`, vert après.
  */
 import { describe, expect, it } from 'vitest';
 import { lireLeManifeste } from '@/lib/backend/app/manifeste';

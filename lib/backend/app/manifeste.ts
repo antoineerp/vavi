@@ -96,7 +96,7 @@ export const Champ = z.object({
 });
 
 export const Appartenance = z.enum(['personnelle', 'organisation', 'publique', 'rattachee'])
-  .describe('qui voit une ligne, parmi les rôles qui lisent la table : `personnelle`, qui l’a créée, qui l’encadre et qui gère l’organisation, pas ses collègues ; `organisation`, chacun de ces rôles, toutes les lignes de l’organisation ; `publique`, tous ; `rattachee`, qui voit sa ligne mère (`parent`) : la ligne FAIT PARTIE de sa mère, n’existe pas sans elle et s’efface avec elle. Une ligne qui en REGROUPE ou en CLASSE d’autres est désignée par un champ `reference` facultatif, jamais par une table rattachée : effacer le classement n’efface pas ce qu’il classait');
+  .describe('qui voit une ligne, parmi les rôles qui lisent la table : `personnelle`, qui l’a créée, qui l’encadre et qui gère l’organisation, pas ses collègues ; `organisation`, chacun de ces rôles, toutes les lignes de l’organisation (dans une app à organisation unique, qui s’inscrit seul ou paie son accès n’est le collègue de personne : d’une table qu’il écrit, il ne lit que ses lignes) ; `publique`, tous (le seul cas, avec une table rattachée à une table publique, où `visiteur` lit sans compte) ; l’auteur relit toujours ce qu’il a écrit, et le dehors ne change que ses lignes ; `rattachee`, qui voit sa ligne mère (`parent`) : la ligne FAIT PARTIE de sa mère, n’existe pas sans elle et s’efface avec elle. Une ligne qui en REGROUPE ou en CLASSE d’autres est désignée par un champ `reference` facultatif, jamais par une table rattachée : effacer le classement n’efface pas ce qu’il classait');
 
 export const Transition = z.object({
   nom: Identifiant,
@@ -389,20 +389,50 @@ export function relireUnManifesteLivre(json: unknown): Manifeste | null {
   return forme.success ? forme.data : null;
 }
 
+interface LuSansCompte { readonly nom: string; readonly appartenance: string; readonly parent?: string; readonly lecture: readonly string[] }
+
+/** Une ligne de cette table se lit sans compte : publique, ou rattachée à une mère qui se lit sans compte. PUR. */
+export function seLitSansCompte(tables: readonly LuSansCompte[], t: LuSansCompte, vus = new Set<string>()): boolean {
+  if (!t.lecture.includes(VISITEUR)) return false;
+  if (t.appartenance === 'publique') return true;
+  const mere = t.appartenance === 'rattachee' && t.parent && !vus.has(t.parent) ? tables.find((x) => x.nom === t.parent) : undefined;
+  return Boolean(mere) && seLitSansCompte(tables, mere!, vus.add(t.parent!));
+}
+
 /**
- * INCIDENT 25/11 (Antoine, une boutique de bières) : le catalogue d'une table publique qui se vend était lu du seul
- * propriétaire ; le visiteur, qui achète, voyait « Votre compte ne peut pas faire ce geste ». Ce qui se vend sur une table
- * publique se lit de qui l'achète : `visiteur` est ajouté à sa `lecture`, et c'est dit. PURE.
+ * Ce que `visiteur` veut dire dans une `lecture`, rendu vrai, et dit. PURE.
+ * - INCIDENT 25/11 (Antoine, une boutique de bières) : le catalogue d'une table publique qui se vend était lu du seul
+ *   propriétaire ; le visiteur, qui achète, voyait « Votre compte ne peut pas faire ce geste ». Ce qui se vend sur une
+ *   table publique se lit de qui l'achète : `visiteur` est ajouté.
+ * - `visiteur` sur une table qui ne se lit pas sans compte ne donnait rien, en silence : une table `organisation` d'une
+ *   app à organisation unique devient `publique` (tous la lisaient déjà) ; ailleurs, `visiteur` est retiré.
  */
-export function lesVentesVisibles(json: unknown): { readonly valeur: unknown; readonly repare: readonly string[] } {
-  const brut = json as { tables?: unknown } | null;
+export function lesLecturesReparees(json: unknown): { readonly valeur: unknown; readonly repare: readonly string[] } {
+  const brut = json as { tables?: unknown; organisations?: unknown } | null;
   if (!brut || typeof brut !== 'object' || !Array.isArray(brut.tables)) return { valeur: json, repare: [] };
   const repare: string[] = [];
-  const tables = (brut.tables as unknown[]).map((t) => {
-    const x = t as { nom?: unknown; vente?: unknown; appartenance?: unknown; lecture?: unknown };
-    if (!x || typeof x !== 'object' || !x.vente || x.appartenance !== 'publique' || !Array.isArray(x.lecture) || x.lecture.includes(VISITEUR)) return t;
+  type T = { nom?: unknown; vente?: unknown; appartenance?: unknown; parent?: unknown; lecture?: unknown };
+  const lues = (brut.tables as unknown[]).filter((t): t is T => Boolean(t) && typeof t === 'object' && Array.isArray((t as T).lecture));
+  let tables = (brut.tables as unknown[]).map((t) => {
+    const x = t as T;
+    if (!lues.includes(x) || !x.vente || x.appartenance !== 'publique' || (x.lecture as unknown[]).includes(VISITEUR)) return t;
     repare.push(`${String(x.nom)} se vend : ses lignes sont lues de qui achète (\`${VISITEUR}\` ajouté à \`lecture\`)`);
-    return { ...x, lecture: [...x.lecture, VISITEUR] };
+    return { ...x, lecture: [...(x.lecture as unknown[]), VISITEUR] };
+  });
+  const une = (brut.organisations ?? 'une') === 'une';
+  tables = tables.map((t) => {
+    const x = t as T;
+    if (!x || typeof x !== 'object' || !Array.isArray(x.lecture) || !x.lecture.includes(VISITEUR) || x.appartenance !== 'organisation' || !une) return t;
+    repare.push(`${String(x.nom)} se lit sans compte : \`appartenance\` devient \`publique\` (une seule organisation, qui la lisait déjà toute)`);
+    return { ...x, appartenance: 'publique' };
+  });
+  const formes = tables.filter((t): t is LuSansCompte => Boolean(t) && typeof t === 'object' && Array.isArray((t as T).lecture)
+    && typeof (t as T).nom === 'string' && typeof (t as T).appartenance === 'string') as LuSansCompte[];
+  tables = tables.map((t) => {
+    const x = t as T;
+    if (!formes.includes(x as LuSansCompte) || !(x.lecture as unknown[]).includes(VISITEUR) || seLitSansCompte(formes, x as LuSansCompte)) return t;
+    repare.push(`${String(x.nom)} : une ligne ${String(x.appartenance)} ne se lit pas sans compte (seule une table \`publique\`, ou rattachée à une table lue sans compte, l’est) : \`${VISITEUR}\` retiré de \`lecture\``);
+    return { ...x, lecture: (x.lecture as unknown[]).filter((r) => r !== VISITEUR) };
   });
   return repare.length ? { valeur: { ...brut, tables }, repare } : { valeur: json, repare: [] };
 }
@@ -412,7 +442,7 @@ export function lireLeManifeste(json: unknown): { ok: true; manifeste: Manifeste
   const liens = lesLiensRepares(json);
   const cycles = lesCyclesRepares(liens.valeur);
   const envois = lesEnvoisRepares(cycles.valeur);
-  const ventes = lesVentesVisibles(envois.valeur), repare = [...liens.repare, ...cycles.repare, ...envois.repare, ...ventes.repare];
+  const ventes = lesLecturesReparees(envois.valeur), repare = [...liens.repare, ...cycles.repare, ...envois.repare, ...ventes.repare];
   const r = Manifeste.safeParse(ventes.valeur);
   if (r.success) return { ok: true, manifeste: avecSesEtatsOuverts(r.data), repare };
   return { ok: false, erreurs: r.error.issues.map((i) => (i.path.length ? `${i.path.join('.')} : ${i.message}` : i.message)), repare };
