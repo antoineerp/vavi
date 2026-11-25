@@ -8,7 +8,7 @@ import { notFound } from 'next/navigation';
 import { enTexte, leNomDUneLigne, seModifie, type Colonne, type TableDeLaConsole } from '@/lib/donnees/les-donnees';
 import type { Ligne } from '@/lib/donnees/sur-supabase';
 import { leProjet } from './le-projet';
-import { enregistrer, supprimer } from './gestes';
+import { enregistrer, importer, supprimer } from './gestes';
 import { MOTS } from './textes';
 
 export const dynamic = 'force-dynamic';
@@ -30,13 +30,19 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const t = p.tables.find((x) => x.nom === q.table) ?? p.tables[0]!;
   const page = Math.max(0, Number.parseInt(q.page ?? '0', 10) || 0);
   const cherche = (q.q ?? '').slice(0, 200);
-  const [lues, references] = await Promise.all([
+  const [lues, references, totaux] = await Promise.all([
     p.donnees.lire(p.schema, t.nom, { cherche, decalage: page * PAR_PAGE, limite: PAR_PAGE }),
     lesReferences(p, t),
+    // Le nombre de lignes de chaque table, au menu des tables (comme l'explorateur de constructor).
+    Promise.all(p.tables.map(async (x) => { const l = await p.donnees.lire(p.schema, x.nom, { limite: 1 }); return [x.nom, l.lu ? l.valeur.total : null] as const; })).then((e) => new Map(e)),
   ]);
   const enCours = q.ligne && ID.test(q.ligne) && lues.lu ? lues.valeur.lignes.find((l) => l.id === q.ligne) ?? null : null;
   const formulaire = q.nouvelle === '1' ? 'nouvelle' : enCours ? 'modifier' : null;
-  const message = q.fait ? m.fait[q.fait] : q.erreur ? `${m.erreurs[q.erreur] ?? q.erreur}${q.champ ? ` ${q.champ} (${q.pourquoi})` : q.pourquoi ? ` ${q.pourquoi}` : ''}` : null;
+  const importees = Number.parseInt(q.importees ?? '0', 10) || 0;
+  const message = q.fait === 'importees' ? `${m.importees(importees)}${q.ignorees ? ` ${m.ignorees} ${q.ignorees}.` : ''}`
+    : q.fait ? m.fait[q.fait]
+    : q.erreur === 'import_coupe' ? `${m.importCoupe(importees, q.ligne ?? '?')} ${q.pourquoi ?? ''}`
+    : q.erreur ? `${m.erreurs[q.erreur] ?? q.erreur}${q.champ ? ` ${q.champ} (${q.pourquoi})` : q.pourquoi ? ` ${q.pourquoi}` : ''}` : null;
   const lien = (o: Record<string, string>) => `/projets/${id}/donnees?${new URLSearchParams({ table: t.nom, ...(cherche ? { q: cherche } : {}), ...o })}`;
 
   return (
@@ -45,7 +51,11 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       <div className="entete"><h1>{m.titre}</h1><span className="attenue">{p.nom}</span></div>
       {message && <div className="carte" role={q.erreur ? 'alert' : 'status'}>{message}</div>}
       <nav className="ligne" aria-label={m.titre}>
-        {p.tables.map((x) => x.nom === t.nom ? <strong key={x.nom}>{x.libelle}</strong> : <Link key={x.nom} href={`/projets/${id}/donnees?table=${x.nom}`}>{x.libelle}</Link>)}
+        {p.tables.map((x) => {
+          const n = totaux.get(x.nom);
+          const nom = <>{x.libelle}{n !== null && n !== undefined ? <span className="attenue"> ({n})</span> : null}</>;
+          return x.nom === t.nom ? <strong key={x.nom}>{nom}</strong> : <Link key={x.nom} href={`/projets/${id}/donnees?table=${x.nom}`}>{nom}</Link>;
+        })}
       </nav>
 
       <div className="carte">
@@ -57,9 +67,23 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           </form>
           <div className="ligne">
             <Link className="bouton" href={lien({ nouvelle: '1' })}>{m.ajouter}</Link>
+            <Link className="bouton discret" href={lien({ import: '1' })}>{m.importer}</Link>
             <a className="bouton discret" href={`/projets/${id}/donnees/csv?table=${t.nom}`}>{m.exporter}</a>
           </div>
         </div>
+        {q.import === '1' && (
+          <div className="carte">
+            <h2>{m.importerTitre(t.libelle)}</h2>
+            <p className="attenue">{m.importerAide(t.colonnes.filter((c) => c.ecrivable).map((c) => c.libelle).join(', '))}</p>
+            <form action={importer.bind(null, id, t.nom)}>
+              <label htmlFor="fichier">{m.importerFichier}</label>
+              <input id="fichier" name="fichier" type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" />
+              <label htmlFor="texte" style={{ marginTop: '0.75rem' }}>{m.importerTexte}</label>
+              <textarea id="texte" name="texte" rows={6} placeholder={t.colonnes.filter((c) => c.ecrivable).map((c) => c.libelle).join(';')} />
+              <div className="ligne" style={{ marginTop: '0.75rem' }}><button type="submit">{m.importerBouton}</button><Link className="bouton discret" href={lien({})}>{m.annuler}</Link></div>
+            </form>
+          </div>
+        )}
         {formulaire && <LeFormulaire id={id} t={t} ligne={enCours} references={references} m={m} langue={p.langue} annuler={lien({})} />}
         {!lues.lu ? <p role="alert">{m.erreurs.panne} ({lues.pourquoi})</p> : lues.valeur.lignes.length === 0 ? <p className="attenue">{m.aucune}</p> : (
           <>

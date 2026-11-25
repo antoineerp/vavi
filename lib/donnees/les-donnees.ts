@@ -99,7 +99,8 @@ export function enTexte(c: Pick<Colonne, 'type'>, v: unknown, langue: 'fr' | 'en
 
 /** PURE — le CSV d'une table (séparateur `;`, guillemets doublés, BOM pour Excel) : l'id, la date de création, l'état, les colonnes. */
 export function enCsv(t: TableDeLaConsole, lignes: readonly Readonly<Record<string, unknown>>[], langue: 'fr' | 'en'): string {
-  const cite = (s: string): string => (/[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+  // Jamais lue comme une formule par un tableur (=, +, -, @ en tête) ; un nombre négatif reste un nombre.
+  const cite = (brut: string): string => { const s = /^[=+\-@\t\r]/.test(brut) && !/^-?\d+([.,]\d+)?$/.test(brut) ? `'${brut}` : brut; return /[";\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   const tete = ['id', langue === 'fr' ? 'créée le' : 'created at', ...(t.cycle ? [langue === 'fr' ? 'état' : 'state'] : []), ...t.colonnes.map((c) => c.libelle)];
   const corps = lignes.map((l) => [String(l.id ?? ''), String(l.created_at ?? ''), ...(t.cycle ? [t.cycle.libelles[String(l.etat)] ?? String(l.etat ?? '')] : []),
     ...t.colonnes.map((c) => (l[c.nom] === null || l[c.nom] === undefined ? '' : typeof l[c.nom] === 'object' ? JSON.stringify(l[c.nom]) : String(l[c.nom])))]);

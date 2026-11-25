@@ -6,6 +6,7 @@
  */
 import { redirect } from 'next/navigation';
 import { relireLaSaisie } from '@/lib/donnees/les-donnees';
+import { lesLignesAImporter } from '@/lib/donnees/l-import';
 import { leProjet } from './le-projet';
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -43,3 +44,27 @@ export async function supprimer(id: string, table: string, ligne: string) {
   retour(id, { table, ...(s.lu && s.valeur ? { fait: 'supprimee' } : { erreur: 'figee' }) });
 }
 
+
+/** Un CSV importé dans une table : toutes les lignes relues d'abord (une seule fausse refuse tout), puis écrites une à une. */
+export async function importer(id: string, table: string, formulaire: FormData) {
+  if (!ID.test(id)) redirect('/projets');
+  const p = await leProjet(id);
+  if (!p.ok) retour(id, { erreur: p.pourquoi });
+  if (!p.ok) return;
+  const t = p.tables.find((x) => x.nom === table);
+  if (!t) retour(id, { erreur: 'table' });
+  const f = formulaire.get('fichier');
+  const texte = f instanceof File && f.size > 0 ? (f.size > 900_000 ? null : await f.text()) : String(formulaire.get('texte') ?? '');
+  if (texte === null) retour(id, { table, import: '1', erreur: 'import', pourquoi: p.langue === 'fr' ? 'le fichier dépasse 900 Ko' : 'the file is over 900 KB' });
+  const l = lesLignesAImporter(t!, texte ?? '', p.langue);
+  if (!l.ok) retour(id, { table, import: '1', erreur: 'import', pourquoi: l.pourquoi });
+  if (!l.ok) return;
+  let n = 0;
+  for (const valeurs of l.lignes) {
+    const e = await p.donnees.ecrire(p.schema, table, null, valeurs, p.compte, t!.cycle ? t!.cycle.ouverts : null);
+    if (!e.lu) retour(id, { table, import: '1', erreur: 'import_coupe', importees: String(n), ligne: String(n + 2), pourquoi: e.pourquoi });
+    n += 1;
+  }
+  console.log(`[donnees] ${id.slice(0, 8)} ${table} ${n} lignes importées`);
+  retour(id, { table, fait: 'importees', importees: String(n), ...(l.ignorees.length ? { ignorees: l.ignorees.join(', ').slice(0, 300) } : {}) });
+}
