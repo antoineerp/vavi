@@ -13,7 +13,7 @@
 /** Les outils du serveur que les consignes ont le droit de nommer. */
 export const OUTILS = [
   'list_projects', 'create_project', 'get_project_state', 'read_files', 'ouvrir_chantier', 'abandonner_chantier',
-  'apply_changes', 'configure_backend', 'set_secret', 'get_design_guide', 'search_images', 'build_preview', 'publish', 'history', 'rollback',
+  'apply_changes', 'configure_backend', 'set_secret', 'get_design_guide', 'search_images', 'add_packages', 'build_preview', 'publish', 'history', 'rollback',
 ] as const;
 export type Outil = (typeof OUTILS)[number];
 
@@ -66,7 +66,7 @@ vavi's tools refuse what would break the project. When a tool refuses, read its 
   privacy page and its record of processing from app.json, and sets no tracker: add no analytics or third-party tracker.
 
 ## Never invent
-- What vavi lacks, build in the app (packages: \`vavi://capacites\`, or a public web service); never refuse for it.
+- What vavi lacks, build in the app (npm packages: \`add_packages\`; public web services); never refuse for it.
   Tell the person before a third party receives personal data.
 - Do not invent testimonials, customer reviews, figures, client references, addresses, or photos of real people. If a
   piece of information is missing, ask for it, or leave a clearly marked "to be completed" placeholder and tell the

@@ -32,6 +32,7 @@ import { revenirA } from '@/lib/versions/revenir';
 import type { LecturesDeLaVue } from './les-gestes-de-la-vue';
 import { leGuideDeDesign } from '@/lib/design/le-guide';
 import { CHEMIN_DES_IMAGES, poserLesImages, type Banque, type DemandeDImage } from '@/lib/images/la-banque';
+import { CHEMIN_DES_PAQUETS, PAQUETS_MAX, lesPaquetsAjoutes, leFichierDesPaquets, verifierAuRegistre } from '@/lib/paquets/les-paquets';
 
 export interface Contexte {
   readonly compte: string;
@@ -60,6 +61,8 @@ export interface Contexte {
   readonly vue?: LecturesDeLaVue;
   /** La banque de photos de la plateforme (`UNSPLASH_ACCESS_KEY`) ; absente : `search_images` le dit. */
   readonly banque?: Banque | null;
+  /** L'appel au registre npm (`add_packages`) ; absent : `fetch`. Les essais passent un faux registre. */
+  readonly registre?: typeof fetch;
 }
 
 export type Rendu = { readonly ok: true; readonly [champ: string]: unknown } | Refus;
@@ -112,7 +115,7 @@ export function cheminRefuse(chemin: string, pourSupprimer = false): Refus | nul
     return refuser('chemin_refuse', `"${chemin}" is not a path inside the project.`, { fichier: chemin });
   }
   if (chemin === 'app.json') return refuser('fichier_du_cadre', 'app.json is written only by `configure_backend`, which also lays out the database.', { fichier: chemin });
-  if ((POSES_PAR_UN_OUTIL as readonly string[]).includes(chemin)) return refuser('fichier_du_cadre', `${chemin} is written by the vavi console (images, search settings), not by you.`, { fichier: chemin });
+  if ((POSES_PAR_UN_OUTIL as readonly string[]).includes(chemin)) return refuser('fichier_du_cadre', `${chemin} is written by a vavi tool (photos: \`search_images\`, packages: \`add_packages\`) or the console (search settings), not by you.`, { fichier: chemin });
   if (estFige(chemin)) return refuser('fichier_du_cadre', `${chemin} belongs to the platform: it comes from the template or from app.json. Read it with \`read_files\`; write your own file next to it. To change the data, use \`configure_backend\`.`, { fichier: chemin });
   if (estUnFichierDEnvironnement(chemin)) return refuser('secret_dans_le_code', `${chemin} is an environment file: secrets are stored with \`set_secret\`, never in a file.`, { fichier: chemin });
   if (!pourSupprimer && !dansLePerimetre(chemin)) {
@@ -126,12 +129,16 @@ export function cheminRefuse(chemin: string, pourSupprimer = false): Refus | nul
  * s'exécutait au build. */
 export const dansLePerimetre = (chemin: string): boolean => /^(src|public)\/./.test(chemin);
 
-/** Ce qu'un texte ne doit pas porter : une clé secrète, un paquet hors du gabarit. */
-function texteRefuse(c: Contexte, chemin: string, texte: string): Refus | null {
+/** Ce qu'un texte ne doit pas porter : une clé secrète, un paquet ni du gabarit ni ajouté par `add_packages`. */
+function texteRefuse(permis: readonly string[], chemin: string, texte: string): Refus | null {
   const secret = unSecretDans(texte);
   if (secret) return refuser('secret_dans_le_code', `${chemin} contains what looks like a secret (${secret.sorte}).`, { fichier: chemin, ligne: secret.ligne });
-  return /\.(tsx?|jsx?|mjs)$/.test(chemin) ? paquetInconnu(chemin, texte, c.permis) : null;
+  return /\.(tsx?|jsx?|mjs)$/.test(chemin) ? paquetInconnu(chemin, texte, permis) : null;
 }
+
+/** Les paquets qu'une page de CE projet peut importer : ceux du gabarit, plus ceux qu'`add_packages` a vérifiés. */
+const lesPermisDuProjet = (c: Contexte, fichiers: ReadonlyMap<string, string>): readonly string[] =>
+  [...c.permis, ...Object.keys(lesPaquetsAjoutes(fichiers.get(CHEMIN_DES_PAQUETS)))];
 
 /** Ce que l'outil dit de plus quand il reçoit app.json : ce qu'il a ajusté, ce que vavi ne sert pas encore. */
 interface Recu { readonly manifeste: Manifeste; readonly dit: Record<string, unknown> }
@@ -335,6 +342,7 @@ export async function appliquerDesChangements(c: Contexte, a: { project: string;
   const supprimes: string[] = [];
   const attendus: Record<string, string | null> = {};
   let taille = 0;
+  const permis = lesPermisDuProjet(c, f.valeur);
   for (const ch of a.changes) {
     const formes = [ch.content !== undefined, (ch.replace?.length ?? 0) > 0, ch.delete === true].filter(Boolean).length;
     if (formes !== 1) return refuser('chemin_refuse', `${ch.path}: give exactly one of \`content\`, \`replace\` or \`delete\`.`, { fichier: ch.path, geste: 'Send each change with exactly one of `content`, `replace` or `delete`.' });
@@ -354,7 +362,7 @@ export async function appliquerDesChangements(c: Contexte, a: { project: string;
     }
     const nouveau = leNouveauTexte(ch.path, actuel, ch);
     if ('refuse' in nouveau) return nouveau;
-    const interdit = texteRefuse(c, ch.path, nouveau.texte);
+    const interdit = texteRefuse(permis, ch.path, nouveau.texte);
     if (interdit) return interdit;
     taille += nouveau.texte.length;
     if (taille > MAX_ECRIT) return refuser('chemin_refuse', 'This call writes more than 2 MB of text.', { geste: 'Send the changes in several calls.' });
@@ -444,6 +452,34 @@ export async function chercherDesImages(c: Contexte, a: { project: string; work_
   if (!w.lu) return panne(w.pourquoi);
   if (!w.valeur.applique) return 'conflit' in w.valeur ? refuser('conflit', 'The photos changed while they were searched.', { fichiers: w.valeur.conflit }) : refuser('chantier_requis', 'The work session was closed.');
   return fait({ version: w.valeur.version, images: r.dits, next: 'Show each set photo with `<Photo nom="…" />` from `@/briques/Photo` (a name not set does not compile), then run `build_preview`.' });
+}
+
+/**
+ * Des paquets npm pour l'app (décision d'Antoine du 25/11 : « Ouverts, vérifiés au build ») : chacun vérifié au registre
+ * (existe, version exacte, non déprécié, sans script d'installation, de taille bornée), puis posé dans
+ * `vavi-paquets.json` (que Claude n'écrit pas), en une version ; le build l'installe sans scripts, hors du bac à sable.
+ * Remplace le refus `paquet_inconnu` de tout paquet hors du gabarit.
+ */
+export async function ajouterDesPaquets(c: Contexte, a: { project: string; work_session: string; packages: readonly { name: string; version?: string }[] }): Promise<Rendu> {
+  const p = await leChantier(c, a.project, a.work_session);
+  if (!p.ok) return p.refus;
+  const f = await lesFichiers(c, a.project);
+  if (!f.ok) return f.refus;
+  const actuel = f.valeur.get(CHEMIN_DES_PAQUETS);
+  const deja = lesPaquetsAjoutes(actuel);
+  const v = await verifierAuRegistre(a.packages, c.permis, c.registre ?? fetch);
+  if (!v.lu) return refuser('paquet_inconnu', v.pourquoi, { geste: 'Choose another package (pure JavaScript, maintained), or another exact version, and call `add_packages` again; or build that part yourself.' });
+  const tous = { ...deja, ...v.valeur };
+  if (Object.keys(tous).length > PAQUETS_MAX) return refuser('paquet_inconnu', `An app holds at most ${PAQUETS_MAX} added packages (it would have ${Object.keys(tous).length}).`, { geste: 'Build the smaller parts yourself instead of adding a package for each.' });
+  const dejaDansLeGabarit = a.packages.map((x) => x.name.trim().toLowerCase()).filter((n) => c.permis.includes(n));
+  const dit = { added: v.valeur, ...(dejaDansLeGabarit.length ? { already_in_the_template: dejaDansLeGabarit } : {}) };
+  const texte = leFichierDesPaquets(tous);
+  if (texte === actuel || Object.keys(v.valeur).length === 0) return fait({ ...dit, written: false, next: 'Import them in your pages, then run `build_preview`.' });
+  const w = await c.projets.appliquer(c.compte, a.project, { chantier: a.work_session, attendus: { [CHEMIN_DES_PAQUETS]: actuel === undefined ? null : empreinteDuFichier(actuel) },
+    ecrits: new Map([[CHEMIN_DES_PAQUETS, texte]]), supprimes: [], pourquoi: `packages added: ${Object.entries(v.valeur).map(([n, x]) => `${n}@${x}`).join(', ')}` });
+  if (!w.lu) return panne(w.pourquoi);
+  if (!w.valeur.applique) return 'conflit' in w.valeur ? refuser('conflit', 'The packages changed while they were checked.', { fichiers: w.valeur.conflit }) : refuser('chantier_requis', 'The work session was closed.');
+  return fait({ version: w.valeur.version, ...dit, next: 'Import them in your pages (their types come with them, or write a small `declare module` in src/), then run `build_preview`. The build installs them without install scripts.' });
 }
 
 export async function poserUnSecret(c: Contexte, a: { project: string; name: string; value: string }): Promise<Rendu> {

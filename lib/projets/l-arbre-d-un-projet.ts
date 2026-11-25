@@ -10,6 +10,7 @@ import { lireLeManifeste, type Manifeste } from '@/lib/backend/app/manifeste';
 import { ceQueLAppTire, poserLeFige } from '@/squelette/poser';
 import { estFige, POSES_PAR_UN_OUTIL } from '@/squelette/registre';
 import { empreinteDeLArbre } from '@/lib/projets/les-empreintes';
+import { CHEMIN_DES_PAQUETS, lePackageJsonAvec, lesPaquetsAjoutes } from '@/lib/paquets/les-paquets';
 
 export type ArbreDUnProjet =
   | { readonly lu: true; readonly manifeste: Manifeste; readonly fige: ReadonlyMap<string, string>; readonly construit: ReadonlyMap<string, string>; readonly empreinte: string }
@@ -34,6 +35,9 @@ export function lArbreDUnProjet(stockes: ReadonlyMap<string, string>): ArbreDUnP
   // Ce que la plateforme pose pour la personne (son référencement, ses photos : « Gérer le contenu ») prend la place du
   // fichier vide du gabarit ; Claude ne l'écrit jamais (`estFige` le lui refuse).
   for (const c of POSES_PAR_UN_OUTIL) { const t = stockes.get(c); if (t !== undefined) complet.set(c, t); }
+  // Les paquets que Claude a ajoutés (`add_packages`, vérifiés au registre) s'ajoutent au package.json du gabarit.
+  const pj = complet.get('package.json');
+  if (pj !== undefined) complet.set('package.json', lePackageJsonAvec(pj, lesPaquetsAjoutes(stockes.get(CHEMIN_DES_PAQUETS))));
   const construit = ceQueLAppTire(complet, m.manifeste);
   return { lu: true, manifeste: m.manifeste, fige, construit, empreinte: empreinteDeLArbre(construit) };
 }

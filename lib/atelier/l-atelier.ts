@@ -3,6 +3,7 @@
  * L'atelier : un dossier où l'arbre de l'app est écrit pour être construit et regardé.
  * Les dépendances sont installées une fois par empreinte de `package-lock.json`, puis liées dans chaque atelier.
  */
+import { leVerrouCouvre } from '@/lib/paquets/les-paquets';
 import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, symlinkSync, writeFileSync, readdirSync, statSync, unlinkSync } from 'node:fs';
@@ -48,10 +49,16 @@ export async function lancer(commande: string, args: readonly string[], dossier:
  * vavi-essai : « Cannot find module 'typescript/bin/tsc' »).
  */
 export const ARGUMENTS_DE_L_INSTALLATION = ['ci', '--include=dev', '--no-audit', '--no-fund', '--ignore-scripts'] as const;
+export const ARGUMENTS_DE_L_AJOUT = ['install', '--include=dev', '--no-audit', '--no-fund', '--ignore-scripts', '--save-exact'] as const;
 /** Change quand la manière d'installer change : une installation d'avant, incomplète, n'est jamais reprise. */
 const FACON = 'avec-les-outils-de-build';
 
 const enCours = new Map<string, Promise<string>>();
+
+/** Ce qui s'installe d'un package.json (ses dépendances), sans son nom : toutes les apps du même gabarit partagent l'installation. */
+const lesDependances = (paquet: string): string => {
+  try { const j = JSON.parse(paquet) as { dependencies?: unknown; devDependencies?: unknown }; return JSON.stringify([j.dependencies ?? {}, j.devDependencies ?? {}]); } catch { return paquet; }
+};
 
 /**
  * Les dépendances de ce `package-lock.json`, installées une fois. Deux builds simultanés du même verrou attendent la
@@ -59,7 +66,7 @@ const enCours = new Map<string, Promise<string>>();
  * se marchaient dessus).
  */
 export function dependances(lock: string, paquet: string): Promise<string> {
-  const cle = createHash('sha256').update(lock).digest('hex');
+  const cle = createHash('sha256').update(lock).update(lesDependances(paquet)).digest('hex');
   const deja = enCours.get(cle);
   if (deja) return deja;
   const p = installer(lock, paquet).finally(() => enCours.delete(cle));
@@ -74,7 +81,7 @@ export function dependances(lock: string, paquet: string): Promise<string> {
  * dossier, `ENOENT mkdir node_modules/zod`.)
  */
 async function installer(lock: string, paquet: string): Promise<string> {
-  const empreinte = createHash('sha256').update(lock).update(FACON).digest('hex').slice(0, 16);
+  const empreinte = createHash('sha256').update(lock).update(lesDependances(paquet)).update(FACON).digest('hex').slice(0, 16);
   const dossier = join(MAGASIN, empreinte);
   const pret = () => existsSync(join(dossier, 'node_modules', '.installe'));
   if (pret()) return join(dossier, 'node_modules');
@@ -83,7 +90,9 @@ async function installer(lock: string, paquet: string): Promise<string> {
   try {
     writeFileSync(join(prive, 'package-lock.json'), lock);
     writeFileSync(join(prive, 'package.json'), paquet);
-    const r = await lancer('npm', [...ARGUMENTS_DE_L_INSTALLATION], prive, 600_000);
+    // Des paquets ajoutés (`lib/paquets`) que le verrou du gabarit ne couvre pas : npm les résout et complète le verrou,
+    // toujours sans scripts ; le build, lui, reste au bac à sable sans réseau.
+    const r = await lancer('npm', leVerrouCouvre(paquet, lock) ? [...ARGUMENTS_DE_L_INSTALLATION] : [...ARGUMENTS_DE_L_AJOUT], prive, 600_000);
     if (!r.ok) throw new Error(`les dépendances de l'app ne s'installent pas : ${r.sortie.slice(-2000)}`);
     writeFileSync(join(prive, 'node_modules', '.installe'), empreinte);
     if (pret()) return join(dossier, 'node_modules');

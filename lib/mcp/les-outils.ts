@@ -110,6 +110,15 @@ export const DEFINITIONS = {
     description: 'Finds a real photo for each subject in the platform photo bank and sets it under its name (src/images.json, which you never write). A page shows it with `<Photo nom="…" />` from `@/briques/Photo`; photo credits are served by the platform. Never write an image address yourself.',
     geste: (c, a) => g.chercherDesImages(c, a),
   }),
+  add_packages: def({
+    title: 'Add npm packages', lecture: false,
+    entree: z.object({ project: projet, work_session: chantier, packages: z.array(z.object({
+      name: z.string().min(1).max(214).describe('The npm package name, e.g. astronomy-engine or @scope/name.'),
+      version: z.string().max(64).optional().describe('An exact version such as 2.1.19; omitted, the latest published one.'),
+    })).min(1).max(10) }),
+    description: 'Adds npm packages to the app when the template lacks what you need (a calculation, a parser, a chart). Each is checked on the npm registry: it exists, its version is exact and not deprecated, it needs no install script (vavi never runs them) and weighs at most 30 MB. Then your pages may import it, and the build installs it. Packages of the template keep their locked version.',
+    geste: (c, a) => g.ajouterDesPaquets(c, a),
+  }),
   build_preview: def({
     title: 'Build the preview', _meta: META_DE_LA_VUE, lecture: false, entree: z.object({ project: projet }),
     description: 'Type-checks and builds the current version. Green: the preview now shows it (give the person `preview_url`). Red: each error with its file and line; the preview keeps the last green version.',

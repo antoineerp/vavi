@@ -137,6 +137,27 @@ describe('aucune clé secrète, aucun paquet inventé', () => {
     expect(await refus('apply_changes', { ...w, why: 'essai', changes: [{ path: 'src/A.tsx', content: "import _ from 'lodash';\n" }] })).toMatchObject({ code: 'paquet_inconnu', ligne: 1 });
     await ok('apply_changes', { ...w, why: 'essai', changes: [{ path: 'src/A.tsx', content: "import { useState } from 'react';\n" }] });
   });
+  it('INCIDENT 25/11 (Thème astral) — un paquet hors du gabarit était refusé sans recours ; add_packages le vérifie au registre, puis la page l’importe', async () => {
+    const w = await unChantier();
+    const registre: Record<string, unknown> = {
+      'astronomy-engine': { 'dist-tags': { latest: '2.1.19' }, versions: { '2.1.19': { dist: { unpackedSize: 2_000_000 } } } },
+      'avec-script': { 'dist-tags': { latest: '1.0.0' }, versions: { '1.0.0': { scripts: { postinstall: 'node x' } } } },
+    };
+    (c as { registre?: typeof fetch }).registre = (async (url: string) => {
+      const nom = decodeURIComponent(String(url).split('/').pop()!);
+      return nom in registre ? new Response(JSON.stringify(registre[nom]), { status: 200 }) : new Response('{}', { status: 404 });
+    }) as unknown as typeof fetch;
+    const page = { path: 'src/Ciel.tsx', content: "import { Body } from 'astronomy-engine';\nexport const b = Body.Sun;\n" };
+    const avant = await refus('apply_changes', { ...w, why: 'le ciel', changes: [page] });
+    expect(avant).toMatchObject({ code: 'paquet_inconnu' });
+    expect(avant.geste).toContain('add_packages');
+    expect((await refus('add_packages', { ...w, packages: [{ name: 'avec-script' }] })).fait).toContain('install script');
+    expect((await refus('add_packages', { ...w, packages: [{ name: 'n-existe-pas' }] })).fait).toContain('does not exist');
+    const r = await ok('add_packages', { ...w, packages: [{ name: 'astronomy-engine' }, { name: 'react' }] });
+    expect(r).toMatchObject({ added: { 'astronomy-engine': '2.1.19' }, already_in_the_template: ['react'] });
+    await ok('apply_changes', { ...w, why: 'le ciel', changes: [page] });
+    expect((await refus('apply_changes', { ...w, why: 'écrire les paquets', changes: [{ path: 'vavi-paquets.json', content: '{}' }] })).code).toBe('fichier_du_cadre');
+  });
   it('un secret posé n’est jamais répété ; un build qui livrerait une clé n’est pas gardé', async () => {
     const w = await unChantier();
     const r = await ok('set_secret', { project: w.project, name: 'STRIPE_SECRET_KEY', value: 'sk_live_valeur_tres_secrete_123456' });
