@@ -49,7 +49,10 @@ export function ecouterLEdition(): void {
     e.preventDefault();
     e.stopPropagation();
     const c = cibleDe(e.target);
-    if (c) dire({ type: 'EDITION_CIBLE', ...(c.image ? { image: c.image } : { texte: c.texte ?? '', ...(c.source ? { source: c.source } : {}) }) });
+    // Où est la cible, pour « Montrer à Claude » dans la console : la page, son titre, la section qui la contient.
+    const section = c?.el.closest('section, header, footer, aside, article')?.querySelector('h1, h2, h3')?.textContent?.trim().slice(0, 200);
+    const ou = { chemin: window.location.pathname, titreDeLaPage: document.title.slice(0, 200), ...(section ? { section } : {}) };
+    if (c) dire({ type: 'EDITION_CIBLE', ...ou, ...(c.image ? { image: c.image } : { texte: c.texte ?? '', ...(c.source ? { source: c.source } : {}) }) });
   };
   window.addEventListener('message', (e) => {
     if (e.origin !== origine || e.source !== window.parent) return;
