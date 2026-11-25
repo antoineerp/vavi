@@ -9,9 +9,24 @@ export const DUREE_DU_JETON_S = 3600;
 
 export interface CleDesComptes { readonly privee: KeyObject; readonly publique: KeyObject; readonly kid: string }
 
+/**
+ * Le texte de la clé tel qu'il a été posé. INCIDENT 25/11 : posée depuis un terminal Windows, la clé gardait les
+ * apostrophes de la commande autour d'elle, et vavi la disait « illisible ». Des guillemets ou apostrophes autour sont
+ * retirés ; une clé posée en base64 (sans aucun guillemet à taper) est lue aussi. PURE.
+ */
+export function leTexteDeLaCle(pose: string | undefined): string {
+  let t = (pose ?? '').trim();
+  while (t.length >= 2 && ((t[0] === "'" && t.endsWith("'")) || (t[0] === '"' && t.endsWith('"')))) t = t.slice(1, -1).trim();
+  if (t && !t.startsWith('{') && /^[A-Za-z0-9+/=_-]+$/.test(t)) {
+    const d = Buffer.from(t, 'base64').toString('utf8').trim();
+    if (d.startsWith('{')) return d;
+  }
+  return t;
+}
+
 /** La clé posée chez l'hébergeur, ou `null` (absente, ou ce n'est pas une JWK EC P-256 privée avec son `kid`). */
 export function laCleDesComptes(env: Readonly<Record<string, string | undefined>> = process.env): CleDesComptes | null {
-  const brut = (env.VAVI_CLE_DES_COMPTES ?? '').trim();
+  const brut = leTexteDeLaCle(env.VAVI_CLE_DES_COMPTES);
   if (!brut) return null;
   try {
     const jwk = JSON.parse(brut) as { kty?: string; crv?: string; d?: string; kid?: string };
