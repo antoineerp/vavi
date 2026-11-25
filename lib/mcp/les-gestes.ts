@@ -24,6 +24,7 @@ import type { PreRendu } from '@/lib/seo/le-pre-rendu';
 import { publierLeDist, racineDuBuild } from '@/lib/publication/publier';
 import { refuser, suiteDeRefus, paquetInconnu, type Refus } from '@/lib/consignes';
 import { estUnFichierDEnvironnement, unSecretDans } from './les-secrets';
+import { connecteurDuSecret, PREFIXE_DU_SECRET } from '@/lib/connecteurs/les-connecteurs';
 import { lArbreDUnProjet } from '@/lib/projets/l-arbre-d-un-projet';
 import { revenirA } from '@/lib/versions/revenir';
 import type { LecturesDeLaVue } from './les-gestes-de-la-vue';
@@ -189,9 +190,13 @@ export async function lEtatDuProjet(c: Contexte, a: { project: string }): Promis
   const build = arbre.lu ? await c.projets.leBuild(c.compte, a.project, arbre.empreinte) : null;
   const ch = p.valeur.chantier;
   const plan = c.abonnement ? await c.abonnement() : null;
+  // Les connecteurs branchés par la personne, par leur nom seul (ce que la page passe à `capacites.connecteur.appeler`).
+  const secrets = await c.projets.nomsDesSecrets(c.compte, a.project);
+  const connecteurs = secrets.lu ? secrets.valeur.map(connecteurDuSecret).filter((n): n is string => n !== null) : null;
   return fait({
     ...vueDuProjet(c, p.valeur),
     ...(plan ? { plan } : {}),
+    connectors: connecteurs ?? 'unknown',
     work_session: ch ? { id: ch.id, intention: ch.intention, opened_at: ch.ouvertLe, changes: ch.gestes, done: ch.fait, remaining: ch.reste } : null,
     database_laid_out_at: p.valeur.basePoseeLe,
     your_files: [...f.valeur].filter(([chemin]) => chemin !== 'app.json').map(([chemin, t]) => ({ path: chemin, fingerprint: empreinteDuFichier(t), size: t.length })),
@@ -383,6 +388,10 @@ export async function configurerLeBackend(c: Contexte, a: { project: string; wor
 export async function poserUnSecret(c: Contexte, a: { project: string; name: string; value: string }): Promise<Rendu> {
   const p = await leProjet(c, a.project);
   if (!p.ok) return p.refus;
+  // Un connecteur (son adresse, sa clé) ne se branche que dans la console, par la personne : jamais une adresse choisie ici.
+  if (a.name.startsWith(PREFIXE_DU_SECRET)) {
+    return refuser('confirmation_requise', `A connector is plugged in by the person in the vavi console: ${c.adresse}/projets/${a.project}/connecteurs. The page then calls \`capacites.connecteur.appeler('<name>', { chemin })\`.`);
+  }
   const r = await c.projets.poserUnSecret(c.compte, a.project, a.name, c.scellerUnSecret(a.project, a.name, a.value));
   // La valeur n'est jamais répétée : ni ici, ni au journal.
   return r.lu ? fait({ stored: a.name, note: 'The value is stored encrypted and is never shown again. The app reaches it only through its capabilities, on the server.' }) : panne(r.pourquoi);

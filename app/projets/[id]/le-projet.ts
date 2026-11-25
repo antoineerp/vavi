@@ -29,6 +29,8 @@ export const ERREURS: Record<string, { fr: string; en: string }> = {
   export_reserve: { fr: 'l’export est réservé aux offres payantes.', en: 'export is for paid offers only.' },
   quota: { fr: 'votre offre a déjà tous ses projets en ligne : ajoutez-lui un projet.', en: 'your offer already has all its projects online: add a project to it.' },
   google_mal_forme: { fr: 'ce n’est pas une balise de vérification Google : collez la balise <meta> que Search Console affiche.', en: 'this is not a Google verification tag: paste the <meta> tag that Search Console shows.' },
+  connecteur_mal_forme: { fr: 'le connecteur n’est pas branché :', en: 'the connector is not plugged in:' },
+  secret_d_un_connecteur: { fr: 'un nom qui commence par CONNECTEUR_ est celui d’un connecteur : branchez-le dans « Connecteurs ».', en: 'a name starting with CONNECTEUR_ belongs to a connector: plug it in under “Connectors”.' },
   courriel_mal_forme: { fr: 'cette adresse de courriel ne se lit pas.', en: 'this e-mail address cannot be read.' },
   secret_mal_forme: { fr: 'le nom s’écrit en MAJUSCULES_ET_SOULIGNÉS, et la valeur ne peut pas être vide.', en: 'the name is UPPER_CASE_WITH_UNDERSCORES and the value cannot be empty.' },
 };

@@ -73,6 +73,7 @@ export interface Projets {
   nomsDesSecrets(compte: string, projet: string): Promise<Issue<readonly string[]>>;
   marquerLaBase(compte: string, projet: string, nom: string): Promise<Issue<true>>;
   poserUnSecret(compte: string, projet: string, nom: string, valeurChiffree: string): Promise<Issue<true>>;
+  retirerUnSecret(compte: string, projet: string, nom: string): Promise<Issue<true>>;
   /** Les réglages du projet ; illisibles tant que leur migration (20261125110000) n'est pas posée. */
   reglages(compte: string, projet: string): Promise<Issue<Reglages>>;
   regler(compte: string, projet: string, r: Partial<Reglages>): Promise<Issue<true>>;
@@ -225,6 +226,11 @@ export function projetsSurSupabase(base: SupabaseClient): Projets {
       const refus = await aLui(compte, id);
       if (refus) return pasLu(refus);
       return ok(await base.from('vavi_secrets').upsert({ projet: id, nom, valeur, modifie_le: new Date().toISOString() }));
+    },
+    async retirerUnSecret(compte, id, nom) {
+      const refus = await aLui(compte, id);
+      if (refus) return pasLu(refus);
+      return ok(await base.from('vavi_secrets').delete().eq('projet', id).eq('nom', nom));
     },
   };
 }

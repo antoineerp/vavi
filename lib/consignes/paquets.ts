@@ -47,6 +47,7 @@ export function laRessourceDesCapacites(permis: readonly string[], pasEncore: re
     ...permis.map((p) => `- ${p}`),
     '',
     'Capabilities that vavi provides (declared in app.json `fonctions`) are typed in `src/lib/capacites.ts`: read it with `read_files` before calling one.',
+    'Outside software (`fonctions.connecteur`): the person plugs it in the vavi console (project → Connectors: n8n, Algolia, Cloudinary, Cal.com, another Supabase project, or any API with a key). The page calls it by its name, `capacites.connecteur.appeler(\'<name>\', { chemin, methode, corps })`, never by an address; the plugged-in names are in `get_project_state` (`connectors`). If none is plugged in yet, build the page anyway and tell the person where to plug it in.',
     ...(seul.length ? ['', 'Not served by vavi as capabilities, so build them yourself in the app\'s code when the person asks:', ...seul.map((f) => `- ${f.nom}: ${f.dansLaPage}`)] : []),
     ...(attend.length ? ['', `Waiting for vavi, because they need a secret key that never goes into the page: ${attend.map((f) => f.nom).join(', ')}. Build everything around them, leave a clearly marked place, and tell the person this part arrives with vavi.`] : []),
     '',

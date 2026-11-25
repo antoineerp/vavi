@@ -44,6 +44,13 @@ vavi's tools refuse what would break the project. When a tool refuses, read its 
   Never silence a type error with \`any\` or \`@ts-ignore\`.
 - If a change made things worse, propose \`rollback\` instead of piling fixes on top of it.
 
+## Design
+- Build each page like a current professional site, not a draft: a strong first screen (a real headline, one clear
+  sentence, one main action), generous spacing, clear sections, the colours and fonts of the app's direction (\`tokens.css\`),
+  the components of \`src/ui\` and \`src/briques\`, and a layout that works on a phone.
+- Only what the site needs: a one-page site has no menu (the chrome receives an empty \`menu\` and shows the brand alone),
+  no account button unless the app has accounts, no empty section, no placeholder link.
+
 ## Security
 - A secret key never goes into the code or into the conversation. If the person pastes one, tell them to revoke it at
   the provider, and to store the new one with \`set_secret\`.

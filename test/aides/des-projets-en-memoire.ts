@@ -67,6 +67,7 @@ export function desProjetsEnMemoire(): Projets & { readonly etats: Map<string, E
     async nomsDesSecrets(compte, id) { const e = sien(compte, id); return e ? lu([...e.secrets.keys()].sort()) : pasLu('projet inconnu'); },
     async marquerLaBase(compte, id, nom) { const e = sien(compte, id); if (e) { e.base = new Date().toISOString(); e.nom = nom; } return lu(true as const); },
     async poserUnSecret(compte, id, nom, valeur) { sien(compte, id)?.secrets.set(nom, valeur); return lu(true as const); },
+    async retirerUnSecret(compte, id, nom) { sien(compte, id)?.secrets.delete(nom); return lu(true as const); },
     async reglages(compte, id) { const e = sien(compte, id); return e ? lu(e.reglages ?? { courrielDesMessages: null, verificationGoogle: null }) : pasLu('projet inconnu'); },
     async regler(compte, id, r) { const e = sien(compte, id); if (!e) return pasLu('projet inconnu'); e.reglages = { courrielDesMessages: null, verificationGoogle: null, ...e.reglages, ...r }; return lu(true as const); },
   };
