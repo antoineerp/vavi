@@ -7,7 +7,10 @@
 import Link from 'next/link';
 import { laConsole } from '@/app/_partage/la-console';
 import { TEXTES } from '@/app/_partage/textes';
-import { BarreDuCompte } from '@/app/_partage/la-barre-du-compte';
+import { BarreDuCompte, EnTeteDePilotage } from '@/app/_partage/la-barre-du-compte';
+import { Icone } from '@/app/_partage/les-icones';
+import { JaugeRonde } from '@/app/_partage/les-graphiques';
+import { claudeYTravaille, lEtat, laTeinte } from '@/app/_partage/le-pilotage';
 import { adresseDeLApp } from '@/app/_partage/l-adresse-des-apps';
 import { lesAbonnementsReels, PAGE_DE_L_ABONNEMENT } from '@/app/_partage/les-abonnements-reels';
 import { lEtatDuCompte, lesFacturesDuCompte } from '@/lib/abonnements/l-abonnement';
@@ -56,45 +59,62 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const compris = v && (v.etat === 'actif' || v.etat === 'grace') ? v.projets : 0;
   const enLigne = l.lu ? [...l.valeur].filter((p) => p.enLigneEmpreinte !== null).sort((x, y) => x.nom.localeCompare(y.nom)) : [];
   const echeance = v?.etat === 'actif' ? (v.resilieALaFin || offert ? '—' : date(v.jusquAu)) : v?.etat === 'grace' ? date(v.pauseLe) : '—';
+  const maintenant = Date.now();
+  const menu = l.lu ? [...l.valeur].sort((x, y) => y.modifieLe.localeCompare(x.modifieLe)).map((p) => ({ id: p.id, nom: p.nom, etat: lEtat(p), claude: claudeYTravaille(p, maintenant) })) : [];
+  const fr = c.langue === 'fr';
   return (
-    <div className="accueil-console">
-      <BarreDuCompte langue={c.langue} courriel={c.courriel} ici="compte" />
-      <main className="console large">
-        <div className="tete-de-page"><div><p className="surtitre">{c.langue === 'fr' ? 'Compte' : 'Account'}</p><h1>{t.titre}</h1><p className="attenue">{m.sousTitre}</p></div></div>
+    <div className="coquille">
+      <BarreDuCompte langue={c.langue} courriel={c.courriel} ici="compte" projets={menu} />
+      <main className="pilote">
+        <EnTeteDePilotage fil={['Console', t.titre]} titre={t.titre} sousTitre={m.sousTitre} />
         {q.fait === 'abonne' && <div className="carte" role="status">{t.merci}</div>}
         {q.fait === 'resilie' && <div className="carte" role="status">{t.resilie}</div>}
         {q.erreur && <div className="carte" role="alert">{t.erreurs[q.erreur] ?? q.erreur}</div>}
 
-        <div className="chiffres-du-compte">
-          <div className="chiffre-du-compte"><span className="attenue">{m.offre}</span><strong>{offre ? OFFRES[offre].nom[c.langue] : m.essai}</strong>{offert && <span className="etat vert">{m.offert}</span>}</div>
-          <div className="chiffre-du-compte"><span className="attenue">{m.parMois}</span><strong>{offre && !offert ? euros(leMontant(offre, enPlus, grille)) : euros(0)}</strong><span className="attenue">TTC</span></div>
-          <div className="chiffre-du-compte"><span className="attenue">{m.echeance}</span><strong>{echeance}</strong></div>
-          <div className="chiffre-du-compte"><span className="attenue">{m.enLigne}</span><strong>{enLigne.length}</strong><span className="attenue">{compris ? m.compris(compris) : m.aucunCompris}</span>{compris > 0 && <div className={`jauge ${enLigne.length >= compris ? 'pleine' : ''}`} role="meter" aria-valuemin={0} aria-valuemax={compris} aria-valuenow={enLigne.length} aria-label={m.enLigne}><span style={{ width: `${Math.min(100, (enLigne.length / compris) * 100)}%` }} /></div>}</div>
-        </div>
-        {!e.lu ? <p role="alert">{TEXTES[c.langue].erreur} {e.pourquoi}</p> : <div className="carte"><p style={{ margin: 0 }}>{etat}</p></div>}
+        <section className="rangee" style={{ marginTop: 0 }}>
+          <div className="panneau offre-du-compte">
+            <div className="offre-tete">
+              <span className="indicateur-nom">{m.offre}</span>
+              <strong className="offre-nom">{offre ? OFFRES[offre].nom[c.langue] : m.essai}</strong>
+              {offert && <span className="etat vert">{m.offert}</span>}
+              {!e.lu ? <p role="alert">{TEXTES[c.langue].erreur} {e.pourquoi}</p> : <p className="attenue offre-etat">{etat}</p>}
+            </div>
+            <dl className="offre-chiffres">
+              <div><dt>{m.parMois}</dt><dd>{offre && !offert ? euros(leMontant(offre, enPlus, grille)) : euros(0)}<small> TTC</small></dd></div>
+              <div><dt>{m.echeance}</dt><dd>{echeance}</dd></div>
+              <div><dt>{fr ? 'Projets en plus' : 'Extra projects'}</dt><dd>{enPlus}</dd></div>
+            </dl>
+          </div>
+          <div className="panneau">
+            <div className="panneau-tete"><h2>{m.enLigne}</h2></div>
+            <div className="parc">
+              <JaugeRonde valeur={enLigne.length} max={compris} centre={compris ? `${enLigne.length}/${compris}` : String(enLigne.length)} sousCentre={fr ? 'en ligne' : 'online'} />
+              <p className="attenue" style={{ flex: 1, minWidth: 140, fontSize: '0.85rem', margin: 0 }}>{compris ? m.compris(compris) : m.aucunCompris}</p>
+            </div>
+          </div>
+        </section>
 
-        <h2>{m.projetsEnLigne}</h2>
+        <h2 className="titre-de-section">{m.projetsEnLigne}</h2>
         {compris > 0 && enLigne.length > compris && <div className="carte" role="alert">{m.horsOffre(enLigne.length, compris)}</div>}
-        {enLigne.length === 0 ? <p className="attenue">{m.aucunEnLigne}</p> : (
-          <ul className="grille-projets">
+        {enLigne.length === 0 ? <div className="panneau"><p className="attenue" style={{ margin: 0 }}>{m.aucunEnLigne}</p></div> : (
+          <ul className="panneau lignes-de-projets">
             {enLigne.map((p) => (
-              <li key={p.id} className="carte-projet">
-                <Link href={`/projets/${p.id}`} className="carte-projet-lien">
-                  <span className="initiale" aria-hidden="true">{[...p.nom.trim()][0]?.toUpperCase() ?? '·'}</span>
-                  <span className="carte-projet-titre"><strong>{p.nom}</strong><span className="attenue">{TEXTES[c.langue].version} {p.version}</span></span>
-                </Link>
-                {compris > 0 && enLigne.length <= compris && <div className="ligne"><span className="etat vert">{m.paye}</span></div>}
-                <div className="ligne carte-projet-actions">
-                  <Link className="bouton" href={`/projets/${p.id}`}>{m.ouvrir}</Link>
-                  <a className="bouton discret" href={adresseDeLApp(p.id, 'en_ligne')} target="_blank" rel="noreferrer">{m.voir}</a>
-                </div>
+              <li key={p.id} style={{ ['--teinte' as string]: laTeinte(p.id) }}>
+                <span className="bandeau-initiale petite" aria-hidden="true">{[...p.nom.trim()][0]?.toUpperCase() ?? '·'}</span>
+                <Link href={`/projets/${p.id}`} className="tuile-nom">{p.nom}</Link>
+                <span className="mono attenue">v{p.version}</span>
+                {compris > 0 && enLigne.length <= compris ? <span className="etat vert">{m.paye}</span> : <span />}
+                <span className="tuile-actions">
+                  <Link className="bouton petit" href={`/projets/${p.id}`}>{m.ouvrir}</Link>
+                  <a className="bouton discret petit" href={adresseDeLApp(p.id, 'en_ligne')} target="_blank" rel="noreferrer"><Icone nom="globe" taille={16} />{m.voir}</a>
+                </span>
               </li>
             ))}
           </ul>
         )}
 
-        <h2>{m.factures}</h2>
-        <div className="carte">
+        <h2 className="titre-de-section">{m.factures}</h2>
+        <div className="panneau">
           {!f.lu ? <p role="alert">{m.facturesIllisibles}</p> : f.valeur.length === 0 ? <p className="attenue" style={{ margin: 0 }}>{m.aucuneFacture}</p> : (
             <table className="tableau-simple">
               <thead><tr><th>{m.date}</th><th>{m.numero}</th><th>{m.montant}</th><th>{m.statut}</th><th /></tr></thead>
@@ -117,8 +137,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           )}
         </div>
 
-        <h2>{m.offres}</h2>
-        <ul className="grille-projets">
+        <h2 className="titre-de-section">{m.offres}</h2>
+        <ul className="tuiles offres">
           {OFFRES_PAYANTES.map((o) => (
             <li key={o} className={`carte-offre ${offre === o ? 'choisie' : ''}`}>
               <div className="ligne" style={{ justifyContent: 'space-between' }}><strong style={{ fontSize: '1.15rem' }}>{OFFRES[o].nom[c.langue]}</strong>{offre === o && <span className="etat bleu">{m.actuelle}</span>}</div>
@@ -134,7 +154,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           ))}
         </ul>
         {v && v.etat === 'actif' && !v.resilieALaFin && !offert && (
-          <form action={resilierALaFin} className="carte bloc-claude"><p className="attenue">{t.resilierExplication}</p><button type="submit" className="discret danger">{t.resilier}</button></form>
+          <form action={resilierALaFin} className="panneau bloc-claude" style={{ marginTop: '1rem' }}><p className="attenue">{t.resilierExplication}</p><button type="submit" className="discret danger">{t.resilier}</button></form>
         )}
         <p className="attenue">{t.mentions}</p>
       </main>

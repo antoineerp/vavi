@@ -102,4 +102,16 @@ describe.runIf(POSTGRES_PRESENT)('les données de la console, sur un PostgreSQL 
     expect(changer(SIEN, 'salarie', false).sortie.trim()).toBe('t');
     expect(roles(SIEN)).toEqual([]);
   });
+
+  it('le propriétaire invite une adresse avec un rôle depuis la console, puis retire l’invitation', () => {
+    const inviter = (email: string, role: string, oui: boolean) => service(`select public.vavi_console_inviter('${S}', '${email}', '${role}', ${oui});`);
+    const invitations = () => (json(`select public.vavi_console_les_membres('${S}');`).invitations as Array<{ email: string; role: string }>).map((x) => `${x.email}:${x.role}`);
+    expect(inviter(' Lea@B.fr ', 'salarie', true).sortie.trim()).toBe('t');
+    expect(invitations()).toContain('lea@b.fr:salarie');
+    expect(inviter('pas-une-adresse', 'salarie', true).ok).toBe(false);
+    expect(inviter('lea@b.fr', 'Salarie', true).ok).toBe(false);
+    for (const qui of [MOI, null]) expect(pg.comme(qui, `select public.vavi_console_inviter('${S}', 'x@b.fr', 'salarie', true);`).ok).toBe(false);
+    expect(inviter('lea@b.fr', 'salarie', false).sortie.trim()).toBe('t');
+    expect(invitations()).not.toContain('lea@b.fr:salarie');
+  });
 });

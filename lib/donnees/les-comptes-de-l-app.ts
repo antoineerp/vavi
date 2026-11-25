@@ -71,3 +71,9 @@ export async function changerUnRole(base: SupabaseClient, schema: string, compte
   const r = await base.rpc('vavi_console_changer_un_role', { p_schema: schema, p_compte: compte, p_role: role, p_donner: donner });
   return r.error ? { lu: false, pourquoi: r.error.message } : lu(r.data === true);
 }
+
+/** Inviter une adresse avec un rôle déclaré, ou retirer l'invitation ; `false` si l'app n'a pas de membres. */
+export async function inviterAvecUnRole(base: SupabaseClient, schema: string, email: string, role: string, inviter: boolean): Promise<Issue<boolean>> {
+  const r = await base.rpc('vavi_console_inviter', { p_schema: schema, p_email: email, p_role: role, p_inviter: inviter });
+  return r.error ? { lu: false, pourquoi: r.error.message } : lu(r.data === true);
+}
