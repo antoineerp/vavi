@@ -46,7 +46,7 @@ interface TableLue {
 interface AppLue {
   readonly nature: string; readonly ecrans: readonly Ecran[]; readonly demandes: readonly Demande[]; readonly tables: readonly TableLue[];
   readonly roles: readonly { readonly nom: string }[]; readonly indicateurs: readonly { readonly nom: string }[];
-  readonly agents: readonly { readonly nom: string; readonly lit: readonly string[]; readonly propose: string }[];
+  readonly agents: readonly { readonly nom: string; readonly reveil: unknown }[];
   readonly automatisations: readonly { readonly nom: string }[];
   readonly parcours?: Parcours;
 }
@@ -59,11 +59,11 @@ function tablesNommees(x: unknown): string[] {
 }
 
 /**
- * Les tables qui servent une demande : celles qu'un écran montre, qu'un agent lit ou propose, qu'une automatisation
+ * Les tables qui servent une demande : celles qu'un écran montre, dont la ligne réveille un agent, qu'une automatisation
  * nomme, puis celles qu'elles désignent ou dont elles font partie. PUR.
  */
 export function lesTablesQuiServent(m: AppLue): Set<string> {
-  const vues = new Set([...m.ecrans.flatMap((e) => e.montre), ...m.agents.flatMap((a) => [...a.lit, a.propose]), ...tablesNommees(m.automatisations)]);
+  const vues = new Set([...m.ecrans.flatMap((e) => e.montre), ...tablesNommees(m.agents.map((a) => a.reveil)), ...tablesNommees(m.automatisations)]);
   for (let ajoutee = true; ajoutee;) {
     ajoutee = false;
     for (const t of m.tables.filter((x) => vues.has(x.nom))) {

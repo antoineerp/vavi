@@ -132,6 +132,13 @@ export const DEFINITIONS = {
     description: 'Takes images from a site the person names (their current site, a site they own) into the app, under their declaration of rights. Use it only when the person says the images are theirs or that the owner agreed; otherwise ask them first. Quote their words in `rights`: vavi keeps them with each image, with the date and the original address, and does not judge the rights. Each image is downloaded by vavi (https only), checked as a real JPEG, PNG or WebP, stripped of its metadata, stored and served by vavi; a page shows it with `<Photo nom="…" />`.',
     geste: (c, a) => g.reprendreDesImages(c, a),
   }),
+  try_agent: def({
+    title: 'Try an agent', lecture: false,
+    entree: z.object({ project: projet, name: z.string().regex(/^[a-z][a-z0-9_]{0,62}$/).describe('The agent of app.json `agents`.'),
+      input: z.string().max(4000).optional().describe('What a person would type to launch it (`ctx.declencheur.entree`).') }),
+    description: 'Runs an agent of the app once, on a temporary copy of the database, and returns its result, its log and its error with the line. An agent is work done without anyone in front of the screen (at a time, when a row arrives, or from a button): app.json `agents` declares when it wakes up (`reveil`) and its daily AI cap; its code is `src/agents/<name>.ts`, `export default` an async function receiving `ctx` (src/lib/agent.ts): `ctx.base.lire/creer/modifier` under the access rules of the app, `ctx.ia.texte/donnee` on the owner\'s Anthropic key, `ctx.journal`. It runs on the server with no network: everything goes through `ctx`.',
+    geste: (c, a) => g.essayerUnAgent(c, a),
+  }),
   add_packages: def({
     title: 'Add npm packages', lecture: false,
     entree: z.object({ project: projet, work_session: chantier, packages: z.array(z.object({

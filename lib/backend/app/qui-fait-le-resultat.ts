@@ -17,8 +17,6 @@ interface Lu {
     readonly nom: string; readonly ecriture: readonly string[]; readonly propositions: boolean; readonly sansRelecture?: string; readonly parent?: string;
     readonly cycle?: { readonly initial: string; readonly transitions: readonly { readonly nom: string; readonly de: readonly string[]; readonly par: readonly string[] }[] };
   }[];
-  readonly agents: readonly { readonly nom: string; readonly lit: readonly string[]; readonly par: readonly string[]; readonly propose: string }[];
-  readonly automatisations: readonly { readonly etapes: readonly { readonly type: string; readonly agent?: string; readonly etapes?: readonly { readonly type: string; readonly agent?: string }[] }[] }[];
   readonly resultat?: string;
 }
 
@@ -29,22 +27,6 @@ export const estServi = (r: { readonly obtenu: string; readonly client?: boolean
 export function lireQuiFaitLeResultat(m: Lu, ctx: z.RefinementCtx): void {
   const dire = (message: string): void => { ctx.addIssue({ code: 'custom', message }); };
   const servis = new Set(m.roles.filter(estServi).map((r) => r.nom));
-  const lances = new Set(m.automatisations.flatMap((a) => a.etapes.flatMap((e) => [e, ...(e.etapes ?? [])]))
-    .filter((e) => e.type === 'agent' && e.agent).map((e) => e.agent!));
-  // Ce que l'équipe valide : aucune personne servie ne fait avancer une proposition qui vient de naître.
-  const valideeParLEquipe = (nom: string): boolean => {
-    const t = m.tables.find((x) => x.nom === nom);
-    return Boolean(t?.propositions && t.cycle && !t.cycle.transitions.some((tr) => tr.de.includes(t.cycle!.initial) && tr.par.some((r) => servis.has(r))));
-  };
-  for (const a of m.agents.filter((x) => valideeParLEquipe(x.propose))) {
-    for (const r of a.par.filter((x) => servis.has(x))) {
-      dire(`l’agent ${a.nom} : l’équipe valide ce qu’il propose, donc ${r}, servi par l’app, ne le lance pas à la main ; une automatisation le lance quand sa demande change d’état (déclencheur \`evenement\`, étape \`agent\`) ; \`par\` nomme les rôles de l’équipe qui peuvent le relancer`);
-    }
-    const deposees = a.lit.filter((t) => m.tables.find((x) => x.nom === t)?.ecriture.some((r) => servis.has(r)));
-    if (deposees.length > 0 && !lances.has(a.nom)) {
-      dire(`l’agent ${a.nom} travaille sur ce que les personnes servies déposent (${deposees.join(', ')}) : une automatisation le lance quand leur demande est envoyée (déclencheur \`evenement\` sur sa table et l’état d’envoi, étape \`agent\`) ; sans elle, leur demande attend qu’on la lance à la main`);
-    }
-  }
   for (const t of m.tables) {
     // Ce que la personne obtient, quand l'IA le propose : elle ne le valide pas elle-même.
     if (t.propositions && m.resultat && (t.nom === m.resultat || t.parent === m.resultat)) {

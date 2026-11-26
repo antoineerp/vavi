@@ -46,6 +46,10 @@ function lireLeDist(dossier: string, racine = dossier): Map<string, Buffer> {
   return dist;
 }
 
+/** Les fichiers d'agents de l'arbre : `src/agents/<nom>.ts`, un par agent. PURE. */
+export const lesAgentsDeLArbre = (arbre: ReadonlyMap<string, string>): string[] =>
+  [...arbre.keys()].filter((c) => /^src\/agents\/[a-z][a-z0-9_]*\.ts$/.test(c)).sort();
+
 /** `base` : l'adresse sous laquelle l'app sera servie (`/p/<id>/` pour l'aperçu) ; absente : la racine d'un domaine. */
 export async function construireLApp(arbre: ReadonlyMap<string, string>, base?: string): Promise<Construction> {
   const debut = Date.now();
@@ -71,6 +75,14 @@ export async function construireLApp(arbre: ReadonlyMap<string, string>, base?: 
       return { construite: false, etape: 'types', ecarts: ecarts.length ? ecarts : [{ fichier: null, fait: tsc.sortie.slice(-1500) }], duree: duree() };
     }
     if (!build.ok) return { construite: false, etape: 'build', ecarts: ecartsDuBuild(build.sortie), duree: duree() };
+    // Le code des agents (`src/agents/<nom>.ts`, Antoine 26/11) : assemblé pour node, dans le même bac à sable, APRÈS vite
+    // (qui vide le dist), dans `dist/_agents/` : c'est le code du build vert qui tourne, jamais servi aux visiteurs.
+    const agents = lesAgentsDeLArbre(arbre);
+    if (agents.length) {
+      const e = await atelier.lancerIsole('node_modules/esbuild/bin/esbuild', [...agents, '--bundle', '--platform=node', '--format=cjs', '--target=node20',
+        '--sourcemap=inline', '--outdir=dist/_agents', '--entry-names=[name]', '--out-extension:.js=.cjs', '--log-level=error']);
+      if (!e.ok) return { construite: false, etape: 'build', ecarts: ecartsDuBuild(e.sortie), duree: duree() };
+    }
     const dist = lireLeDist(join(atelier.dossier, 'dist'));
     const faits = dist.get('faits.json');
     return { construite: true, dist, faits: faits ? JSON.parse(faits.toString('utf8')) : null, duree: duree() };

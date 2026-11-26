@@ -450,6 +450,27 @@ describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {
     // Sans les mots de la personne sur ses droits, l'outil ne part pas.
     await expect(appel('import_images', { project, work_session, rights: 'oui', images: [{ name: 'a', url: 'https://monsite.fr/a.png', alt: 'aaa' }] })).rejects.toThrow(/import_images/);
   });
+  it('26/11 — try_agent fait tourner l’agent du build vert sur une copie, et rend son résultat, son journal, son erreur avec sa ligne', async () => {
+    const app = { ...APP_JSON,
+      agents: [{ nom: 'tri', libelle: 'Tri', dit: 'Classe les demandes chaque matin.', reveil: { type: 'horaire', cadence: 'quotidien', heure: 7 } }] };
+    const p = await ok('create_project', { app_json: app });
+    const project = String(p.project);
+    const ch = await ok('ouvrir_chantier', { project, intention: 'le tri' });
+    expect((await refus('try_agent', { project, name: 'autre' })).code).toBe('app_json_refuse');
+    expect((await refus('try_agent', { project, name: 'tri' })).fait).toContain('src/agents/tri.ts does not exist');
+    await ok('apply_changes', { project, work_session: ch.work_session, why: 'le tri', build: false, changes: [{ path: 'src/agents/tri.ts', content: 'export default async () => "ok";\n' }] });
+    expect((await refus('try_agent', { project, name: 'tri' })).code).toBe('build_perime');
+    await ok('build_preview', { project });
+    const vus: unknown[] = [];
+    (c as { essayerUnAgent?: unknown }).essayerUnAgent = async (_p: string, _e: string, _m: unknown, nom: string, entree: string) => {
+      vus.push([nom, entree]);
+      return { ok: false, etape: 'agent', erreur: 'base.lire clients: app.json declares no such table', pile: 'at src/agents/tri.ts:3:9', journal: ['début'], ia: 1, operations: 2, duree: 40 };
+    };
+    const r = await ok('try_agent', { project, name: 'tri', input: 'urgent' });
+    expect(vus).toEqual([['tri', 'urgent']]);
+    expect(r).toMatchObject({ passed: false, error: 'base.lire clients: app.json declares no such table', at: 'at src/agents/tri.ts:3:9', log: ['début'], ai_calls: 1 });
+    expect(String(r.ran)).toMatch(/temporary copy/);
+  });
   it('26/11 — les notes durables : écrites par write_notes, relues à l’état et au chantier, jamais écrasées sans avoir été lues', async () => {
     const { project } = await unChantier();
     const etat = await ok('get_project_state', { project });

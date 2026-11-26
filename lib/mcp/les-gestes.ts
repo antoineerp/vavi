@@ -38,6 +38,8 @@ import { CHEMIN_DES_IMAGES, CleDeLaBanqueRefusee, poserLesImages, type Banque, t
 import { REPRISES_MAX, reprendreLesImages } from '@/lib/images/la-reprise';
 import { TAILLE_MAX_D_UNE_PHOTO } from '@/lib/images/la-photo-fournie';
 import { fetchSortantEnOctets, type Resolveur } from '@/lib/connecteurs/la-sortie';
+import { cheminDeLAgent } from '@/lib/backend/app/les-agents';
+import type { Course } from '@/lib/agents/le-moteur';
 import { CHEMIN_DES_PAQUETS, PAQUETS_MAX, lesPaquetsAjoutes, leFichierDesPaquets, verifierAuRegistre } from '@/lib/paquets/les-paquets';
 import { lIndex } from '@/squelette/l-index';
 
@@ -80,6 +82,8 @@ export interface Contexte {
   readonly registre?: typeof fetch;
   /** La sortie vers le web (`import_images`) et son résolveur DNS ; absents : `fetch` et le DNS du serveur. Les essais les passent. */
   readonly sortie?: typeof fetch;
+  /** Fait tourner un agent du build vert d'empreinte donnée sur une copie de la base (`lib/agents`) ; absent : la raison. */
+  readonly essayerUnAgent?: (projet: string, empreinte: string, manifeste: Manifeste, agent: string, entree: string) => Promise<Course | { readonly raison: string }>;
   readonly resolveur?: Resolveur;
 }
 
@@ -781,6 +785,46 @@ export async function jouerUnParcours(c: Contexte, a: { project: string; steps: 
     not_checked: copie ? 'emails are not sent (a sign-up on the copy needs no confirmation, sign-in links are listed in `simulated`); payment is simulated (Stripe does not open, so what it grants is not checked); forms are simulated.'
       : 'nothing was written or sent: writes, forms, sign-up and payment are simulated or unavailable, so the rules of the database (required fields, duplicates) are not checked here; play it with `on_copy: true` (or `as_role`) to check them on a copy.',
   });
+}
+
+/**
+ * Claude essaie un agent (Antoine, 26/11) : son code, celui du build vert de la version courante, tourne sur une COPIE
+ * de la base (ses lignes d'exemple), pour le propriétaire ; l'IA est réelle, sur sa clé. Rend le résultat, le journal,
+ * l'erreur avec sa ligne : Claude corrige l'agent comme une page.
+ */
+export async function essayerUnAgent(c: Contexte, a: { project: string; name: string; input?: string }): Promise<Rendu> {
+  const p = await leProjet(c, a.project);
+  if (!p.ok) return p.refus;
+  const f = await lesFichiers(c, a.project);
+  if (!f.ok) return f.refus;
+  const arbre = await lArbreLu(f.valeur, c.magasin);
+  if (!arbre.lu) return refuser('app_json_refuse', `app.json does not hold: ${arbre.erreurs.join(' | ')}`, { fichier: 'app.json' });
+  const declares = arbre.manifeste.agents.map((x) => x.nom);
+  if (!declares.includes(a.name)) {
+    return refuser('app_json_refuse', `app.json declares no agent « ${a.name} »${declares.length ? ` (its agents: ${declares.join(', ')})` : ''}.`,
+      { fichier: 'app.json', geste: 'Declare it in app.json `agents` (nom, libelle, dit, reveil) with `configure_backend`, write its code in `src/agents/<name>.ts`, build, then try it.' });
+  }
+  if (!f.valeur.has(cheminDeLAgent(a.name))) {
+    return refuser('chemin_refuse', `${cheminDeLAgent(a.name)} does not exist.`, { fichier: cheminDeLAgent(a.name), geste: 'Write it: `import type { Agent } from \'@/lib/agent\'; const agent: Agent = async (ctx) => { … }; export default agent;` (read src/lib/agent.ts), then build.' });
+  }
+  const b = await c.projets.leBuild(c.compte, a.project, arbre.empreinte);
+  if (!b.lu) return panne(b.pourquoi);
+  if (!b.valeur) return refuser('build_perime', 'The current version has not been built: an agent runs the code of the green build.');
+  if (!b.valeur.vert) return refuser('build_rouge', 'The last build of the current version is red: fix it before trying the agent.');
+  if (!c.essayerUnAgent) return refuser('plateforme_en_panne', 'Agents cannot run on this vavi server yet.');
+  const r = await c.essayerUnAgent(a.project, arbre.empreinte, arbre.manifeste, a.name, a.input ?? '').catch((e: unknown) => ({ raison: String((e as Error)?.message ?? e).slice(0, 300) }));
+  if ('raison' in r) return refuser('plateforme_en_panne', `The agent could not run: ${r.raison}. This is not caused by your files.`);
+  console.log(`[try_agent] ${a.project} ${a.name} ${r.ok ? 'fini' : r.etape} en ${r.duree} ms, ${r.ia} appel(s) à l'IA`);
+  const commun = { log: r.journal, ai_calls: r.ia, requests: r.operations, duration_ms: r.duree,
+    ran: 'on a temporary copy of the database (its example rows, nothing of the real data), as the owner, deleted after the run; AI calls were real, on the owner\'s key, counted in the agent\'s daily cap' };
+  const reveil = arbre.manifeste.agents.find((x) => x.nom === a.name)!.reveil;
+  // Le réveil à heure fixe et à l'arrivée d'une ligne arrive dans l'étape suivante (Antoine, 26/11) : dit, jamais promis.
+  const quand = reveil.type === 'bouton' ? { wakes_up: 'from the button `<Agent nom>` of a page, for the roles of `reveil.par`' }
+    : { wakes_up: 'not yet on its own: vavi does not run agents at a time or on a new row yet. Tell the person it works when tried, and that it will run by itself once vavi serves it.' };
+  if (r.ok) return fait({ project: a.project, agent: a.name, passed: true, result: r.resultat, ...quand, ...commun, next: 'Check the log and the result. Tell the person what the agent does and when it wakes up.' });
+  if (r.etape === 'bac_a_sable') return refuser('plateforme_en_panne', `${r.erreur}. This is not caused by your files.`);
+  return fait({ project: a.project, agent: a.name, passed: false, error: r.erreur, ...(r.pile ? { at: r.pile } : {}), ...commun,
+    next: r.etape === 'delai' ? 'Make the agent do less per run (fewer rows, fewer AI calls), build, and try again.' : `Fix ${cheminDeLAgent(a.name)} where the error says, build, and try again.` });
 }
 
 export async function publierLApercu(c: Contexte, a: { project: string; work_session: string }): Promise<Rendu> {
