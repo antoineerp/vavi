@@ -52,7 +52,12 @@ export const APP = { ...manifeste, tables: [...manifeste.tables, ...TABLES_DE_LA
   readonly langues: { readonly principale: string; readonly autres: readonly string[] };
   readonly roles: readonly RoleDeLApp[];
   /** La direction : `travail` choisit l'allure des écrans derrière un compte (`briques/travail.tsx`). */
-  readonly direction: { readonly travail?: 'affirme' | 'sobre' };
+  readonly direction: {
+    readonly travail?: 'affirme' | 'sobre';
+    /** L'idée qu'on reconnaît dès le premier écran ; l'ouverture de la vitrine la porte (`briques/vitrine.tsx`). */
+    readonly signatureVisuelle?: 'photo' | 'bande-inversee' | 'maillage' | 'typographie';
+    readonly mouvement?: 'vivant' | 'discret' | 'immobile';
+  };
   readonly tables: readonly TableDeLApp[];
   readonly organisations: 'une' | 'plusieurs' | 'clients';
   readonly fonctions: Readonly<Record<'panier' | 'ia', boolean>>;

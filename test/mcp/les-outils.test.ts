@@ -429,7 +429,7 @@ describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {
     const r = await servirLeMcp({ jsonrpc: '2.0', id: 10, method: 'tools/call', params: { name: 'get_design_guide', arguments: { project } } },
       { outils: c, langue: 'fr', gabaritPackageJson: GABARIT, noteDuChantier: async () => null }) as { result: { content: { type: string; text?: string }[]; structuredContent: Record<string, unknown> } };
     expect(r.result.content.map((x) => x.type)).toEqual(['text']);
-    expect(Object.keys(r.result.structuredContent).sort()).toEqual(['guide', 'ok', 'rules'].filter((k) => k in r.result.structuredContent).sort());
+    expect(Object.keys(r.result.structuredContent).sort()).toEqual(['guide', 'ok', 'rules', 'visual_language', 'your_direction'].filter((k) => k in r.result.structuredContent).sort());
     expect(JSON.stringify(r.result.structuredContent)).not.toMatch(/exemples? de design|examples? of successful|\.jpg/i);
   });
   it('search_images pose la photo du sujet dans src/images.json, que Claude n’écrit pas ; sans banque, il le dit', async () => {
@@ -518,12 +518,14 @@ describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {
 
 describe('la forme d’app.json, dite avant le premier envoi (essai Yokono du 26/11 : trois refus d’affilée)', () => {
   it('create_project la donne : l’exemple complet, chaque police et chaque type de champ permis', async () => {
-    const { NOMS_DES_POLICES } = await import('@/lib/backend/fige/polices');
+    const { POLICES_PROPOSEES } = await import('@/lib/backend/fige/polices');
     const { TypeDeChamp } = await import('@/lib/backend/app/manifeste');
     const { EXEMPLE_D_APP_JSON_TEXTE } = await import('@/lib/backend/app/l-exemple-d-app-json');
     const d = lesOutils().find((o) => o.name === 'create_project')!.description;
     expect(d).toContain(EXEMPLE_D_APP_JSON_TEXTE);
-    for (const p of NOMS_DES_POLICES) expect(d).toContain(p);
+    for (const p of POLICES_PROPOSEES) expect(d).toContain(p);
+    // Une police retirée par Antoine (11/11) n'est plus proposée à Claude (26/11 : elle l'était encore).
+    expect(d).not.toContain('Space Grotesk');
     for (const t of TypeDeChamp.options) expect(d).toContain(t);
     expect(d).toContain('tenuePar');
     expect(d).toContain('`tous` (anyone, with or without an account');

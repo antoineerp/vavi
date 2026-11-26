@@ -74,7 +74,7 @@ export function TuileDeMosaique({ vers, photo, titre, detail, prix, grande = fal
   readonly grande?: boolean;
 }) {
   return (
-    <Link to={vers} data-piece="tuile" className={cn('group relative block overflow-hidden rounded-lg bg-muted', grande && 'col-span-2 row-span-2')}>
+    <Link to={vers} data-piece="tuile" className={cn('apparait souleve group relative block overflow-hidden rounded-lg bg-muted', grande && 'col-span-2 row-span-2')}>
       <div className="absolute inset-0 [&_img]:size-full [&_img]:object-cover [&_img]:transition-transform [&_img]:duration-500 group-hover:[&_img]:scale-[1.03]">{photo}</div>
       <div className="absolute inset-x-0 bottom-0 space-y-0.5 bg-foreground/60 px-4 py-3 text-background">
         <p className={cn('font-titre leading-snug', grande ? 'text-2xl' : 'text-base')}>{titre}</p>

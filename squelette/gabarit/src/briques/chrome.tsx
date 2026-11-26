@@ -122,15 +122,15 @@ export function PiedDePage({ menu, marque, phrase, colonnes }: {
   const servies = [{ libelle: L.mentionsLegales, vers: '/mentions-legales' }, { libelle: L.confidentialite, vers: '/confidentialite' },
     ...(APP.fonctions.panier ? [{ libelle: L.conditionsDeVente, vers: '/conditions-de-vente' }] : []),
     ...(Object.keys(IMAGES).length > 0 ? [{ libelle: L.creditsDesPhotos, vers: '/credits-photos' }] : [])];
-  const lien = 'text-background/75 transition-colors hover:text-background';
-  const intitule = 'mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-background/55';
+  const lien = 'text-sur-ancre/75 transition-colors hover:text-sur-ancre';
+  const intitule = 'mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-sur-ancre/55';
   return (
     <div className="mt-auto pt-16 md:pt-24">
-      <footer data-cadre="pied" className="bg-foreground text-background">
+      <footer data-cadre="pied" className="bg-ancre text-sur-ancre">
         <div className="mx-auto grid max-w-6xl gap-x-10 gap-y-12 px-4 py-16 lg:grid-cols-12">
           <div className="lg:col-span-4">
             <Link to="/" className="font-titre text-2xl font-semibold">{marque ?? APP.nom}</Link>
-            {phrase ? <p className="mt-4 max-w-[36ch] text-background/70">{phrase}</p> : null}
+            {phrase ? <p className="mt-4 max-w-[36ch] text-sur-ancre/70">{phrase}</p> : null}
           </div>
           <nav aria-label={L.planDuSite} className={`grid grid-cols-2 gap-x-10 gap-y-8 sm:grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] ${coordonnees ? 'lg:col-span-5' : 'lg:col-span-8'}`}>
             {lesColonnes.filter((c) => c.liens.length > 0).map((c, i) => (
@@ -143,7 +143,7 @@ export function PiedDePage({ menu, marque, phrase, colonnes }: {
           {coordonnees ? (
             <address className="not-italic lg:col-span-3">
               <h2 className={intitule}>{L.nousTrouver}</h2>
-              <ul className="grid gap-3 text-background/75">
+              <ul className="grid gap-3 text-sur-ancre/75">
                 {e.adresse ? <li className="flex gap-3"><MapPin aria-hidden className="mt-0.5 size-4 shrink-0" />{e.adresse}</li> : null}
                 {e.telephone ? <li className="flex gap-3"><Phone aria-hidden className="mt-0.5 size-4 shrink-0" /><a href={`tel:${e.telephone.replace(/[^\d+]/g, '')}`} className={lien}>{e.telephone}</a></li> : null}
                 {e.courriel ? <li className="flex gap-3"><Mail aria-hidden className="mt-0.5 size-4 shrink-0" /><a href={`mailto:${e.courriel}`} className={`break-all ${lien}`}>{e.courriel}</a></li> : null}
@@ -152,8 +152,8 @@ export function PiedDePage({ menu, marque, phrase, colonnes }: {
             </address>
           ) : null}
         </div>
-        <div className="border-t border-background/15">
-          <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-6 text-sm text-background/60 md:flex-row md:items-center md:justify-between">
+        <div className="border-t border-sur-ancre/15">
+          <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-6 text-sm text-sur-ancre/60 md:flex-row md:items-center md:justify-between">
             <p>© {new Date().getFullYear()} {e.nom ?? APP.nom}{e.immatriculation ? <span className="md:ms-3">{e.immatriculation}</span> : null}</p>
             <nav aria-label={L.mentions} className="flex flex-wrap gap-x-6 gap-y-2">
               {servies.map((l) => <Link key={l.vers} to={l.vers} className={lien}>{l.libelle}</Link>)}

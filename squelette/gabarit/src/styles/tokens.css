@@ -12,10 +12,15 @@
   --sur-accent: __SUR_ACCENT__;
   --accent-texte: __ACCENT_TEXTE__;
   --danger: __DANGER__;
+  --seconde: __SECONDE__;
+  --seconde-texte: __SECONDE_TEXTE__;
+  --ancre: __ANCRE__;
+  --sur-ancre: __SUR_ANCRE__;
+  --sur-ancre-attenue: __SUR_ANCRE_ATTENUE__;
   --police-titre: __POLICE_TITRES__;
   --police-texte: __POLICE_TEXTE__;
   --rayon: __RAYON__;
-  --duree: 180ms;
+  --duree: __DUREE__;
 }
 
 @theme inline {
@@ -43,6 +48,11 @@
   --color-surface: var(--surface);
   --color-bordure: var(--bordure);
   --color-accent-texte: var(--accent-texte);
+  --color-seconde: var(--seconde);
+  --color-seconde-texte: var(--seconde-texte);
+  --color-ancre: var(--ancre);
+  --color-sur-ancre: var(--sur-ancre);
+  --color-sur-ancre-attenue: var(--sur-ancre-attenue);
   --font-titre: var(--police-titre);
   --font-texte: var(--police-texte);
   --radius-lg: var(--rayon);
@@ -51,3 +61,6 @@
   --radius-xl: calc(var(--rayon) * 1.25);
   --radius-bouton: var(--rayon);
 }
+
+/* Les effets de la direction (verre, dégradé, maillage, bande sombre, ombre teintée, apparition), réglés par elle. */
+/*__EFFETS__*/
