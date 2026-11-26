@@ -92,14 +92,41 @@ export async function recevoirUnEnvoi(d: DependancesDeLaReception, e: Envoi): Pr
   if (n.lu && n.valeur >= PLAFOND_PAR_PROJET_PAR_HEURE) return { statut: 429, pourquoi: 'trop d’envois ; réessayez dans une heure' };
   const verdict = premierSpam(verdictDesChamps(lu.donnees, d.maintenant), verdictDuContenu(lu.donnees), verdictDeLaVisite(lu.donnees, e.visite));
   const donnees = sansLesChampsDuJugement(lu.donnees);
-  const destinataire = p.valeur.courriel;
-  const courriel: EtatDuCourriel = verdict.spam ? 'non_envoye' : !d.courrier || !destinataire ? 'non_configure' : 'a_envoyer';
-  const g = await d.boite.garder(e.projet, { formulaire: lu.formulaire, donnees, page: lu.page, statut: verdict.spam ? 'spam' : 'recu',
-    motif: verdict.spam ? `${verdict.motif} : ${verdict.detail}` : null, adresse: e.adresse, courriel });
+  const g = await garderEtTransmettre(d, p.valeur, { projet: e.projet, formulaire: lu.formulaire, donnees, page: lu.page, adresse: e.adresse,
+    spam: verdict.spam ? `${verdict.motif} : ${verdict.detail}` : null });
   if (!g.lu) return { statut: 503, pourquoi: 'la base de vavi n’a pas répondu' };
-  if (courriel !== 'a_envoyer') return { statut: 200, garde: g.valeur, verdict, courriel };
-  const c = leCourrielDuMessage(p.valeur.nom, lu.formulaire, donnees, lu.page);
+  return { statut: 200, garde: g.valeur.garde, verdict, courriel: g.valeur.courriel };
+}
+
+/** Gardé dans la boîte (même en spam), puis transmis par courriel au propriétaire quand ce n'est pas du spam. */
+async function garderEtTransmettre(d: DependancesDeLaReception, proprietaire: { readonly nom: string; readonly courriel: string | null },
+  m: { readonly projet: string; readonly formulaire: string; readonly donnees: Record<string, unknown>; readonly page: string | null; readonly adresse: string | null; readonly spam: string | null }):
+  Promise<Issue<{ readonly garde: string; readonly courriel: EtatDuCourriel }>> {
+  const destinataire = proprietaire.courriel;
+  const courriel: EtatDuCourriel = m.spam ? 'non_envoye' : !d.courrier || !destinataire ? 'non_configure' : 'a_envoyer';
+  const g = await d.boite.garder(m.projet, { formulaire: m.formulaire, donnees: m.donnees, page: m.page, statut: m.spam ? 'spam' : 'recu',
+    motif: m.spam, adresse: m.adresse, courriel });
+  if (!g.lu) return g;
+  if (courriel !== 'a_envoyer') return { lu: true, valeur: { garde: g.valeur, courriel } };
+  const c = leCourrielDuMessage(proprietaire.nom, m.formulaire, m.donnees, m.page);
   const parti = await d.courrier!({ a: destinataire!, ...c }).catch(() => false);
   await d.boite.noterLeCourriel(g.valeur, parti ? 'envoye' : 'echec');
-  return { statut: 200, garde: g.valeur, verdict, courriel: parti ? 'envoye' : 'echec' };
+  return { lu: true, valeur: { garde: g.valeur, courriel: parti ? 'envoye' : 'echec' } };
 }
+
+/**
+ * Une ligne qu'un visiteur a envoyée SANS COMPTE dans une table (`/api/depot`), déjà jugée et gardée dans l'app : elle
+ * arrive aussi dans la boîte de la console et par courriel, comme un formulaire. Ce qu'il remplace : rien ; le message
+ * restait dans « Données », ni dans « Messages » ni par courriel, et le propriétaire ne savait pas qu'on lui avait écrit
+ * (essai de la console du 26/11).
+ */
+export async function transmettreUneLigne(d: DependancesDeLaReception, e: { readonly projet: string; readonly table: string; readonly ligne: Readonly<Record<string, unknown>>;
+  readonly page: string | null; readonly adresse: string | null }): Promise<Issue<{ readonly garde: string; readonly courriel: EtatDuCourriel }>> {
+  const lu = lireLEnvoi(e.table, e.ligne, e.page);
+  if (typeof lu === 'string') return { lu: false, pourquoi: lu };
+  const p = await d.proprietaireDe(e.projet);
+  if (!p.lu) return p;
+  if (!p.valeur) return { lu: false, pourquoi: 'projet inconnu' };
+  return garderEtTransmettre(d, p.valeur, { projet: e.projet, formulaire: lu.formulaire, donnees: lu.donnees, page: lu.page, adresse: e.adresse, spam: null });
+}
+

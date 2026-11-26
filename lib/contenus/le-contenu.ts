@@ -19,9 +19,23 @@ import type { DependancesDeLaReecriture } from './reecrire';
 export const CHEMIN_DU_REFERENCEMENT = 'src/referencement.json';
 export const COULEURS = ['fond', 'texte', 'accent', 'surface', 'bordure'] as const;
 export const RAYONS = ['net', 'doux', 'rond'] as const;
+/**
+ * Les noms des champs des polices dans le formulaire de l'apparence : jamais ceux d'une couleur (`texte` est une couleur ET
+ * une police ; sous le même nom, le navigateur envoyait les deux et la police recevait le code de la couleur : l'apparence ne
+ * s'enregistrait jamais, incident du 26/11).
+ */
+export const CHAMPS_DES_POLICES = { titres: 'police_titres', texte: 'police_texte' } as const;
 
 export interface Apparence { readonly couleurs: Readonly<Record<(typeof COULEURS)[number], string>>; readonly polices: { readonly titres: string; readonly texte: string }; readonly rayon: (typeof RAYONS)[number] }
 export interface Referencement { readonly pages: Readonly<Record<string, { readonly titre?: string; readonly description?: string }>>; readonly image?: string; readonly ia?: ChoixDesIa }
+/** L'apparence envoyée par le formulaire de la console, ou ce qui est mal formé. PUR. */
+export function lApparenceDuFormulaire(f: { get(nom: string): unknown }): { readonly lue: true; readonly apparence: Apparence } | { readonly lue: false; readonly detail: string } {
+  const lire = (nom: string) => String(f.get(nom) ?? '');
+  const couleurs = Object.fromEntries(COULEURS.map((k) => [k, lire(k)])) as Apparence['couleurs'];
+  const rayon = lire('rayon') as Apparence['rayon'];
+  if (COULEURS.some((k) => !/^#[0-9a-fA-F]{6}$/.test(couleurs[k])) || !RAYONS.includes(rayon)) return { lue: false, detail: 'couleur ou arrondi' };
+  return { lue: true, apparence: { couleurs, rayon, polices: { titres: lire(CHAMPS_DES_POLICES.titres), texte: lire(CHAMPS_DES_POLICES.texte) } } };
+}
 export interface ChoixDesIa { readonly assistants: boolean; readonly entrainement: boolean }
 /** Ce que le propriétaire dit de son site dans « Référencement » : son nom, ce qu'il fait, qui le publie (app.json). */
 export interface LeSite {
@@ -38,7 +52,9 @@ export function avecLApparence(appJson: string, a: Apparence): { readonly ok: tr
   let json: Record<string, unknown>;
   try { json = JSON.parse(appJson) as Record<string, unknown>; } catch { return { ok: false, detail: 'app.json is not valid JSON' }; }
   const direction = (json.direction && typeof json.direction === 'object' ? json.direction : {}) as Record<string, unknown>;
-  const suivant = { ...json, direction: { ...direction, couleurs: { ...a.couleurs }, polices: { ...a.polices }, rayon: a.rayon, couleursDemandees: true } };
+  // Les couleurs que la console ne montre pas (la seconde, l'ancre) restent : enregistrer l'apparence les effaçait (26/11).
+  const avant = (direction.couleurs && typeof direction.couleurs === 'object' ? direction.couleurs : {}) as Record<string, unknown>;
+  const suivant = { ...json, direction: { ...direction, couleurs: { ...avant, ...a.couleurs }, polices: { ...a.polices }, rayon: a.rayon, couleursDemandees: true } };
   const r = lireLeManifeste(suivant);
   return r.ok ? { ok: true, texte: `${JSON.stringify(suivant, null, 2)}\n` } : { ok: false, detail: r.erreurs.join(' ; ') };
 }

@@ -35,6 +35,7 @@ import { leGuideAvantLeProjet, leGuideDeDesign, lesEcartsDeLAccueil, type Mesure
 import { ceQuiTrahitLaPage, leDessinDeLaPage, type ReleveVu } from '@/lib/design/ce-qui-trahit-la-page';
 import { lesLiensMorts } from '@/squelette/les-liens';
 import { lesEcartsDeDroit } from '@/squelette/les-droits-des-pages';
+import { lesPagesSansDescription } from '@/squelette/les-descriptions';
 import type { Etape as EtapeDuParcours, Parcours } from '@/lib/parcours/le-parcours';
 import { CHEMIN_DES_IMAGES, CleDeLaBanqueRefusee, poserLesImages, type Banque, type DemandeDImage } from '@/lib/images/la-banque';
 import { REPRISES_MAX, reprendreLesImages } from '@/lib/images/la-reprise';
@@ -747,6 +748,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   const siens = new Map([...f.valeur].filter(([ch]) => !estFige(ch)));
   const liens = lesLiensMorts(siens);
   const droits = lesEcartsDeDroit(arbre.manifeste, siens);
+  const sansDescription = lesPagesSansDescription(siens, f.valeur.get('src/referencement.json'));
   return fait({
     project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree, timings_ms: temps,
     preview_updated: designe.lu,
@@ -757,6 +759,8 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
       next: 'Measured on the rendered home page: these are the shapes every AI site builder produces, and the drawing. Change each one as said, unless the person asked for it. Never a refusal.' } } : {}),
     ...(liens.length ? { broken_links: { links: liens.slice(0, 20).map((l) => `${l.fichier}:${l.ligne} ${l.lien}`), next: 'Each of these links leads to no page of the app (or to no `id` for an anchor): point it to a page that exists, create the page, or remove the link.' } } : {}),
     ...(droits.length ? { access_checks: { to_fix: droits.slice(0, 20), next: 'Each page here shows a table its audience cannot read, or saves into one it cannot write: change the `acces` of the table with `configure_backend`, or the `acces` of the page.' } } : {}),
+    ...(sansDescription.length ? { seo_checks: { pages_without_description: sansDescription.slice(0, 30),
+      next: 'Each of these public pages shows the app’s description under its Google link, the same on every page: add `export const description = \'…\'` to it, one or two sentences of 70 to 160 characters saying what THIS page offers, in the language of the page.' } } : {}),
     ...(vues?.captures.length ? { _images: vues.captures.map((x) => ({ data: x.jpeg.toString('base64'), mimeType: 'image/jpeg' })) } : {}),
     next: 'When the person’s request is done, call `publish` to close the work session.',
     checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the preview and check.',

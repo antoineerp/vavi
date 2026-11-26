@@ -7,8 +7,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { laConsole } from '@/app/_partage/la-console';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
-import { NOMS_DES_POLICES } from '@/lib/backend/fige/polices';
-import { CHEMIN_DU_REFERENCEMENT, COULEURS, RAYONS, leReferencementStocke } from '@/lib/contenus/le-contenu';
+import { POLICES_PROPOSEES } from '@/lib/backend/fige/polices';
+import { CHAMPS_DES_POLICES, CHEMIN_DU_REFERENCEMENT, COULEURS, RAYONS, leReferencementStocke } from '@/lib/contenus/le-contenu';
 import { magasinS3 } from '@/lib/publication/le-magasin';
 import { racineDuBuild } from '@/lib/publication/publier';
 import { FICHIER_DE_DECOUVERTE, lireLaDecouverte, type PageDecouverte } from '@/lib/seo/la-decouverte';
@@ -47,6 +47,9 @@ async function lesPagesPubliques(projet: string, empreinte: string | null): Prom
   return o === 'absent' ? [] : lireLaDecouverte(o.octets.toString('utf8'))?.pages ?? [];
 }
 
+/** Les polices proposées ; celle déjà choisie reste dans la liste même retirée, pour qu'enregistrer ne la change pas en douce. */
+const lesPolices = (choisie: string): readonly string[] => (POLICES_PROPOSEES.includes(choisie) ? POLICES_PROPOSEES : [choisie, ...POLICES_PROPOSEES]);
+
 export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { id } = await params;
   const q = await searchParams;
@@ -75,8 +78,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             {COULEURS.map((k) => <label key={k} style={{ fontWeight: 500 }}><input type="color" name={k} defaultValue={d.couleurs[k]} /> {m.couleurs[k]}</label>)}
           </div>
           <div className="ligne" style={{ marginTop: '0.75rem' }}>
-            <label>{m.policeTitres} <select name="titres" defaultValue={d.polices.titres}>{NOMS_DES_POLICES.map((n) => <option key={n}>{n}</option>)}</select></label>
-            <label>{m.policeTexte} <select name="texte" defaultValue={d.polices.texte}>{NOMS_DES_POLICES.map((n) => <option key={n}>{n}</option>)}</select></label>
+            <label>{m.policeTitres} <select name={CHAMPS_DES_POLICES.titres} defaultValue={d.polices.titres}>{lesPolices(d.polices.titres).map((n) => <option key={n}>{n}</option>)}</select></label>
+            <label>{m.policeTexte} <select name={CHAMPS_DES_POLICES.texte} defaultValue={d.polices.texte}>{lesPolices(d.polices.texte).map((n) => <option key={n}>{n}</option>)}</select></label>
             <label>{m.rayon} <select name="rayon" defaultValue={d.rayon}>{RAYONS.map((r) => <option key={r} value={r}>{m.rayons[r]}</option>)}</select></label>
           </div>
           <p className="attenue">{m.contraste}</p>

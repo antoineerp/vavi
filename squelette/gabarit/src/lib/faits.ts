@@ -9,7 +9,8 @@
  *   export const titre = '<texte>'   (ou, dans une app à plusieurs langues : { fr: '<texte>', en: '<texte>' })
  *   export const icone = '<NomLucide>'
  *   export const ordre = <nombre>
- * Toute autre forme de ces quatre noms est une erreur de build, qui nomme la page et la forme attendue.
+ *   export const description = '<texte>'   (ou par langue) : ce que Google montre sous le lien de cette page
+ * Toute autre forme de ces cinq noms est une erreur de build, qui nomme la page et la forme attendue.
  */
 
 export type AccesDeclare =
@@ -27,6 +28,8 @@ export interface FaitDePage {
   readonly titre: string | Readonly<Record<string, string>> | null;
   readonly icone: string | null;
   readonly ordre: number | null;
+  /** Ce que les moteurs montrent sous le lien de la page ; par langue dans une app à plusieurs langues. Absente : celle de l'app. */
+  readonly description: string | Readonly<Record<string, string>> | null;
 }
 
 export interface Faits { readonly pages: readonly FaitDePage[] }
@@ -66,11 +69,11 @@ function lireChaine(fichier: string, nom: string, valeur: string): string {
 
 const PAR_LANGUE = /^\{\s*((?:[a-z]{2}\s*:\s*(?:'[^'\n]*'|"[^"\n]*")\s*,?\s*)+)\}$/;
 
-/** Un titre : un texte, ou un texte par langue. */
-function lireTitre(fichier: string, valeur: string): string | Readonly<Record<string, string>> {
+/** Un titre (ou une description) : un texte, ou un texte par langue. */
+function lireTitre(fichier: string, valeur: string, nom = 'titre'): string | Readonly<Record<string, string>> {
   const m = PAR_LANGUE.exec(valeur);
-  if (!m) return lireChaine(fichier, 'titre', valeur);
-  return Object.fromEntries([...m[1]!.matchAll(/([a-z]{2})\s*:\s*('[^'\n]*'|"[^"\n]*")/g)].map((x) => [x[1]!, lireChaine(fichier, 'titre', x[2]!)]));
+  if (!m) return lireChaine(fichier, nom, valeur);
+  return Object.fromEntries([...m[1]!.matchAll(/([a-z]{2})\s*:\s*('[^'\n]*'|"[^"\n]*")/g)].map((x) => [x[1]!, lireChaine(fichier, nom, x[2]!)]));
 }
 
 /** Les faits d'une page, depuis son source. */
@@ -80,6 +83,7 @@ export function faitDePage(fichier: string, source: string): FaitDePage {
   const titre = lu('titre');
   const icone = lu('icone');
   const ordre = lu('ordre');
+  const description = lu('description');
   if (ordre !== null && !/^-?\d+(\.\d+)?$/.test(ordre)) {
     throw new DeclarationIllisible(`src/pages/${fichier} : « ordre » s'écrit comme un nombre — lu : ${ordre}`);
   }
@@ -90,6 +94,7 @@ export function faitDePage(fichier: string, source: string): FaitDePage {
     titre: titre === null ? null : lireTitre(fichier, titre),
     icone: icone === null ? null : lireChaine(fichier, 'icone', icone),
     ordre: ordre === null ? null : Number(ordre),
+    description: description === null ? null : lireTitre(fichier, description, 'description'),
   };
 }
 

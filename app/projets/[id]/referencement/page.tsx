@@ -47,7 +47,7 @@ const MOTS = {
       'L’aperçu n’est jamais référencé : seul le site en ligne l’est.'],
     voir: 'Voir',
     note: 'Note du site', pages: 'Note de chaque page publique', sansPages: 'Les pages publiques apparaissent ici après un premier aperçu construit.',
-    lu: (enLigne: boolean) => (enLigne ? 'Lu sur le site en ligne.' : 'Lu sur l’aperçu : le site n’est pas encore en ligne.'),
+    lu: (enLigne: boolean, aPublier = false) => (enLigne ? `Lu sur le site en ligne.${aPublier ? ' Vos derniers changements n’y sont pas encore : publiez pour que la note les compte.' : ''}` : 'Lu sur l’aperçu : le site n’est pas encore en ligne.'),
     criteres: {
       titre: (m?: number) => `Titre de ${TITRE.min} à ${TITRE.max} caractères${m !== undefined ? ` (${m})` : ''}`,
       titre_unique: () => 'Titre propre à cette page',
@@ -57,8 +57,8 @@ const MOTS = {
       editeur: () => 'Qui publie le site (nom, coordonnées) : utile à Google et aux IA',
     } as Record<Critere, (m?: number) => string>,
     gestes: {
-      titre: 'Changez-le dans « Apparence et titres ».', titre_unique: 'Changez-le dans « Apparence et titres ».', description: 'Changez-la dans « Apparence et titres ».',
-      texte: 'Demandez à Claude d’écrire plus de contenu sur cette page.', image: 'Demandez à Claude de poser une image de partage.', editeur: 'Demandez à Claude de déclarer l’éditeur du site (nom, adresse, contact).',
+      titre: 'Changez-le juste en dessous.', titre_unique: 'Changez-le juste en dessous.', description: 'Écrivez-la juste en dessous.',
+      texte: 'Demandez à Claude d’écrire plus de contenu sur cette page.', image: 'Choisissez-la dans « Image de partage » plus bas.', editeur: 'Remplissez « Qui publie le site » plus haut, puis publiez.',
     } as Record<Critere, string>,
     google: 'Google Search Console', googleExplication: 'Pour suivre vos positions et vos clics dans Google : ajoutez votre site dans Search Console (méthode « Balise HTML »), collez ici la balise qu’il affiche, enregistrez, puis cliquez sur « Valider » dans Search Console.',
     googlePose: 'Balise posée sur le site en ligne.', enregistrer: 'Enregistrer', googleSansBase: 'La balise Google arrive avec la prochaine mise à jour de la base.',
@@ -84,7 +84,7 @@ const MOTS = {
       'The preview is never indexed: only the live site is.'],
     voir: 'View',
     note: 'Site score', pages: 'Score of each public page', sansPages: 'Public pages appear here after a first preview is built.',
-    lu: (enLigne: boolean) => (enLigne ? 'Read from the live site.' : 'Read from the preview: the site is not online yet.'),
+    lu: (enLigne: boolean, aPublier = false) => (enLigne ? `Read from the live site.${aPublier ? ' Your latest changes are not there yet: publish so the score counts them.' : ''}` : 'Read from the preview: the site is not online yet.'),
     criteres: {
       titre: (m?: number) => `Title of ${TITRE.min} to ${TITRE.max} characters${m !== undefined ? ` (${m})` : ''}`,
       titre_unique: () => 'Title unique to this page',
@@ -94,8 +94,8 @@ const MOTS = {
       editeur: () => 'Who publishes the site (name, contact): useful to Google and AI',
     } as Record<Critere, (m?: number) => string>,
     gestes: {
-      titre: 'Change it in “Appearance and titles”.', titre_unique: 'Change it in “Appearance and titles”.', description: 'Change it in “Appearance and titles”.',
-      texte: 'Ask Claude to write more content on this page.', image: 'Ask Claude to set a sharing image.', editeur: 'Ask Claude to declare the site’s publisher (name, address, contact).',
+      titre: 'Change it just below.', titre_unique: 'Change it just below.', description: 'Write it just below.',
+      texte: 'Ask Claude to write more content on this page.', image: 'Pick it in “Sharing image” below.', editeur: 'Fill in “Who publishes the site” above, then publish.',
     } as Record<Critere, string>,
     google: 'Google Search Console', googleExplication: 'To follow your positions and clicks in Google: add your site in Search Console (“HTML tag” method), paste the tag it shows here, save, then click “Verify” in Search Console.',
     googlePose: 'Tag set on the live site.', enregistrer: 'Save', googleSansBase: 'The Google tag comes with the next database update.',
@@ -204,7 +204,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         {notes.length === 0 ? <p className="attenue">{m.sansPages}</p> : (
           <form action={enregistrerLeReferencement.bind(null, id)}>
             <input type="hidden" name="retour" value="referencement" />
-            <p className="attenue">{m.lu(enLigne)}</p>
+            <p className="attenue">{m.lu(enLigne, enLigne && projet.enLigneEmpreinte !== projet.apercuEmpreinte)}</p>
             {notes.map((n) => {
               const choisi = ref.pages[n.adresse] ?? {};
               return (

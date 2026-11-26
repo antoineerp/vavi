@@ -36,7 +36,9 @@ export function lesMessagesDeLaVue(ms: readonly Message[], v: { readonly vue: Vu
 
 /** L'adresse du visiteur, s'il en a laissé une valide dans un champ dont le nom dit « mail ». PURE. */
 export function laReponseA(donnees: Readonly<Record<string, unknown>>): string | null {
-  const v = Object.entries(donnees).find(([k, x]) => /mail/i.test(k) && typeof x === 'string' && COURRIEL.test(x.trim()))?.[1];
+  // Le champ nommé comme une adresse (mail, courriel, « Votre e-mail »), sinon la seule valeur qui en a la forme.
+  const adresses = Object.entries(donnees).filter(([, x]) => typeof x === 'string' && COURRIEL.test(x.trim()));
+  const v = (adresses.find(([k]) => /mail|courriel/i.test(k)) ?? (adresses.length === 1 ? adresses[0] : undefined))?.[1];
   return typeof v === 'string' ? v.trim() : null;
 }
 
