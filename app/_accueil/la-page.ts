@@ -12,7 +12,7 @@ const GABARIT = String.raw`<!doctype html>
 <head>
 <meta charset="utf-8">
 <title>vavi : votre site, construit avec Claude</title>
-<meta name="description" content="vavi est le connecteur qui fait, de ce que Claude écrit, un vrai site : base de données, paiements Stripe, RGPD, aperçu, publication, hébergement en Europe.">
+<meta name="description" content="Construisez votre site avec Claude, dans votre abonnement Claude. vavi apporte moins de jetons dépensés, des designs plus riches, un vrai backend et une console pour piloter votre site.">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Caveat:wght@500;700&display=swap">
@@ -159,6 +159,18 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 /* Sections */
 section{padding-block:64px}
 .titre-section{display:grid;gap:12px;margin-bottom:36px;max-width:44em}
+/* Les quatre apports et les captures réelles */
+.quatre{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.apport-q{background:var(--carte);border:2px solid var(--encre);border-radius:8px 12px 10px 14px;padding:20px;display:grid;gap:8px;align-content:start;box-shadow:4px 5px 0 var(--trait)}
+.apport-q .main{font-size:2.4rem;line-height:1;color:var(--vert)}
+.apport-q p{color:var(--encre-douce);font-size:.98rem}
+.apport-q a{font-weight:700;font-size:.95rem}
+.captures{display:grid;grid-template-columns:1.25fr 1fr;gap:24px;margin-top:36px;align-items:start}
+.captures figure{margin:0;display:grid;gap:8px;min-width:0}
+.captures img{width:100%;height:auto;display:block;border:2px solid var(--encre);border-radius:10px;background:var(--carte);box-shadow:5px 6px 0 var(--trait)}
+.captures figcaption{font-size:1.3rem;color:var(--encre-douce)}
+@media (max-width:980px){.quatre{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){.quatre,.captures{grid-template-columns:1fr}}
 .titre-section .main{font-size:1.5rem;color:var(--encre-douce)}
 .titre-section p{color:var(--encre-douce);font-size:1.1rem}
 
@@ -359,7 +371,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
     </a>
     <nav class="nav" aria-label="Sections">
       <a href="#etapes">Comment ça marche</a>
-      <a href="#apports">Ce que vavi apporte</a>
+      <a href="#quatre">Ce que vavi apporte</a>
       <a href="#comparer">Comparer</a>
       <a href="#prix">Prix</a>
       <a href="#questions">Questions</a>
@@ -374,11 +386,11 @@ details p{margin-top:10px;color:var(--encre-douce)}
 <div class="ouverture">
   <div class="enveloppe">
     <div class="texte">
-      <span class="note">vous payez déjà Claude, ne payez pas l'IA deux fois</span>
-      <h1>Claude écrit votre site. <span class="surligne">vavi apporte tout le reste.</span></h1>
-      <p class="chapeau">vavi est le connecteur qui fait, de ce que Claude écrit, un <strong>vrai site d'entreprise</strong> : un design à vos couleurs, une base de données déjà réglée, les paiements avec votre compte Stripe ouvert en quelques minutes, le RGPD, le référencement et l'hébergement en Europe.</p>
+      <span class="note">votre abonnement Claude suffit : aucun crédit d'IA à acheter</span>
+      <h1>Toute la puissance de Claude. <span class="surligne">vavi apporte tout le reste.</span></h1>
+      <p class="chapeau">Vous construisez votre site avec Claude, dans l'abonnement que vous avez déjà. vavi lui apporte ce qui lui manque : <strong>moins de jetons dépensés, des designs plus riches, un vrai backend et une console pour piloter votre site.</strong></p>
       <ul class="pastilles" aria-label="Ce que vavi apporte">
-        <li>design à vos couleurs</li><li>base de données</li><li>paiements Stripe</li><li>RGPD</li><li>référencement</li><li>hébergement en Europe</li>
+        <li>moins de jetons</li><li>designs plus riches</li><li>vrai backend</li><li>console de pilotage</li><li>paiements Stripe</li><li>RGPD, hébergé en Europe</li>
       </ul>
       <div class="gestes">
         <a class="bouton plein" href="__LIEN_D_INSTALLATION__" target="_blank" rel="noopener">Ajouter vavi à Claude</a>
@@ -434,6 +446,27 @@ details p{margin-top:10px;color:var(--encre-douce)}
     </svg>
   </div>
 </div>
+
+<!-- ═════════ LES QUATRE APPORTS ═════════ -->
+<section id="quatre" aria-labelledby="t-quatre">
+  <div class="enveloppe">
+    <div class="titre-section">
+      <span class="main">Vous ne payez que Claude pour l'IA</span>
+      <h2 id="t-quatre">Ce que vavi ajoute à Claude</h2>
+      <p>Claude reste celui qui écrit. vavi lui donne quatre choses qu'il n'a pas seul.</p>
+    </div>
+    <div class="quatre">
+      <div class="apport-q"><span class="main">1</span><h3>Moins de jetons dépensés</h3><p>Claude n'écrit ni la base, ni les comptes, ni les paiements, ni la configuration : vavi les fournit. Il modifie des passages ciblés, et les retouches de textes, photos et couleurs se font dans la console, sans Claude.</p><a href="#econome">Comment vavi économise votre abonnement</a></div>
+      <div class="apport-q"><span class="main">2</span><h3>Des designs plus riches</h3><p>Un guide de design servi à Claude, de vraies photos avec leurs crédits, des sections prêtes (galerie, tarifs, avis, plan, questions) et l'accueil vérifié sur ordinateur et sur téléphone.</p></div>
+      <div class="apport-q"><span class="main">3</span><h3>Un vrai backend</h3><p>Une base de données par site, avec ses règles d'accès posées par vavi, les comptes de vos clients, les formulaires protégés du spam et les paiements sur votre compte Stripe.</p></div>
+      <div class="apport-q"><span class="main">4</span><h3>Une console pour piloter</h3><p>Vos messages, vos clients, vos données, vos visites, vos versions et le bouton Publier. Vous changez vous-même un texte ou une photo, directement sur l'aperçu.</p></div>
+    </div>
+    <div class="captures">
+      <figure><img src="__IMAGES__/claude-et-vavi.png" alt="Une conversation avec Claude à gauche, et l'aperçu du site dans le panneau vavi à droite" loading="lazy"><figcaption class="main">Vous parlez à Claude, votre site s'affiche à côté.</figcaption></figure>
+      <figure><img src="__IMAGES__/console-vue-d-ensemble.png" alt="La vue d'ensemble d'un projet dans la console vavi : état du site, visites, messages, bouton Publier" width="1280" height="900" loading="lazy"><figcaption class="main">La console : votre site, vos visites, vos messages.</figcaption></figure>
+    </div>
+  </div>
+</section>
 
 <!-- ═════════ LE PROBLÈME ═════════ -->
 <section aria-labelledby="t-probleme">
@@ -990,7 +1023,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
 </section>
 
 <!-- ═════════ ÉCONOMISER SON ABONNEMENT ═════════ -->
-<section aria-labelledby="t-econome">
+<section id="econome" aria-labelledby="t-econome">
   <div class="enveloppe">
     <div class="titre-section">
       <span class="main">Votre abonnement Claude dure plus longtemps</span>
@@ -1155,5 +1188,6 @@ export function laPageDAccueil(t: { readonly premier: string; readonly preferenc
     .split('__LIEN_D_INSTALLATION__').join(enHtml(lienDInstallation(adresse)))
     .split('__ADRESSE_MCP__').join(enHtml(adresse))
     .split('__PREMIER_MESSAGE__').join(enHtml(t.premier.trim()))
-    .split('__PREFERENCE__').join(enHtml(t.preference));
+    .split('__PREFERENCE__').join(enHtml(t.preference))
+    .split('__IMAGES__').join(`${enHtml(console)}/accueil`);
 }
