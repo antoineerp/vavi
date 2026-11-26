@@ -5,7 +5,7 @@
  * cycle. Le résultat revient à la page par son adresse.
  */
 import { redirect } from 'next/navigation';
-import { relireLaSaisie } from '@/lib/donnees/les-donnees';
+import { lesLignesDuTexte, relireLaSaisie, type LigneDuTexte } from '@/lib/donnees/les-donnees';
 import { lesLignesAImporter } from '@/lib/donnees/l-import';
 import { leProjet } from './le-projet';
 
@@ -67,4 +67,21 @@ export async function importer(id: string, table: string, formulaire: FormData) 
   }
   console.log(`[donnees] ${id.slice(0, 8)} ${table} ${n} lignes importées`);
   retour(id, { table, fait: 'importees', importees: String(n), ...(l.ignorees.length ? { ignorees: l.ignorees.join(', ').slice(0, 300) } : {}) });
+}
+
+/**
+ * Un texte cliqué dans l'aperçu qui n'est pas un texte de la page : est-ce une donnée de l'app ? Les lignes dont un champ
+ * le porte tel quel (cinq au plus), pour ouvrir leur modification. Remplace « montrez-le à Claude » pour une donnée.
+ */
+export async function lesLignesDuTexteClique(id: string, texte: string): Promise<LigneDuTexte[]> {
+  if (!ID.test(id)) return [];
+  const t = texte.replace(/\s+/g, ' ').trim().slice(0, 500);
+  if (t.length < 2) return [];
+  const p = await leProjet(id);
+  if (!p.ok) return [];
+  const lues = await Promise.all(p.tables.map(async (table) => {
+    const r = await p.donnees.lire(p.schema, table.nom, { cherche: t, limite: 20 });
+    return { table, lignes: r.lu ? r.valeur.lignes : [] };
+  }));
+  return lesLignesDuTexte(t, lues);
 }

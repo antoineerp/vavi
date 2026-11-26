@@ -7,6 +7,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { lesTextes, reecrire } from './gestes';
 import { fournirUnePhoto } from './contenu/gestes';
+import { lesLignesDuTexteClique } from './donnees/gestes';
+import type { LigneDuTexte } from '@/lib/donnees/les-donnees';
 import { laPhrasePourClaude, type Endroit } from '@/lib/contenus/la-phrase-pour-claude';
 
 export interface TextesDeLEditeur {
@@ -28,9 +30,11 @@ type Choix = { readonly situation: string; readonly passages: string[] };
 /** Une photo cliquée dans l'aperçu : la sienne à la place, sur place (`fournirUnePhoto`), ou une autre de la banque plus bas. */
 const PHOTO = {
   fr: { titre: 'Remplacer cette photo', fichier: 'Votre photo (JPEG, PNG ou WebP, 8 Mo au plus ; le lieu de la prise de vue est retiré)', alt: 'Ce que montre la photo', mettre: 'Mettre ma photo',
-    banque: 'Ou choisir une autre photo de la banque', pasIci: 'Cette image ne se remplace pas ici (elle est écrite dans la page) : montrez-la à Claude.' },
+    banque: 'Ou choisir une autre photo de la banque', pasIci: 'Cette image ne se remplace pas ici (elle est écrite dans la page) : montrez-la à Claude.',
+    donnee: 'Ce texte vient de vos données :', modifierLigne: (champ: string, table: string) => `Modifier « ${champ} » dans ${table}` },
   en: { titre: 'Replace this photo', fichier: 'Your photo (JPEG, PNG or WebP, 8 MB at most; where it was taken is removed)', alt: 'What the photo shows', mettre: 'Use my photo',
-    banque: 'Or pick another bank photo', pasIci: 'This image cannot be replaced here (it is written in the page): show it to Claude.' },
+    banque: 'Or pick another bank photo', pasIci: 'This image cannot be replaced here (it is written in the page): show it to Claude.',
+    donnee: 'This text comes from your data:', modifierLigne: (champ: string, table: string) => `Edit “${champ}” in ${table}` },
 } as const;
 
 /** `apercu` : l'adresse de l'aperçu, à son hôte (vague 0) ; les messages ne s'échangent qu'avec son origine. */
@@ -50,6 +54,7 @@ export function EditeurDeTextes({ id, apercu, t, projet, langue, photos = [] }: 
   const [occupe, setOccupe] = useState(false);
   const [cle, setCle] = useState(0);
   const [photo, setPhoto] = useState<{ readonly nom: string; readonly alt: string } | null>(null);
+  const [lignes, setLignes] = useState<{ readonly texte: string; readonly trouvees: readonly LigneDuTexte[] } | null>(null);
   const mp = PHOTO[langue];
 
   const dire = (a: boolean) => cadre.current?.contentWindow?.postMessage({ type: 'EDITION_VISUELLE', actif: a }, origine);
@@ -71,8 +76,15 @@ export function EditeurDeTextes({ id, apercu, t, projet, langue, photos = [] }: 
         setChoix(null); setPhoto(trouvee ?? null); setMessage(trouvee ? null : mp.pasIci);
         return;
       }
-      setPhoto(null);
-      if (!d.source) { setChoix(null); setMessage(t.textesPasIci); return; }
+      setPhoto(null); setLignes(null);
+      if (!d.source) {
+        setChoix(null);
+        // Pas un texte de la page : peut-être une donnée de l'app, qui se modifie dans « Données de l'app ».
+        const texte = typeof d.texte === 'string' ? d.texte : '';
+        const trouvees = texte ? await lesLignesDuTexteClique(id, texte).catch(() => []) : [];
+        if (trouvees.length) { setMessage(mp.donnee); setLignes({ texte, trouvees }); } else setMessage(t.textesPasIci);
+        return;
+      }
       const r = await lesTextes(id, d.source);
       if (!r.lu) { setChoix(null); setMessage(t.textesRefus[r.pourquoi] ?? t.textesPasIci); return; }
       setMessage(null);
@@ -84,7 +96,7 @@ export function EditeurDeTextes({ id, apercu, t, projet, langue, photos = [] }: 
 
   const basculer = (vers: 'textes' | 'claude') => {
     const suivant = mode === vers ? null : vers;
-    setMode(suivant); setChoix(null); setPhoto(null); setEndroit(null); setDemande('');
+    setMode(suivant); setChoix(null); setPhoto(null); setLignes(null); setEndroit(null); setDemande('');
     setMessage(suivant === 'textes' ? t.textesChoisir : suivant === 'claude' ? m.choisir : null);
     dire(suivant !== null);
   };
@@ -122,6 +134,16 @@ export function EditeurDeTextes({ id, apercu, t, projet, langue, photos = [] }: 
             </>
           )}
         </div>
+      )}
+      {mode === 'textes' && lignes && (
+        <ul style={{ margin: '0.25rem 0 0', paddingLeft: '1.1rem' }}>
+          {lignes.trouvees.map((x) => (
+            <li key={`${x.table}:${x.ligne}`}>
+              <a href={`/projets/${id}/donnees?${new URLSearchParams({ table: x.table, ligne: x.ligne, q: lignes.texte.replace(/\s+/g, ' ').trim().slice(0, 200) })}`}>{mp.modifierLigne(x.champ, x.libelle)}</a>
+              {lignes.trouvees.length > 1 && <span className="attenue"> ({x.nom})</span>}
+            </li>
+          ))}
+        </ul>
       )}
       {mode === 'textes' && photo && (
         <form action={fournirUnePhoto.bind(null, id, photo.nom)} style={{ marginTop: '0.75rem' }}>
