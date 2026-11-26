@@ -57,9 +57,10 @@ const unApercu = async (): Promise<string> => {
 describe('la vue dans Claude', () => {
   it('l’état, l’aperçu et la fermeture du chantier l’affichent ; ses deux outils sont réservés à la vue', () => {
     const o = Object.fromEntries(lesOutils().map((x) => [x.name, x]));
-    for (const n of ['get_project_state', 'create_project']) expect(o[n]).toMatchObject({ _meta: { ui: { resourceUri: RESSOURCE_DE_LA_VUE } } });
-    // Une seule vue par conversation : les gestes qui suivent ne la reposent pas (deux rendus dans le même message, 26/11).
-    for (const n of ['ouvrir_chantier', 'build_preview', 'publish']) expect(o[n]).not.toHaveProperty('_meta');
+    expect(o.get_project_state).toMatchObject({ _meta: { ui: { resourceUri: RESSOURCE_DE_LA_VUE } } });
+    // Une seule vue par conversation : get_project_state seul la porte (26/11 : create_project et get_project_state, appelés
+    // à la suite, faisaient deux fiches) ; les gestes qui suivent ne la reposent pas.
+    for (const n of ['create_project', 'ouvrir_chantier', 'build_preview', 'publish']) expect(o[n]).not.toHaveProperty('_meta');
     for (const n of ['vavi_fiche_du_projet', 'vavi_mettre_en_ligne']) expect(o[n]).toMatchObject({ _meta: { ui: { visibility: ['app'] } } });
     expect(o.list_projects).not.toHaveProperty('_meta');
   });
@@ -132,7 +133,7 @@ describe('la vue dans Claude', () => {
   });
   it('26/11 — la vue s’ouvre dès la création et le chantier, suit le chantier ouvert, et ne relit pas un aperçu qu’elle montre', async () => {
     const o = Object.fromEntries((lesOutils() as { name: string }[]).map((x) => [x.name, x]));
-    for (const n of ['create_project', 'get_project_state']) expect(o[n]).toMatchObject({ _meta: { ui: { resourceUri: RESSOURCE_DE_LA_VUE } } });
+    expect(o.get_project_state).toMatchObject({ _meta: { ui: { resourceUri: RESSOURCE_DE_LA_VUE } } });
     const id = await unApercu();
     const jeton = ecrireUnJetonDeVue(MOI);
     const f = await appel('vavi_fiche_du_projet', { project: id, geste: jeton });

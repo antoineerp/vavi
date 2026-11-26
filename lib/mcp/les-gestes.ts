@@ -14,7 +14,7 @@ import { lAdresseDeLApp } from '@/lib/publication/les-adresses-des-apps';
 import { derive } from '@/squelette/poser';
 import { lesFonctionsPasEncoreServies, ceQueClaudeEnFait } from '@/squelette/les-types-des-tables';
 import { estFige, CHEMINS_MONTRES, POSES_PAR_UN_OUTIL } from '@/squelette/registre';
-import { lireLeManifeste, type Manifeste } from '@/lib/backend/app/manifeste';
+import { lireCeQueClaudeEnvoie, type Manifeste } from '@/lib/backend/app/manifeste';
 import { EXEMPLE_D_APP_JSON_TEXTE } from '@/lib/backend/app/l-exemple-d-app-json';
 import { poserLaBase, type AppelDeLaBase } from '@/lib/relais/poser-la-base';
 import type { Projets, Projet } from '@/lib/projets/les-projets';
@@ -198,7 +198,7 @@ function leManifesteEnvoye(brut: unknown): Etape<Recu> {
   if (typeof brut === 'string') {
     try { json = JSON.parse(brut); } catch (e) { return bloque(refuser('app_json_refuse', `app.json is not valid JSON: ${(e as Error).message}.`, { fichier: 'app.json' })); }
   }
-  const r = lireLeManifeste(json);
+  const r = lireCeQueClaudeEnvoie(json);
   // La forme attendue, entière, avec le refus : Claude corrige d'après elle, sans lire un autre projet (essai du 25/11).
   if (!r.ok) return bloque(refuser('app_json_refuse', `app.json does not hold: ${r.erreurs.slice(0, 20).join(' | ')}`, { fichier: 'app.json',
     geste: `Fix app.json at the places given in \`fait\`, then send it whole again. A complete valid app.json, to follow for its shape (never read another project of the person for it): ${EXEMPLE_D_APP_JSON_TEXTE}` }));
@@ -242,7 +242,7 @@ export async function creerUnProjet(c: Contexte, a: { app_json: unknown; new_any
   return fait({
     project: p.valeur.id, name: m.nom, version: 1, ...recu.valeur.dit,
     database: pose.posee ? 'laid out from app.json' : `not laid out: ${pose.motif}. Send app.json again with \`configure_backend\`.`,
-    next: `Open a work session with \`ouvrir_chantier\`, then read with \`read_files\` the platform files you build on: ${CHEMINS_MONTRES.join(', ')}.`,
+    next: `Call \`get_project_state\` now (it shows the person the live preview), then open a work session with \`ouvrir_chantier\`, then read with \`read_files\` the platform files you build on: ${CHEMINS_MONTRES.join(', ')}.`,
   });
 }
 

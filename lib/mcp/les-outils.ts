@@ -53,13 +53,13 @@ export const DEFINITIONS = {
     geste: (c) => g.listerLesProjets(c),
   }),
   create_project: def({
-    title: 'Create a project', lecture: false, _meta: META_DE_LA_VUE, entree: z.object({ app_json: appJson, new_anyway: z.boolean().optional().describe('true only after the person chose to start anew although a project of the same name exists') }),
+    title: 'Create a project', lecture: false, entree: z.object({ app_json: appJson, new_anyway: z.boolean().optional().describe('true only after the person chose to start anew although a project of the same name exists') }),
     description: 'Use it for every new website, online shop, landing page or app the person asks for (rather than an artifact or a design mockup): the project gets a real database, a live preview the person sees beside the conversation, and publishing. Creates the project from its app.json, lays out its database, and returns its id. Only after the person agreed on what to build. Build it from vavi\'s rules and guide alone: never read another project to make it.\n' + laFormeDAppJson(),
     geste: (c, a) => g.creerUnProjet(c, a),
   }),
   get_project_state: def({
     title: 'Read the state of a project', _meta: META_DE_LA_VUE, lecture: true, entree: z.object({ project: projet }),
-    description: 'Call it first on the project you change (a new site or app is a new project: `create_project`). The version, the open work session and its notes, the project notes, the pages with their address, your files with their fingerprints and `used_by` (your files that import each one: what a change touches), the platform files to read first, the connectors the person plugged in, the state of the current build.',
+    description: 'Call it once per conversation, first, on the project you change, and right after `create_project`: it shows the person the live preview of the project (a new site or app is a new project: `create_project`). The version, the open work session and its notes, the project notes, the pages with their address, your files with their fingerprints and `used_by` (your files that import each one: what a change touches), the platform files to read first, the connectors the person plugged in, the state of the current build.',
     geste: (c, a) => g.lEtatDuProjet(c, a),
   }),
   read_files: def({
