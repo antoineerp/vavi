@@ -14,7 +14,11 @@
  */
 export type Lequel = 'apercu' | 'en_ligne';
 /** Les domaines à soi branchés (`lib/domaines`, carte relue par le serveur) : hôte → projet, projet → hôte. */
-export interface DomainesActifs { readonly parHote: ReadonlyMap<string, string>; readonly parProjet: ReadonlyMap<string, string> }
+export interface DomainesActifs {
+  readonly parHote: ReadonlyMap<string, string>; readonly parProjet: ReadonlyMap<string, string>;
+  /** Les noms lisibles des sites (`lib/domaines/les-noms.ts`) : `<nom>.<domaine des apps>` sert le site en ligne. */
+  readonly parNom?: ReadonlyMap<string, string>; readonly nomParProjet?: ReadonlyMap<string, string>;
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -43,21 +47,28 @@ export function leDomaineDesApps(env: Readonly<Record<string, string | undefined
   return d && /^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(d) ? d : null;
 }
 
-/** L'adresse d'une app (avec sa barre finale) : son hôte sous le domaine des apps, sinon `/p/` ou `/s/` de la console. */
-export function lAdresseDeLApp(projet: string, lequel: Lequel, o: { readonly console: string; readonly domaine: string | null }): string {
+/**
+ * L'adresse d'une app (avec sa barre finale) : son hôte sous le domaine des apps, sinon `/p/` ou `/s/` de la console. Le
+ * site en ligne qui a un nom lisible (`nom`) est servi à `<nom>.<domaine>` (Antoine, 26/11 : un site à l'adresse d'un
+ * identifiant ne se vend pas) ; l'aperçu, privé, garde son identifiant.
+ */
+export function lAdresseDeLApp(projet: string, lequel: Lequel, o: { readonly console: string; readonly domaine: string | null; readonly nom?: string | null }): string {
   if (!o.domaine) return `${o.console}/${lequel === 'apercu' ? 'p' : 's'}/${projet}/`;
+  if (lequel === 'en_ligne' && o.nom) return `https://${o.nom}.${o.domaine}/`;
   return `https://${lequel === 'apercu' ? 'apercu-' : ''}${projet}.${o.domaine}/`;
 }
 
 /** L'app que sert cet hôte ; `null` : l'hôte n'est pas celui d'une app (la console, ou rien). */
-export function lAppDeLHote(hote: string | null, domaine: string | null): { readonly projet: string; readonly lequel: Lequel } | null {
+export function lAppDeLHote(hote: string | null, domaine: string | null, noms?: ReadonlyMap<string, string>): { readonly projet: string; readonly lequel: Lequel } | null {
   if (!hote || !domaine) return null;
   const h = hote.toLowerCase().split(':')[0]!;
   if (!h.endsWith(`.${domaine}`)) return null;
   const etiquette = h.slice(0, -(domaine.length + 1));
   const apercu = etiquette.startsWith('apercu-');
   const projet = apercu ? etiquette.slice('apercu-'.length) : etiquette;
-  return UUID.test(projet) ? { projet, lequel: apercu ? 'apercu' : 'en_ligne' } : null;
+  if (UUID.test(projet)) return { projet, lequel: apercu ? 'apercu' : 'en_ligne' };
+  const nomme = apercu ? undefined : noms?.get(etiquette);
+  return nomme && UUID.test(nomme) ? { projet: nomme, lequel: 'en_ligne' } : null;
 }
 
 /**
@@ -82,18 +93,21 @@ export function laDecision(hote: string | null, chemin: string, recherche: strin
     return { faire: 'reecrire', chemin: `/s/${brancheIci}${chemin === '/' ? '/' : chemin}` };
   }
   if (!o.domaine) return { faire: 'passer' };
-  const app = lAppDeLHote(h, o.domaine);
+  const app = lAppDeLHote(h, o.domaine, o.domaines?.parNom);
   if (app) {
     if (estUneRouteDesApps(chemin)) return { faire: 'passer' };
     // Un site qui a son domaine branché n'a qu'une adresse : son sous-domaine y renvoie (l'aperçu, jamais).
     const ailleurs = app.lequel === 'en_ligne' ? o.domaines?.parProjet.get(app.projet) : undefined;
     if (ailleurs) return { faire: 'rediriger', adresse: `https://${ailleurs}${chemin}${recherche}` };
+    // Un site qui a son nom lisible n'est servi qu'à lui : son identifiant y renvoie.
+    const nom = app.lequel === 'en_ligne' ? o.domaines?.nomParProjet?.get(app.projet) : undefined;
+    if (nom && h !== `${nom}.${o.domaine}`) return { faire: 'rediriger', adresse: `https://${nom}.${o.domaine}${chemin}${recherche}` };
     return { faire: 'reecrire', chemin: `/${app.lequel === 'apercu' ? 'p' : 's'}/${app.projet}${chemin === '/' ? '/' : chemin}` };
   }
   if (h === o.domaine || h.endsWith(`.${o.domaine}`)) return { faire: 'refuser' };
   const servie = /^\/(p|s)\/([0-9a-f-]{36})(\/.*)?$/.exec(chemin);
   if (servie && UUID.test(servie[2]!)) {
-    const base = lAdresseDeLApp(servie[2]!, servie[1] === 'p' ? 'apercu' : 'en_ligne', o).replace(/\/$/, '');
+    const base = lAdresseDeLApp(servie[2]!, servie[1] === 'p' ? 'apercu' : 'en_ligne', { ...o, nom: o.domaines?.nomParProjet?.get(servie[2]!) }).replace(/\/$/, '');
     return { faire: 'rediriger', adresse: `${base}${servie[3] ?? '/'}${recherche}` };
   }
   return { faire: 'passer' };

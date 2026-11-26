@@ -37,6 +37,7 @@ import { boiteSurSupabase, lesVisites } from '@/lib/formulaires/sur-supabase';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 import { banqueDeLaPlateforme } from '@/lib/images/la-banque';
 import { faireTournerUnAgent } from '@/lib/agents/l-agent-reel';
+import { nommerLeSite } from '@/lib/domaines/les-noms';
 
 const REFUS_PRECEDENTS = new Map<string, Refus>();
 const LANGUES_DES_COMPTES = new Map<string, string>();
@@ -172,6 +173,7 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
       permis: lesPaquetsDuGabarit(leGabarit()),
       adresse: adresseDeLaPlateforme(),
       domaineDesApps: leDomaineDesApps(process.env),
+      async nommerLeSite(projet, nomDuProjet) { const r = await nommerLeSite(base, projet, nomDuProjet); return r.lu ? r.valeur : null; },
       scellerUnSecret,
       refusPrecedents: REFUS_PRECEDENTS,
       banque: banqueDeLaPlateforme(),

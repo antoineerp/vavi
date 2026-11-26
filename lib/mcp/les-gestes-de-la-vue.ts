@@ -91,7 +91,8 @@ async function laFiche(c: Contexte, id: string, connue?: string): Promise<Rendu>
     ok: true, id, project: id, name: projet.nom, version: projet.version, state: etat,
     work_session: projet.chantier?.intention ?? null,
     preview_url,
-    online_url: projet.enLigneEmpreinte ? lAdresseDeLApp(id, 'en_ligne', adresses) : null,
+    online_url: projet.enLigneEmpreinte
+      ? lAdresseDeLApp(id, 'en_ligne', { ...adresses, nom: await c.nommerLeSite?.(id, projet.nom).catch(() => null) ?? null }) : null,
     console_url, plan_url: `${c.adresse}/abonnement`,
     can_publish: droit ? droit.permis : null,
     versions: versions.lu ? versions.valeur.map((v) => ({ version: v.numero, why: v.pourquoi, at: v.creeLe })) : null,
