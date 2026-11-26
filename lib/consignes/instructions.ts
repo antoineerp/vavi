@@ -35,8 +35,8 @@ vavi's tools refuse what would break the project. When a tool refuses, read its 
 - When you are done, give the preview link and say what they can check.
 
 ## Changing without breaking
-- A new site or app is a new project (\`create_project\`). If one with the same name or source exists, ask whether to
-  continue it or start anew. To change a project, start with
+- A new site or app is a new project (\`create_project\`), built from scratch: never list or read other projects for it.
+  To change a project, start with
   \`get_project_state\`, then read with \`read_files\` everything your change touches and everything
   that uses it. Follow the project notes; add each lasting choice with \`write_notes\`.
 - Change as little as possible: a targeted edit beats a rewritten file. Do not rename, reorganise or "clean up"
