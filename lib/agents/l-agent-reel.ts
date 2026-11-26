@@ -18,7 +18,7 @@ export interface AgentAFaireTourner {
   readonly base: SupabaseClient; readonly magasin: Magasin;
   /** Ouvre un secret scellé du projet (`lib/mcp/les-jetons`). */
   readonly ouvrir: (projet: string, nom: string, scelle: unknown) => { readonly lu: true; readonly valeur: string } | { readonly lu: false; readonly pourquoi: string };
-  readonly projet: string; readonly empreinte: string; readonly agent: Agent;
+  readonly projet: string; readonly empreinte: string; readonly agent: Pick<Agent, 'nom' | 'ia_par_jour'>;
   /** Le schéma où il agit : celui de l'app, ou d'une copie. */
   readonly schema: string; readonly compte: string; readonly declencheur: Record<string, unknown>;
 }
