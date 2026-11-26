@@ -125,6 +125,19 @@ export const DEFINITIONS = {
     description: 'Type-checks and builds the current version. Green: the preview now shows it (give the person `preview_url`). Red: each error with its file and line; the preview keeps the last green version.',
     geste: (c, a) => g.construireLApercu(c, a),
   }),
+  try_journey: def({
+    title: 'Play a visitor journey', lecture: true,
+    entree: z.object({ project: projet, steps: z.array(z.union([
+      z.object({ action: z.literal('open'), path: z.string().min(1).max(300).regex(/^\//).describe('An address of the app, e.g. /contact.') }),
+      z.object({ action: z.literal('click'), target: z.string().min(1).max(120).describe('The visible text of the button or link.') }),
+      z.object({ action: z.literal('fill'), target: z.string().min(1).max(120).describe('The label (or placeholder) of the field.'), value: z.string().max(500) }),
+      z.object({ action: z.literal('select'), target: z.string().min(1).max(120).describe('The label of the list.'), value: z.string().min(1).max(200).describe('The visible text of the option.') }),
+      z.object({ action: z.literal('check'), target: z.string().min(1).max(120).describe('The label of the box or choice.') }),
+      z.object({ action: z.literal('expect'), text: z.string().min(1).max(200).describe('A text that must appear on the page.') }),
+    ])).min(1).max(25) }),
+    description: 'After a green build, plays what a visitor does on the preview, step by step, in a real browser: open an address, click a button or link by its text, fill a field by its label, check that a text appears. Each step comes back done or stopped with its reason, and a picture of the page where it stopped. Nothing is written: database writes and forms are simulated and listed. Play the main journey of what you just built or changed (a form sends and thanks, a menu leads to its page) before telling the person it works.',
+    geste: (c, a) => g.jouerUnParcours(c, a),
+  }),
   publish: def({
     title: 'Close the work session', _meta: META_DE_LA_VUE, lecture: false, entree: z.object({ project: projet, work_session: chantier }),
     description: 'When the person is happy with the preview: checks that the current version is built green, and closes the work session. It does not put the site online: the person does, with the Publish button.',

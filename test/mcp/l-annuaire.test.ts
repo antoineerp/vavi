@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { lesOutils, DEFINITIONS_DE_LA_VUE } from '@/lib/mcp/les-outils';
 import { lienDInstallation } from '@/lib/mcp/l-adresse';
 
-const LECTURE = new Set(['list_projects', 'get_project_state', 'read_files', 'history', 'get_design_guide', 'vavi_fiche_du_projet']);
+const LECTURE = new Set(['list_projects', 'get_project_state', 'read_files', 'history', 'get_design_guide', 'try_journey', 'vavi_fiche_du_projet']);
 /** Ce qui écrase ou retire ce qui existait : fichiers, déclaration des données, secret, version, site en ligne. */
 const DESTRUCTEURS = new Set(['apply_changes', 'configure_backend', 'set_secret', 'rollback', 'abandonner_chantier', 'vavi_mettre_en_ligne']);
 
