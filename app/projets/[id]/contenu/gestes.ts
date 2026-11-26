@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import { laConsole } from '@/app/_partage/la-console';
 import { construireLApercu as batir, estUnRefus } from '@/lib/mcp/les-gestes';
 import { leContexteReel } from '@/lib/mcp/le-contexte-reel';
-import { changerLApparence, changerLeReferencement, changerLeSite, changerUneImage, CHEMIN_DU_REFERENCEMENT, COULEURS, leReferencementStocke, RAYONS, type Apparence, type Changement } from '@/lib/contenus/le-contenu';
+import { changerLApparence, changerLeReferencement, changerLeSite, changerUneImage, CHEMIN_DU_REFERENCEMENT, lApparenceDuFormulaire, leReferencementStocke, type Apparence, type Changement } from '@/lib/contenus/le-contenu';
 import { CHEMIN_DES_IMAGES, lireLesImages } from '@/lib/images/la-banque';
 import { banqueDeLaPlateforme } from '@/lib/images/la-banque';
 import { TAILLE_MAX_D_UNE_PHOTO, laCleDeLaPhoto, leFichierDeLaPhoto, leFormatDUnePhoto, sansLesMetadonnees } from '@/lib/images/la-photo-fournie';
@@ -16,7 +16,6 @@ import { magasinS3 } from '@/lib/publication/le-magasin';
 import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const HEX = /^#[0-9a-fA-F]{6}$/;
 
 async function lesDependances(id: string) {
   const c = await laConsole(`/projets/${id}/contenu`);
@@ -34,10 +33,9 @@ const retour = (id: string, r: Changement, quoi: string, ecran = 'contenu'): nev
 
 export async function enregistrerLApparence(id: string, f: FormData) {
   if (!ID.test(id)) redirect('/projets');
-  const couleurs = Object.fromEntries(COULEURS.map((k) => [k, String(f.get(k) ?? '')])) as Apparence['couleurs'];
-  const rayon = String(f.get('rayon') ?? '') as Apparence['rayon'];
-  if (COULEURS.some((k) => !HEX.test(couleurs[k])) || !RAYONS.includes(rayon)) retour(id, { change: false, pourquoi: 'mal_forme', detail: 'couleur ou arrondi' }, 'apparence');
-  const r = await changerLApparence(await lesDependances(id), id, { couleurs, rayon, polices: { titres: String(f.get('titres') ?? ''), texte: String(f.get('texte') ?? '') } });
+  const a = lApparenceDuFormulaire(f);
+  if (!a.lue) retour(id, { change: false, pourquoi: 'mal_forme', detail: a.detail }, 'apparence');
+  const r = await changerLApparence(await lesDependances(id), id, (a as { apparence: Apparence }).apparence);
   if (r.change) console.log(`[contenu] ${id.slice(0, 8)} apparence (version ${r.version}, aperçu ${r.apercu})`);
   retour(id, r, 'apparence');
 }
