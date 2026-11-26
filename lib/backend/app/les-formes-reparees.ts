@@ -128,5 +128,46 @@ export function lesFormesReparees(json: unknown): { readonly valeur: unknown; re
       j.ecrans = j.ecrans.map((e) => (objet(e) && Array.isArray(e.montre) ? { ...e, montre: e.montre.map((m) => (typeof m === 'string' ? renommees.get(m) ?? m : m)) } : e));
     }
   }
+  if (Array.isArray(j.agents)) j.agents = j.agents.map((a) => (objet(a) ? lAgentRepare(a, dire) : a));
   return repare.length ? { valeur: j, repare } : { valeur: json, repare: [] };
+}
+
+const CADENCE: Readonly<Record<string, string>> = {
+  horaire: 'horaire', hourly: 'horaire', heure: 'horaire', chaque_heure: 'horaire',
+  quotidien: 'quotidien', quotidienne: 'quotidien', daily: 'quotidien', jour: 'quotidien', chaque_jour: 'quotidien',
+  hebdomadaire: 'hebdomadaire', hebdo: 'hebdomadaire', weekly: 'hebdomadaire', semaine: 'hebdomadaire', chaque_semaine: 'hebdomadaire',
+};
+const JOURS: Readonly<Record<string, number>> = { dimanche: 0, sunday: 0, lundi: 1, monday: 1, mardi: 2, tuesday: 2, mercredi: 3, wednesday: 3,
+  jeudi: 4, thursday: 4, vendredi: 5, friday: 5, samedi: 6, saturday: 6 };
+/** « 08:00 », « 8h », « 8 » : l'heure entière ; `null` : rien à en tirer. */
+const uneHeure = (x: unknown): number | null => {
+  const m = typeof x === 'number' ? [String(x), String(x)] : typeof x === 'string' ? /^\s*(\d{1,2})\s*(?:[:h]\s*\d{0,2})?\s*$/i.exec(x) : null;
+  const h = m ? Number(m[1]) : NaN;
+  return Number.isInteger(h) && h >= 0 && h <= 23 ? h : null;
+};
+
+/** Le réveil d'un agent écrit autrement (« horaire » seul, une heure « 08:00 », `quand` pour `type`, sans cadence) relu. */
+function lAgentRepare(a: Brut, dire: (m: string) => void): Brut {
+  const x: Brut = { ...a };
+  const ici = `l’agent ${String(x.nom)}`;
+  if (typeof x.libelle !== 'string' && typeof x.nom === 'string') x.libelle = x.nom;
+  let r: unknown = x.reveil;
+  const avant = JSON.stringify(r);
+  if (typeof r === 'string') r = CADENCE[enIdentifiant(r) ?? ''] ? { type: 'horaire', cadence: CADENCE[enIdentifiant(r)!] } : r;
+  if (objet(r)) {
+    const y: Brut = { ...r };
+    if (y.type === undefined && typeof y.quand === 'string') { y.type = y.quand; delete y.quand; }
+    if (y.type === undefined && y.horaire !== undefined) { y.heure ??= y.horaire; delete y.horaire; y.type = 'horaire'; }
+    if (y.type === undefined && (y.heure !== undefined || y.cadence !== undefined)) y.type = 'horaire';
+    if (typeof y.type === 'string' && CADENCE[enIdentifiant(y.type) ?? ''] && y.type !== 'horaire') { y.cadence ??= CADENCE[enIdentifiant(y.type)!]; y.type = 'horaire'; }
+    if (y.type === 'horaire') {
+      if (typeof y.cadence === 'string' && CADENCE[enIdentifiant(y.cadence) ?? '']) y.cadence = CADENCE[enIdentifiant(y.cadence)!];
+      if (y.heure !== undefined && typeof y.heure !== 'number' && uneHeure(y.heure) !== null) y.heure = uneHeure(y.heure);
+      if (typeof y.jour === 'string' && JOURS[enIdentifiant(y.jour) ?? ''] !== undefined) y.jour = JOURS[enIdentifiant(y.jour)!];
+      if (y.cadence === undefined) y.cadence = y.jour !== undefined ? 'hebdomadaire' : 'quotidien';
+    }
+    r = y;
+  }
+  if (JSON.stringify(r) !== avant) { dire(`${ici} : \`reveil\` ${avant} lu comme ${JSON.stringify(r)}`); x.reveil = r; }
+  return x;
 }
