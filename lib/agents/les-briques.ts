@@ -4,7 +4,7 @@
  * plafond quotidien que l'agent déclare (`ia_par_jour`, compté en base). Aucune autre porte.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { agirPourUnCompte } from '@/lib/relais/agir-pour-un-compte';
+import type { FonctionDuRelais } from '@/lib/relais/agir-pour-un-compte';
 import { appelerLeModele, laRequete, lireLaReponse, NOM_DE_L_OUTIL, SECRET_DE_L_IA, type Appel } from '@/lib/capacites/l-ia';
 import type { Briques, Issue } from './le-protocole';
 
@@ -26,8 +26,12 @@ export function lesBriquesReelles(o: {
   readonly plafondIA: () => Promise<Issue<boolean>>;
   readonly appel?: Appel;
 }): Briques {
-  const relais = (fonction: Parameters<typeof agirPourUnCompte>[2], args: Record<string, unknown>) =>
-    agirPourUnCompte(o.base, o.compte, fonction, { p_schema: o.schema, ...args });
+  // Le relais COMME ce compte (`voie_neuve_pour`), marqué « par un agent » : ce qu'il crée ne réveille aucun agent
+  // (`le-sql-des-agents.ts`).
+  const relais = async (fonction: FonctionDuRelais, args: Record<string, unknown>): Promise<Issue<unknown>> => {
+    const { data, error } = await o.base.rpc('vavi_agent_pour', { p_compte: o.compte, p_fonction: fonction, p_arguments: { p_schema: o.schema, ...args } });
+    return error ? refus(error.message) : { lu: true, valeur: data };
+  };
   return {
     async ia(d) {
       if (!o.cleIA) return refus(`AI is not plugged in for this app: the owner stores ${SECRET_DE_L_IA} in the vavi console (Secret keys)`);

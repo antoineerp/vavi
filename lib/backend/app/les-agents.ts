@@ -17,7 +17,7 @@ export const IA_PAR_JOUR = { defaut: 30, max: 500 } as const;
 export const Reveil = z.union([
   z.object({ type: z.literal('horaire'), cadence: z.enum(CADENCES),
     heure: z.number().int().min(0).max(23).optional().describe('l’heure, à Paris ; absente : minuit (ou chaque heure pour `horaire`)'),
-    jour: z.number().int().min(0).max(6).optional().describe('pour une cadence hebdomadaire : le jour, dimanche valant zéro') })
+    jour: z.number().int().min(0).max(6).optional().describe('pour une cadence hebdomadaire : le jour, dimanche valant zéro ; absent : lundi') })
     .describe('à heure fixe'),
   z.object({ type: z.literal('evenement'), table: Identifiant.describe('une ligne y est créée : l’agent la reçoit') })
     .describe('à l’arrivée d’une ligne'),

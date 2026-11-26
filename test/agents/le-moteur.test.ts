@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { spawn } from 'node:child_process';
 import { lancerUnAgent, pileLisible, type Lanceur } from '@/lib/agents/le-moteur';
 import { executer, nouveauxCompteurs, BORNES, type Briques } from '@/lib/agents/le-protocole';
+import { faireLesCourses, lIssue, lirePrise } from '@/lib/agents/les-courses';
 
 /** Les essais lancent node sans bac à sable (la CI n'a pas bubblewrap) ; la production passe toujours par lui. */
 const direct: Lanceur = (dossier, commande) => spawn(process.execPath, [...commande], { cwd: dossier, stdio: ['pipe', 'pipe', 'pipe'] });
@@ -88,7 +89,7 @@ describe('le build que regarde le bouton', () => {
 describe('la déclaration d’un agent dans app.json', () => {
   it('dit quand il se réveille ; la table de l’événement, les rôles du bouton et le jour d’une semaine sont vérifiés', async () => {
     const { lireLeManifeste } = await import('@/lib/backend/app/manifeste');
-    const { DIRECTION } = await import('./aides/un-manifeste');
+    const { DIRECTION } = await import('../aides/un-manifeste');
     const app = (agents: unknown[]) => lireLeManifeste({ version: 1, nature: 'site', nom: 'Essai', description: 'Un essai.', langues: { principale: 'fr' }, direction: DIRECTION, agents });
     const ok = app([{ nom: 'tri', libelle: 'Tri', dit: 'Classe les demandes chaque matin.', reveil: { type: 'horaire', cadence: 'quotidien', heure: 7 } }]);
     expect(ok).toMatchObject({ ok: true });
@@ -99,5 +100,48 @@ describe('la déclaration d’un agent dans app.json', () => {
     expect(erreurs(app([{ nom: 'a', libelle: 'A', dit: 'Fait quelque chose.', reveil: { type: 'horaire', cadence: 'quotidien', jour: 2 } }]))).toMatch(/hebdomadaire/);
     // L'ancienne forme (mission, tables lues, table à propositions) n'existe plus : un moteur fixe ne la sert pas.
     expect(app([{ nom: 'a', libelle: 'A', mission: 'Cherche des fournisseurs et propose-les.', lit: [], propose: 'x', par: ['proprietaire'] }])).toMatchObject({ ok: false });
+  });
+});
+
+describe('les courses des agents (`les-courses.ts`)', () => {
+  const course = (ok: boolean) => (ok
+    ? { ok: true as const, resultat: 'fait', journal: ['a'], ia: 1, operations: 2, duree: 30 }
+    : { ok: false as const, etape: 'agent' as const, erreur: 'boum', pile: 'src/agents/tri.ts:3', journal: [], ia: 0, operations: 1, duree: 5 });
+
+  it('lit une prise de la base, et rien d’une forme fausse', () => {
+    expect(lirePrise({ id: '7', projet: 'p', agent: 'tri', declencheur: { type: 'horaire' }, ia_par_jour: 12 }))
+      .toEqual({ id: 7, projet: 'p', agent: 'tri', declencheur: { type: 'horaire' }, iaParJour: 12 });
+    expect(lirePrise(null)).toBeNull();
+    expect(lirePrise({ id: 'x', projet: 'p', agent: 'tri' })).toBeNull();
+  });
+
+  it('dit l’issue : le résultat, l’erreur avec sa ligne, ou pourquoi il n’a pas tourné', () => {
+    expect(lIssue(course(true))).toEqual({ ok: true, resultat: 'fait', journal: ['a'], ia: 1, operations: 2, duree_ms: 30 });
+    expect(lIssue(course(false))).toMatchObject({ ok: false, erreur: 'boum\nsrc/agents/tri.ts:3' });
+    expect(lIssue({ raison: 'the app has no published version' })).toMatchObject({ ok: false, erreur: 'the agent could not run: the app has no published version' });
+  });
+
+  it('prend et finit chaque course jusqu’à la file vide ; une panne de la plateforme finit la course, sans la laisser prise', async () => {
+    const file = [1, 2, 3];
+    const finies: Array<[number, Record<string, unknown>]> = [];
+    const r = await faireLesCourses({
+      budgetMs: 10_000,
+      prendre: async () => ({ lu: true, valeur: file.length ? { id: file.shift()!, projet: 'p', agent: 'tri', declencheur: {}, iaParJour: 30 } : null }),
+      courir: async (p) => { if (p.id === 2) throw new Error('S3 muet'); return course(true); },
+      finir: async (id, issue) => { finies.push([id, issue]); return { lu: true, valeur: true }; },
+    });
+    expect(r).toEqual({ faites: 3, panne: null });
+    expect(finies.map(([id, i]) => `${id}:${i.ok}`)).toEqual(['1:true', '2:false', '3:true']);
+    expect(finies[1]?.[1].erreur).toContain('S3 muet');
+  });
+
+  it('s’arrête à son temps, et à la base muette', async () => {
+    let t = 0;
+    const r = await faireLesCourses({ budgetMs: 100, maintenant: () => t,
+      prendre: async () => ({ lu: true, valeur: { id: 1, projet: 'p', agent: 'a', declencheur: {}, iaParJour: 1 } }),
+      courir: async () => { t += 60; return course(true); }, finir: async () => ({ lu: true, valeur: true }) });
+    expect(r.faites).toBe(2);
+    expect(await faireLesCourses({ budgetMs: 100, prendre: async () => ({ lu: false, pourquoi: 'muette' }), courir: async () => course(true), finir: async () => ({ lu: true, valeur: true }) }))
+      .toEqual({ faites: 0, panne: 'muette' });
   });
 });

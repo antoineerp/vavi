@@ -818,9 +818,8 @@ export async function essayerUnAgent(c: Contexte, a: { project: string; name: st
   const commun = { log: r.journal, ai_calls: r.ia, requests: r.operations, duration_ms: r.duree,
     ran: 'on a temporary copy of the database (its example rows, nothing of the real data), as the owner, deleted after the run; AI calls were real, on the owner\'s key, counted in the agent\'s daily cap' };
   const reveil = arbre.manifeste.agents.find((x) => x.nom === a.name)!.reveil;
-  // Le réveil à heure fixe et à l'arrivée d'une ligne arrive dans l'étape suivante (Antoine, 26/11) : dit, jamais promis.
-  const quand = reveil.type === 'bouton' ? { wakes_up: 'from the button `<Agent nom>` of a page, for the roles of `reveil.par`' }
-    : { wakes_up: 'not yet on its own: vavi does not run agents at a time or on a new row yet. Tell the person it works when tried, and that it will run by itself once vavi serves it.' };
+  const quand = { wakes_up: reveil.type === 'bouton' ? 'from the button `<Agent nom>` of a page, for the roles of `reveil.par`'
+    : `${reveil.type === 'horaire' ? 'by itself at its time (Paris)' : `by itself on each new row of ${reveil.table} (never on a row an agent creates)`}, for the owner, once this version is published with \`publish\``};
   if (r.ok) return fait({ project: a.project, agent: a.name, passed: true, result: r.resultat, ...quand, ...commun, next: 'Check the log and the result. Tell the person what the agent does and when it wakes up.' });
   if (r.etape === 'bac_a_sable') return refuser('plateforme_en_panne', `${r.erreur}. This is not caused by your files.`);
   return fait({ project: a.project, agent: a.name, passed: false, error: r.erreur, ...(r.pile ? { at: r.pile } : {}), ...commun,
