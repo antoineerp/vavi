@@ -18,7 +18,7 @@ export const JETON_GOOGLE = /^[A-Za-z0-9_-]{10,100}$/;
 
 export type Critere = 'titre' | 'titre_unique' | 'description' | 'texte' | 'image' | 'editeur';
 export interface Point { readonly critere: Critere; readonly ok: boolean; readonly mesure?: number }
-export interface NoteDUnePage { readonly adresse: string; readonly titre: string; readonly note: number; readonly points: readonly Point[] }
+export interface NoteDUnePage { readonly adresse: string; readonly titre: string; readonly description: string; readonly note: number; readonly points: readonly Point[] }
 
 const longueur = (t: string): number => [...t.trim()].length;
 
@@ -36,7 +36,7 @@ export function lesNotes(d: Decouverte, o: { readonly image: boolean }): readonl
       { critere: 'image', ok: o.image },
       { critere: 'editeur', ok: Boolean(d.editeur?.nom) },
     ];
-    return { adresse: p.adresse, titre: p.titre, note: Math.round((100 * points.filter((x) => x.ok).length) / points.length), points };
+    return { adresse: p.adresse, titre: p.titre, description: p.description, note: Math.round((100 * points.filter((x) => x.ok).length) / points.length), points };
   });
 }
 

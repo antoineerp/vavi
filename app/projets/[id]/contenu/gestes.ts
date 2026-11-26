@@ -80,7 +80,18 @@ export async function choisirUnePhoto(id: string, nom: string, f: FormData) {
  */
 export async function fournirUnePhoto(id: string, nom: string, f: FormData) {
   if (!ID.test(id) || !NOM_DE_PHOTO.test(nom)) redirect('/projets');
-  const echec = (detail: string): never => retour(id, { change: false, pourquoi: 'mal_forme', detail }, 'photo', 'gerer');
+  const g = await garderLaPhotoEnvoyee(id, f, 'gerer');
+  const r = await changerLaPhotoFournie(g.d, id, nom, { source: g.source, largeur: g.largeur, hauteur: g.hauteur, alt: String(f.get('alt') ?? '') });
+  if (r.change) console.log(`[contenu] ${id.slice(0, 8)} photo ${nom} fournie, ${g.ko} Ko (version ${r.version}, aperçu ${r.apercu})`);
+  retour(id, r, 'photo', 'gerer');
+}
+
+/**
+ * La photo envoyée par la personne (champ `photo`), vérifiée (JPEG, PNG ou WebP, 8 Mo au plus), sans ses métadonnées,
+ * gardée au magasin sous son empreinte et servie par vavi. Un échec revient à `ecran`, dit.
+ */
+async function garderLaPhotoEnvoyee(id: string, f: FormData, ecran: string) {
+  const echec = (detail: string): never => retour(id, { change: false, pourquoi: 'mal_forme', detail }, 'photo', ecran);
   const fichier = f.get('photo');
   if (!(fichier instanceof File) || fichier.size === 0) echec('choisissez une photo');
   const photo = fichier as File;
@@ -91,16 +102,29 @@ export async function fournirUnePhoto(id: string, nom: string, f: FormData) {
   const d = await lesDependances(id);
   // Le projet est au compte avant que rien ne soit gardé.
   const p = await d.projets.lire(d.compte, id);
-  if (!p.lu || !p.valeur) retour(id, { change: false, pourquoi: 'panne' }, 'photo', 'gerer');
+  if (!p.lu || !p.valeur) retour(id, { change: false, pourquoi: 'panne' }, 'photo', ecran);
   const magasin = magasinS3();
-  if (!magasin.lu) retour(id, { change: false, pourquoi: 'panne', detail: 'le magasin des photos n’est pas configuré' }, 'photo', 'gerer');
+  if (!magasin.lu) retour(id, { change: false, pourquoi: 'panne', detail: 'le magasin des photos n’est pas configuré' }, 'photo', ecran);
   const octets = sansLesMetadonnees(brute, format!);
   const nomDuFichier = leFichierDeLaPhoto(octets, format!);
   const garde = await (magasin as Extract<typeof magasin, { lu: true }>).magasin.poser(laCleDeLaPhoto(id, nomDuFichier), Buffer.from(octets), { type: format!.type, cache: 'public, max-age=31536000, immutable' }).then(() => true, () => false);
-  if (!garde) retour(id, { change: false, pourquoi: 'panne', detail: 'la photo n’a pas pu être gardée' }, 'photo', 'gerer');
-  const r = await changerLaPhotoFournie(d, id, nom, { source: `${adresseDeLaPlateforme()}/photos/${id}/${nomDuFichier}`, largeur: format!.largeur, hauteur: format!.hauteur, alt: String(f.get('alt') ?? '') });
-  if (r.change) console.log(`[contenu] ${id.slice(0, 8)} photo ${nom} fournie, ${Math.round(octets.length / 1024)} Ko (version ${r.version}, aperçu ${r.apercu})`);
-  retour(id, r, 'photo', 'gerer');
+  if (!garde) retour(id, { change: false, pourquoi: 'panne', detail: 'la photo n’a pas pu être gardée' }, 'photo', ecran);
+  return { d, source: `${adresseDeLaPlateforme()}/photos/${id}/${nomDuFichier}`, largeur: format!.largeur, hauteur: format!.hauteur, ko: Math.round(octets.length / 1024) };
+}
+
+/**
+ * « Référencement » : l'image de partage déposée par la personne (la sienne, pas seulement une photo déjà sur le site) :
+ * gardée comme une photo fournie, elle devient l'image qui accompagne les liens partagés. Ce qu'il remplace : rien ; un
+ * site sans photo n'avait pas d'image de partage possible (essai de la console du 26/11).
+ */
+export async function deposerLImageDePartage(id: string, f: FormData) {
+  if (!ID.test(id)) redirect('/projets');
+  const g = await garderLaPhotoEnvoyee(id, f, 'referencement');
+  const actuel = await g.d.projets.fichiers(g.d.compte, id);
+  const ref = leReferencementStocke(actuel.lu ? actuel.valeur.get(CHEMIN_DU_REFERENCEMENT) : undefined);
+  const r = await changerLeReferencement(g.d, id, ref.pages, { image: g.source, ia: ref.ia });
+  if (r.change) console.log(`[contenu] ${id.slice(0, 8)} image de partage déposée, ${g.ko} Ko (version ${r.version}, aperçu ${r.apercu})`);
+  retour(id, r, 'partage', 'referencement');
 }
 
 /** « Revenir à la photo de la banque » : la photo fournie n'est plus montrée ; l'aperçu est rebâti. */
@@ -134,7 +158,9 @@ export async function enregistrerLePartage(id: string, f: FormData) {
   else if (choisie) {
     const fichiers = await d.projets.fichiers(d.compte, id);
     const photos = Object.values(lireLesImages(fichiers.lu ? fichiers.valeur.get(CHEMIN_DES_IMAGES) : undefined)).flatMap((i) => i?.sources?.map((s) => s[1]) ?? []);
-    if (!photos.includes(choisie)) retour(id, { change: false, pourquoi: 'mal_forme', detail: 'cette photo n’est plus dans l’app' }, 'partage', 'referencement');
+    // L'image déposée ici n'est pas dans la banque : elle se garde telle qu'elle est.
+    const deposee = leReferencementStocke(fichiers.lu ? fichiers.valeur.get(CHEMIN_DU_REFERENCEMENT) : undefined).image;
+    if (!photos.includes(choisie) && choisie !== deposee) retour(id, { change: false, pourquoi: 'mal_forme', detail: 'cette photo n’est plus dans l’app' }, 'partage', 'referencement');
     image = choisie;
   }
   const r = await changerLeReferencement(d, id, (await lesPagesPosees(d, id)), { image, ia: { assistants: f.get('assistants') === 'oui', entrainement: f.get('entrainement') === 'oui' } });
