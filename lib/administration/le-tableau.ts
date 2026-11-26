@@ -143,4 +143,16 @@ export function lesTableauxDeBord(env: Readonly<Record<string, string | undefine
 
 /** PURE — chaque service et les secrets qui lui manquent. */
 export const lEtatDesServices = (env: Readonly<Record<string, string | undefined>>) =>
-  LES_SERVICES.map((s) => ({ service: s.service, manquent: s.secrets.filter((n) => !n.split('|').some((u) => env[u]?.trim())).map((n) => n.split('|')[0]!) }));
+  LES_SERVICES.map((s) => ({ service: s.service, manquent: s.secrets.filter((n) => !n.split('|').some((u) => env[u]?.trim())).map((n) => n.split('|')[0]!),
+    malFormes: s.secrets.flatMap((n) => n.split('|')).filter((u) => env[u]?.trim() && FORMES[u] && !FORMES[u]!.forme.test(env[u]!.trim())).map((u) => `${u} (${FORMES[u]!.attendu})`) }));
+
+/**
+ * La forme qu'un secret doit avoir : posé, mais d'une autre forme, il ne marche pas. INCIDENT 26/11 : la clé publiable de
+ * Stripe (`pk_…`) posée à la place de la secrète ; chaque geste Stripe de l'administration était refusé.
+ */
+const FORMES: Readonly<Record<string, { readonly forme: RegExp; readonly attendu: string }>> = {
+  VAVI_STRIPE_SECRET_KEY: { forme: /^(sk|rk)_(test|live)_/, attendu: 'la clé secrète de Stripe, sk_test_… ou sk_live_…, pas la publiable pk_…' },
+  VAVI_STRIPE_WEBHOOK_SECRET: { forme: /^whsec_/, attendu: 'le secret de signature du webhook, whsec_…' },
+  VAVI_STRIPE_WEBHOOK_ABONNEMENTS: { forme: /^whsec_/, attendu: 'le secret de signature du webhook, whsec_…' },
+  RESEND_API_KEY: { forme: /^re_/, attendu: 'une clé Resend, re_…' },
+};
