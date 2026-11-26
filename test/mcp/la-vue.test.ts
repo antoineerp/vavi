@@ -166,3 +166,13 @@ describe('« Publier » dans Claude, cliqué par la personne seule', () => {
     expect(p.lu && p.valeur!.enLigneEmpreinte).toBe(p.lu && p.valeur!.apercuEmpreinte);
   });
 });
+
+describe('l’adresse de la vue suit sa page (26/11 : l’hôte gardait l’ancienne)', () => {
+  it('porte l’empreinte de la page servie : changez EMPREINTE_DE_LA_VUE avec la page', async () => {
+    const { createHash } = await import('node:crypto');
+    const { laRessourceDeLaVue, EMPREINTE_DE_LA_VUE, RESSOURCE_DE_LA_VUE: uri } = await import('@/lib/mcp/la-vue');
+    const page = laRessourceDeLaVue({ jeton: 'JETON', cadres: [] }).contents[0]!.text;
+    expect(createHash('sha256').update(page).digest('hex').slice(0, 10)).toBe(EMPREINTE_DE_LA_VUE);
+    expect(uri.endsWith(EMPREINTE_DE_LA_VUE)).toBe(true);
+  });
+});

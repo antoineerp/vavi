@@ -24,7 +24,7 @@ import { lireUneValeurLue, ValeurLue } from './les-valeurs-lues';
 import { lireLeNumero, Numero } from './les-numeros';
 import { lireLaVitrine, Vitrine } from './la-vitrine-de-l-app';
 import { Agent, lireLesAgents } from './les-agents';
-import { Demande, Ecran, lireLesEcrans, Parcours } from './les-ecrans';
+import { Demande, Ecran, lesDemandesReparees, lireLesEcrans, Parcours } from './les-ecrans';
 import { Analyse, estAnalysee, lireLAnalyse } from './l-analyse';
 import { lireLaRemise } from './la-remise';
 import { lireLesEnvois } from './l-envoi-sans-compte';
@@ -462,10 +462,11 @@ export function lesLecturesReparees(json: unknown): { readonly valeur: unknown; 
 /** Lit app.json au cadrage, ses liens et ses cycles réparés et dits. Rend le manifeste, ou la liste exacte de ce qui ne tient pas. */
 export function lireLeManifeste(json: unknown): { ok: true; manifeste: Manifeste; repare: readonly string[] } | { ok: false; erreurs: string[]; repare: readonly string[] } {
   const acces = lesAccesTraduits(json);
-  const liens = lesLiensRepares(acces.valeur);
+  const demandes = lesDemandesReparees(acces.valeur);
+  const liens = lesLiensRepares(demandes.valeur);
   const cycles = lesCyclesRepares(liens.valeur);
   const envois = lesEnvoisRepares(cycles.valeur);
-  const ventes = lesLecturesReparees(envois.valeur), repare = [...acces.repare, ...liens.repare, ...cycles.repare, ...envois.repare, ...ventes.repare];
+  const ventes = lesLecturesReparees(envois.valeur), repare = [...acces.repare, ...demandes.repare, ...liens.repare, ...cycles.repare, ...envois.repare, ...ventes.repare];
   const r = Manifeste.safeParse(ventes.valeur);
   if (r.success) return { ok: true, manifeste: avecSesEtatsOuverts(r.data), repare };
   return { ok: false, erreurs: r.error.issues.map((i) => (i.path.length ? `${i.path.join('.')} : ${i.message}` : i.message)), repare };
