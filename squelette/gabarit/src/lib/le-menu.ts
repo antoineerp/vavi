@@ -7,3 +7,12 @@
  */
 export const unMenuSeulementSIlChoisit = <T extends { readonly vers: string; readonly surface?: 'public' | 'travail' },>(entrees: readonly T[]): readonly T[] =>
   (entrees.length < 2 ? [] : entrees.filter((e) => e.vers !== '/' || e.surface === 'travail'));
+
+/**
+ * Le site offre-t-il d'entrer par un compte ? Seulement si une page demande un compte, ou si une personne peut obtenir un
+ * rôle seule (en s'inscrivant, en l'achetant) : un site vitrine dont seul le propriétaire a un rôle (il reçoit les envois
+ * de ses visiteurs, et gère tout depuis la console vavi) n'affiche pas « Se connecter » (Antoine, 26/11). La page de
+ * connexion reste servie à son adresse. PURE.
+ */
+export const onEntreParUnCompte = (pages: readonly { readonly acces: { readonly nature: string } }[], roles: readonly { readonly obtenu: string }[]): boolean =>
+  roles.length > 0 && (pages.some((p) => p.acces.nature !== 'public') || roles.some((r) => r.obtenu === 'inscription' || r.obtenu === 'paiement'));

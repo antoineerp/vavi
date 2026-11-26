@@ -37,6 +37,10 @@ import { boiteSurSupabase, lesVisites } from '@/lib/formulaires/sur-supabase';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 import { banqueDeLaPlateforme } from '@/lib/images/la-banque';
 import { faireTournerUnAgent } from '@/lib/agents/l-agent-reel';
+import { nommerLeSite } from '@/lib/domaines/les-noms';
+import { envoyerSansCompte } from '@/lib/relais/l-envoi-sans-compte';
+import { agirPourUnCompte } from '@/lib/relais/agir-pour-un-compte';
+import { sansLesChampsDuJugement } from '@/lib/formulaires/le-jugement';
 
 const REFUS_PRECEDENTS = new Map<string, Refus>();
 const LANGUES_DES_COMPTES = new Map<string, string>();
@@ -80,6 +84,11 @@ function lesGestesDeLaCopie(base: ReturnType<typeof clientDeService>, cle: NonNu
       rpc: (f, a) => base.rpc(f, a), leProjet: async () => ({ lu: true, valeur: { proprietaire, appJson: JSON.stringify(m) } }),
       leCompte: async () => null, secretDuWebhook: null, stripe: () => Promise.reject(new Error('no Stripe in a journey')), journal: (l) => console.error(l),
     }, id, c),
+    depot: (brut) => {
+      const o = brut && typeof brut === 'object' ? brut as { table?: unknown; ligne?: unknown } : {};
+      const ligne = o.ligne && typeof o.ligne === 'object' ? sansLesChampsDuJugement(o.ligne as Record<string, unknown>) : o.ligne;
+      return envoyerSansCompte(m, schema, { table: o.table, ligne }, [], { relais: (f, a) => agirPourUnCompte(base, proprietaire, f, a) });
+    },
   };
 }
 
@@ -172,6 +181,7 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
       permis: lesPaquetsDuGabarit(leGabarit()),
       adresse: adresseDeLaPlateforme(),
       domaineDesApps: leDomaineDesApps(process.env),
+      async nommerLeSite(projet, nomDuProjet) { const r = await nommerLeSite(base, projet, nomDuProjet); return r.lu ? r.valeur : null; },
       scellerUnSecret,
       refusPrecedents: REFUS_PRECEDENTS,
       banque: banqueDeLaPlateforme(),

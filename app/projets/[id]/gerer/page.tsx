@@ -1,37 +1,38 @@
 /**
- * /projets/<id>/gerer — « Gérer le contenu » : ce que la personne gère elle-même, sans modèle, en un lieu (Antoine, 25/11 :
- * comme le /manage de constructor). Onglets : « Textes et images » (ici : les photos de l'app, remplacées par une autre de
- * la banque, et les textes réécrits dans l'aperçu), « Données » et « Formulaires » (les écrans qui les tiennent déjà).
+ * /projets/<id>/gerer — « Gérer le contenu » : ce que la personne gère elle-même, sans modèle, en un seul lieu (Antoine, 25/11 :
+ * comme le /manage de constructor ; 26/11 : le seul écran du contenu). Les textes réécrits dans l'aperçu, les photos de
+ * l'app (une autre de la banque, ou la sienne), l'apparence. Les données et les messages ont leurs écrans au menu.
  */
-import Link from 'next/link';
 import { adresseDeLApp } from '@/app/_partage/l-adresse-des-apps';
 import { banqueDeLaPlateforme, CHEMIN_DES_IMAGES, lireLesImages, type ImageTrouvee } from '@/lib/images/la-banque';
 import { EditeurDeTextes } from '../editeur';
+import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
+import { Apparence } from './l-apparence';
 import { leProjet } from '../le-projet';
 import { chercherDesPhotos, choisirUnePhoto, fournirUnePhoto, rendreLaPhotoALaBanque } from '../contenu/gestes';
 
 export const dynamic = 'force-dynamic';
 
 const MOTS = {
-  fr: { titre: 'Gérer le contenu', onglets: ['Textes et images', 'Données', 'Formulaires'], images: 'Images',
+  fr: { titre: 'Gérer le contenu', images: 'Images',
     imagesExplication: 'Les photos que montrent vos pages. Remplacez-en une par une autre de la banque, ou par la vôtre ; l’aperçu est rebâti.',
     aucune: 'Vos pages ne montrent pas encore de photo de la banque : demandez à Claude d’en ajouter.',
     sansBanque: 'La banque de photos n’est pas encore branchée sur vavi : le remplacement arrive dès qu’elle l’est.',
     banque: 'Image de la banque', par: 'Photo :', remplacer: 'Remplacer…', sujet: 'Ce que la photo doit montrer (en anglais, c’est plus précis)',
     choisir: 'Choisissez la nouvelle photo', alt: 'Ce que la photo montre (lu par les lecteurs d’écran et les moteurs)', utiliser: 'Utiliser cette photo',
     rien: 'La banque n’a rien trouvé : essayez un ou deux mots plus concrets.', panneBanque: 'La banque de photos n’a pas répondu ; réessayez.',
-    fait: 'Photo remplacée.', apercu: { a_jour: 'L’aperçu est à jour : publiez pour mettre en ligne.', build_rouge: 'L’aperçu n’a pas pu être rebâti : le changement est gardé, demandez à Claude de regarder.', rien_change: 'Rien n’a changé.' } as Record<string, string>,
+    fait: { photo: 'Photo remplacée.', apparence: 'Apparence enregistrée.' } as Record<string, string>, apercu: { a_jour: 'L’aperçu est à jour : publiez pour mettre en ligne.', build_rouge: 'L’aperçu n’a pas pu être rebâti : le changement est gardé, demandez à Claude de regarder.', rien_change: 'Rien n’a changé.' } as Record<string, string>,
     votre: 'Votre photo', fournir: 'Ou mettez la vôtre (JPEG, PNG ou WebP, 8 Mo au plus ; le lieu de la prise de vue est retiré)', mettre: 'Mettre ma photo',
     altFournie: 'Ce que montre votre photo', revenir: 'Revenir à la photo de la banque',
     erreurs: { chantier_ouvert: 'Claude travaille sur ce projet : réessayez quand il a fini.', conflit: 'Le projet a changé entre-temps : rechargez la page.', panne: 'vavi n’a pas répondu ; réessayez.', mal_forme: 'À corriger :' } as Record<string, string> },
-  en: { titre: 'Manage content', onglets: ['Texts and images', 'Data', 'Forms'], images: 'Images',
+  en: { titre: 'Manage content', images: 'Images',
     imagesExplication: 'The photos your pages show. Replace one with another bank photo, or with your own; the preview is rebuilt.',
     aucune: 'Your pages do not show any bank photo yet: ask Claude to add some.',
     sansBanque: 'The photo bank is not connected to vavi yet: replacing comes as soon as it is.',
     banque: 'Bank image', par: 'Photo:', remplacer: 'Replace…', sujet: 'What the photo should show',
     choisir: 'Pick the new photo', alt: 'What the photo shows (read by screen readers and search engines)', utiliser: 'Use this photo',
     rien: 'The bank found nothing: try one or two more concrete words.', panneBanque: 'The photo bank did not answer; try again.',
-    fait: 'Photo replaced.', apercu: { a_jour: 'The preview is up to date: publish to put it online.', build_rouge: 'The preview could not be rebuilt: the change is kept, ask Claude to look.', rien_change: 'Nothing changed.' } as Record<string, string>,
+    fait: { photo: 'Photo replaced.', apparence: 'Appearance saved.' } as Record<string, string>, apercu: { a_jour: 'The preview is up to date: publish to put it online.', build_rouge: 'The preview could not be rebuilt: the change is kept, ask Claude to look.', rien_change: 'Nothing changed.' } as Record<string, string>,
     votre: 'Your photo', fournir: 'Or use your own (JPEG, PNG or WebP, 8 MB at most; where it was taken is removed)', mettre: 'Use my photo',
     altFournie: 'What your photo shows', revenir: 'Back to the bank photo',
     erreurs: { chantier_ouvert: 'Claude is working on this project: try again when it is done.', conflit: 'The project changed meanwhile: reload the page.', panne: 'vavi did not answer; try again.', mal_forme: 'To fix:' } as Record<string, string> },
@@ -51,15 +52,20 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   // Les photos proposées pour la photo en cours de remplacement : relues dans la banque à chaque affichage.
   let proposees: readonly ImageTrouvee[] | 'panne' = [];
   if (banque && q.photo && q.sujet && photos.some(([n]) => n === q.photo)) proposees = await banque.chercher(q.sujet.slice(0, 120), 8, new Set()).catch(() => 'panne' as const);
-  const message = q.fait ? `${m.fait} ${q.apercu ? m.apercu[q.apercu] ?? '' : ''}` : q.erreur ? `${m.erreurs[q.erreur] ?? q.erreur}${q.detail ? ` ${q.detail}` : ''}` : null;
-  const onglets = [`/projets/${id}/gerer`, `/projets/${id}/donnees`, `/projets/${id}/messages`];
+  const message = q.fait ? `${m.fait[q.fait] ?? ''} ${q.apercu ? m.apercu[q.apercu] ?? '' : ''}` : q.erreur ? `${m.erreurs[q.erreur] ?? q.erreur}${q.detail ? ` ${q.detail}` : ''}` : null;
+  const lu = f.lu ? leManifesteStocke(f.valeur.get('app.json')) : null;
   return (
     <main className="console">
       <h1>{m.titre}</h1>
-      <nav className="ligne" aria-label={m.titre} style={{ marginBottom: '1rem' }}>
-        {onglets.map((vers, i) => <Link key={vers} href={vers} className={`bouton ${i === 0 ? 'pastille' : 'discret'}`} aria-current={i === 0 ? 'page' : undefined}>{m.onglets[i]}</Link>)}
-      </nav>
       {message && <div className="carte" role={q.erreur ? 'alert' : 'status'}>{message}</div>}
+
+      <section className="carte">
+        <h2>{t.textes}</h2>
+        {!p.valeur!.apercuEmpreinte ? <p className="attenue">{t.pasDApercu}</p> : (
+          <EditeurDeTextes id={id} apercu={adresseDeLApp(id, 'apercu')} projet={p.valeur!.nom} langue={c.langue} photos={photos.map(([nom, i]) => ({ nom, alt: i.fournie?.alt ?? i.alt }))} t={{ textes: t.textes, textesExplication: t.textesExplication, textesActif: t.textesActif, textesChoisir: t.textesChoisir,
+            textesPasIci: t.textesPasIci, enregistrer: t.enregistrer, annuler: t.annuler, enCours: t.enCours, textesFait: t.textesFait, textesRouge: t.textesRouge, textesRefus: t.textesRefus }} />
+        )}
+      </section>
 
       <section className="carte">
         <h2>{m.images}</h2>
@@ -116,13 +122,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         )}
       </section>
 
-      <section className="carte">
-        <h2>{t.textes}</h2>
-        {!p.valeur!.apercuEmpreinte ? <p className="attenue">{t.pasDApercu}</p> : (
-          <EditeurDeTextes id={id} apercu={adresseDeLApp(id, 'apercu')} projet={p.valeur!.nom} langue={c.langue} t={{ textes: t.textes, textesExplication: t.textesExplication, textesActif: t.textesActif, textesChoisir: t.textesChoisir,
-            textesPasIci: t.textesPasIci, enregistrer: t.enregistrer, annuler: t.annuler, enCours: t.enCours, textesFait: t.textesFait, textesRouge: t.textesRouge, textesRefus: t.textesRefus }} />
-        )}
-      </section>
+      {lu?.lu && <Apparence id={id} d={lu.manifeste.direction} langue={c.langue} />}
     </main>
   );
 }

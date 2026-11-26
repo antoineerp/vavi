@@ -32,8 +32,10 @@ import { leGabaritCourant } from '@/squelette/registre';
 import { revenirA } from '@/lib/versions/revenir';
 import type { LecturesDeLaVue } from './les-gestes-de-la-vue';
 import { leGuideAvantLeProjet, leGuideDeDesign, lesEcartsDeLAccueil, type MesureVue } from '@/lib/design/le-guide';
+import { ceQuiTrahitLaPage, leDessinDeLaPage, type ReleveVu } from '@/lib/design/ce-qui-trahit-la-page';
 import { lesLiensMorts } from '@/squelette/les-liens';
 import { lesEcartsDeDroit } from '@/squelette/les-droits-des-pages';
+import { lesPagesSansDescription } from '@/squelette/les-descriptions';
 import type { Etape as EtapeDuParcours, Parcours } from '@/lib/parcours/le-parcours';
 import { CHEMIN_DES_IMAGES, CleDeLaBanqueRefusee, poserLesImages, type Banque, type DemandeDImage } from '@/lib/images/la-banque';
 import { REPRISES_MAX, reprendreLesImages } from '@/lib/images/la-reprise';
@@ -55,7 +57,7 @@ export interface Contexte {
   /** Le pré-rendu des pages publiques d'un build vert (`lib/seo`) ; rend `null` sans navigateur sur ce serveur. */
   readonly preRendre: (projet: string, dist: ReadonlyMap<string, Buffer>, manifeste: Manifeste) => Promise<PreRendu | null>;
   /** Les captures de l'accueil d'un build vert, ordinateur et téléphone (`lib/seo/les-captures`), rendues à Claude ; absent : aucune. */
-  readonly capturer?: (projet: string, dist: ReadonlyMap<string, Buffer>, manifeste: Manifeste) => Promise<{ readonly captures: readonly { readonly ecran: string; readonly jpeg: Buffer }[]; readonly manquees: readonly string[]; readonly mesure?: MesureVue } | null>;
+  readonly capturer?: (projet: string, dist: ReadonlyMap<string, Buffer>, manifeste: Manifeste) => Promise<{ readonly captures: readonly { readonly ecran: string; readonly jpeg: Buffer }[]; readonly manquees: readonly string[]; readonly mesure?: MesureVue; readonly releve?: ReleveVu } | null>;
   /** Lance un travail après la réponse de l'outil (le pré-rendu) ; absent, l'outil l'attend (essais). */
   readonly enArrierePlan?: (nom: string, travail: () => Promise<void>) => void;
   /** Les paquets du gabarit verrouillé. */
@@ -86,6 +88,8 @@ export interface Contexte {
   /** Fait tourner un agent du build vert d'empreinte donnée sur une copie de la base (`lib/agents`) ; absent : la raison. */
   readonly essayerUnAgent?: (projet: string, empreinte: string, manifeste: Manifeste, agent: string, entree: string) => Promise<Course | { readonly raison: string }>;
   readonly resolveur?: Resolveur;
+  /** Le nom lisible du site (`lib/domaines/les-noms`), posé s'il manque, tiré du nom du projet ; absent ou en panne : `null`. */
+  readonly nommerLeSite?: (projet: string, nomDuProjet: string) => Promise<string | null>;
 }
 
 export type Rendu = { readonly ok: true; readonly [champ: string]: unknown } | Refus;
@@ -239,6 +243,7 @@ export async function creerUnProjet(c: Contexte, a: { app_json: unknown; new_any
   if (!p.lu) return panne(p.pourquoi);
   const pose = await poserLaBase(c.base, p.valeur.id, m, c.compte);
   if (pose.posee) await c.projets.marquerLaBase(c.compte, p.valeur.id, m.nom);
+  await c.nommerLeSite?.(p.valeur.id, m.nom).catch(() => null);
   return fait({
     project: p.valeur.id, name: m.nom, version: 1, ...recu.valeur.dit,
     database: pose.posee ? 'laid out from app.json' : `not laid out: ${pose.motif}. Send app.json again with \`configure_backend\`.`,
@@ -737,17 +742,25 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   if (vues) console.log(`[build_preview] ${a.project} captures ${Date.now() - t1} ms (${vues.captures.length})`);
   // Les défauts objectifs de l'accueil rendu (image cassée, titre principal) et les liens écrits vers nulle part. Jamais un refus.
   const ecarts = vues?.mesure ? lesEcartsDeLAccueil(arbre.manifeste, vues.mesure) : [];
+  const releve = vues && 'releve' in vues ? vues.releve : undefined;
+  const trahit = ceQuiTrahitLaPage(arbre.manifeste, releve);
+  const dessin = leDessinDeLaPage(arbre.manifeste, releve);
   const siens = new Map([...f.valeur].filter(([ch]) => !estFige(ch)));
   const liens = lesLiensMorts(siens);
   const droits = lesEcartsDeDroit(arbre.manifeste, siens);
+  const sansDescription = lesPagesSansDescription(siens, f.valeur.get('src/referencement.json'));
   return fait({
     project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree, timings_ms: temps,
     preview_updated: designe.lu,
     ...(vues ? { screens: vues.captures.length ? `the home page on ${vues.captures.map((x) => x.ecran === 'bureau' ? 'a desktop screen (1280×800)' : 'a phone (390×844)').join(' and ')}, as images below: look at them and fix what is visibly wrong (empty or broken section, unreadable text, overflowing menu) before showing the person`
       : `not taken: ${vues.manquees.join(' | ')}` } : {}),
     ...(vues?.mesure ? { home_checks: ecarts.length ? { to_fix: ecarts, measured: vues.mesure } : 'no broken image, one main title' } : {}),
+    ...(trahit.length || dessin ? { design_checks: { ...(trahit.length ? { looks_generated: trahit } : {}), ...(dessin ? { drawing: dessin } : {}),
+      next: 'Measured on the rendered home page: these are the shapes every AI site builder produces, and the drawing. Change each one as said, unless the person asked for it. Never a refusal.' } } : {}),
     ...(liens.length ? { broken_links: { links: liens.slice(0, 20).map((l) => `${l.fichier}:${l.ligne} ${l.lien}`), next: 'Each of these links leads to no page of the app (or to no `id` for an anchor): point it to a page that exists, create the page, or remove the link.' } } : {}),
     ...(droits.length ? { access_checks: { to_fix: droits.slice(0, 20), next: 'Each page here shows a table its audience cannot read, or saves into one it cannot write: change the `acces` of the table with `configure_backend`, or the `acces` of the page.' } } : {}),
+    ...(sansDescription.length ? { seo_checks: { pages_without_description: sansDescription.slice(0, 30),
+      next: 'Each of these public pages shows the app’s description under its Google link, the same on every page: add `export const description = \'…\'` to it, one or two sentences of 70 to 160 characters saying what THIS page offers, in the language of the page.' } } : {}),
     ...(vues?.captures.length ? { _images: vues.captures.map((x) => ({ data: x.jpeg.toString('base64'), mimeType: 'image/jpeg' })) } : {}),
     next: 'When the person’s request is done, call `publish` to close the work session.',
     checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the preview and check.',

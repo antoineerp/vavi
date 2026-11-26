@@ -24,6 +24,11 @@ export interface ModuleDePage {
   readonly icone?: string;
   /** Son rang au menu, croissant. */
   readonly ordre?: number;
+  /**
+   * Ce que Google et les liens partagés montrent sous le titre de CETTE page : une ou deux phrases propres à elle, de 70 à
+   * 160 caractères (`export const description = '…'`). Absente, la page reprend la description de l'app, la même partout.
+   */
+  readonly description?: string;
 }
 
 /** Un compte qui porte ces rôles peut-il ouvrir une page de cet accès ? La garde et le menu lisent cette seule règle. */

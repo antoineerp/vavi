@@ -12,7 +12,7 @@ import { magasinS3 } from '@/lib/publication/le-magasin';
 import { racineDuBuild } from '@/lib/publication/publier';
 import { FICHIER_DE_DECOUVERTE, lireLaDecouverte, type Decouverte } from '@/lib/seo/la-decouverte';
 import { DESCRIPTION, lesNotes, laNoteDuSite, TEXTE_MIN, TITRE, type Critere, type Point } from '@/lib/seo/la-note';
-import { CHEMIN_DU_REFERENCEMENT, leReferencementStocke } from '@/lib/contenus/le-contenu';
+import { CHEMIN_DU_REFERENCEMENT, leReferencementStocke, lesRedirectionsEnTexte } from '@/lib/contenus/le-contenu';
 import { CHEMIN_DES_IMAGES, lireLesImages } from '@/lib/images/la-banque';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 import { lesVisites } from '@/lib/formulaires/sur-supabase';
@@ -21,7 +21,8 @@ import { lesCoordonneesManquantes, pourEtreTrouve, type EtatDUnPas } from '@/lib
 import { adresseDeLApp } from '@/app/_partage/l-adresse-des-apps';
 import { leDomaineDuProjet } from '@/lib/domaines/les-domaines';
 import { reglerGoogle } from '../gestes';
-import { enregistrerLePartage, enregistrerLeReferencement, enregistrerLeSite } from '../contenu/gestes';
+import { deposerLImageDePartage, enregistrerLePartage, enregistrerLesRedirections, enregistrerLeReferencement, enregistrerLeSite } from '../contenu/gestes';
+import { ApercuGoogle } from './l-apercu-google';
 import { leProjet, ERREURS } from '../le-projet';
 
 export const dynamic = 'force-dynamic';
@@ -34,11 +35,16 @@ const MOTS = {
     telephone: 'Téléphone', courriel: 'Courriel', immatriculation: 'Immatriculation (SIRET…)', horaires: 'Horaires (une ligne par plage)',
     pageTitre: 'Titre dans Google', pageDescription: 'Description dans Google', conseil: (n: number, max: number) => `${n}/${max} caractères conseillés`,
     enregistrerPages: 'Enregistrer les titres et descriptions',
-    partage: 'Image de partage et assistants IA', image: 'L’image qui accompagne vos liens partagés', aucuneImage: 'Aucune', sansPhoto: 'Votre site n’a pas encore de photo : demandez à Claude d’en poser, puis choisissez-la ici.',
+    partage: 'Image de partage et assistants IA', image: 'L’image qui accompagne vos liens partagés', aucuneImage: 'Aucune', sansPhoto: 'Votre site n’a pas encore de photo : déposez la vôtre ci-dessous, ou demandez à Claude d’en poser.',
+    deposee: 'Votre image déposée', deposer: 'Ou déposez votre image (JPEG, PNG ou WebP, 8 Mo au plus ; idéalement 1200 × 630)', deposerBouton: 'Déposer et utiliser cette image',
+    resultat: 'Dans Google, à peu près :',
+    cacher: 'Cacher cette page de Google (elle reste ouverte à qui a le lien)', cachee: 'cachée de Google',
+    redirections: 'Redirections', redirectionsExplication: 'Une ancienne adresse de votre site, ou de votre ancien site, qui doit mener à une page d’aujourd’hui : une par ligne, l’ancienne puis la nouvelle. Google suit et garde le référencement acquis. Effectives après « Publier ».',
+    redirectionsExemple: '/ancienne-page /nouvelle-page\n/tarifs.html /cours', enregistrerRedirections: 'Enregistrer les redirections',
     assistants: 'Les assistants IA (ChatGPT, Claude, Perplexity…) peuvent lire le site pour le citer avec son lien',
     entrainement: 'Les robots qui collectent pour entraîner des modèles d’IA peuvent lire le site', robotsMoteurs: 'Google et les autres moteurs de recherche ne sont jamais concernés.',
     enregistrerPartage: 'Enregistrer', depuis: 'Venus de la recherche (30 jours)', moteurs: 'depuis un moteur de recherche', depuisAssistants: 'depuis un assistant IA',
-    fait: { site: 'Le site est enregistré.', referencement: 'Titres et descriptions enregistrés.', partage: 'Enregistré.' } as Record<string, string>,
+    fait: { site: 'Le site est enregistré.', referencement: 'Titres et descriptions enregistrés.', partage: 'Enregistré.', redirections: 'Redirections enregistrées.' } as Record<string, string>,
     apercu: { a_jour: 'L’aperçu est à jour : publiez pour mettre en ligne.', build_rouge: 'L’aperçu n’a pas pu être rebâti : le changement est gardé, demandez à Claude de regarder.', rien_change: 'Rien n’a changé.' } as Record<string, string>,
     titre: 'Référencement (SEO)',
     servi: 'Ce que vavi fait pour chaque site, sans rien à régler',
@@ -47,7 +53,7 @@ const MOTS = {
       'L’aperçu n’est jamais référencé : seul le site en ligne l’est.'],
     voir: 'Voir',
     note: 'Note du site', pages: 'Note de chaque page publique', sansPages: 'Les pages publiques apparaissent ici après un premier aperçu construit.',
-    lu: (enLigne: boolean) => (enLigne ? 'Lu sur le site en ligne.' : 'Lu sur l’aperçu : le site n’est pas encore en ligne.'),
+    lu: (enLigne: boolean, aPublier = false) => (enLigne ? `Lu sur le site en ligne.${aPublier ? ' Vos derniers changements n’y sont pas encore : publiez pour que la note les compte.' : ''}` : 'Lu sur l’aperçu : le site n’est pas encore en ligne.'),
     criteres: {
       titre: (m?: number) => `Titre de ${TITRE.min} à ${TITRE.max} caractères${m !== undefined ? ` (${m})` : ''}`,
       titre_unique: () => 'Titre propre à cette page',
@@ -57,8 +63,8 @@ const MOTS = {
       editeur: () => 'Qui publie le site (nom, coordonnées) : utile à Google et aux IA',
     } as Record<Critere, (m?: number) => string>,
     gestes: {
-      titre: 'Changez-le dans « Apparence et titres ».', titre_unique: 'Changez-le dans « Apparence et titres ».', description: 'Changez-la dans « Apparence et titres ».',
-      texte: 'Demandez à Claude d’écrire plus de contenu sur cette page.', image: 'Demandez à Claude de poser une image de partage.', editeur: 'Demandez à Claude de déclarer l’éditeur du site (nom, adresse, contact).',
+      titre: 'Changez-le juste en dessous.', titre_unique: 'Changez-le juste en dessous.', description: 'Écrivez-la juste en dessous.',
+      texte: 'Demandez à Claude d’écrire plus de contenu sur cette page.', image: 'Choisissez-la ou déposez-la dans « Image de partage » plus bas.', editeur: 'Remplissez « Qui publie le site » plus haut, puis publiez.',
     } as Record<Critere, string>,
     google: 'Google Search Console', googleExplication: 'Pour suivre vos positions et vos clics dans Google : ajoutez votre site dans Search Console (méthode « Balise HTML »), collez ici la balise qu’il affiche, enregistrez, puis cliquez sur « Valider » dans Search Console.',
     googlePose: 'Balise posée sur le site en ligne.', enregistrer: 'Enregistrer', googleSansBase: 'La balise Google arrive avec la prochaine mise à jour de la base.',
@@ -71,11 +77,16 @@ const MOTS = {
     telephone: 'Phone', courriel: 'E-mail', immatriculation: 'Registration number', horaires: 'Opening hours (one line per range)',
     pageTitre: 'Title in Google', pageDescription: 'Description in Google', conseil: (n: number, max: number) => `${n}/${max} characters advised`,
     enregistrerPages: 'Save titles and descriptions',
-    partage: 'Sharing image and AI assistants', image: 'The image that comes with your shared links', aucuneImage: 'None', sansPhoto: 'Your site has no photo yet: ask Claude to add some, then pick one here.',
+    partage: 'Sharing image and AI assistants', image: 'The image that comes with your shared links', aucuneImage: 'None', sansPhoto: 'Your site has no photo yet: upload yours below, or ask Claude to add some.',
+    deposee: 'Your uploaded image', deposer: 'Or upload your image (JPEG, PNG or WebP, 8 MB max; ideally 1200 × 630)', deposerBouton: 'Upload and use this image',
+    resultat: 'In Google, roughly:',
+    cacher: 'Hide this page from Google (it stays open to anyone with the link)', cachee: 'hidden from Google',
+    redirections: 'Redirects', redirectionsExplication: 'An old address of your site, or of your former site, that should lead to a current page: one per line, the old one then the new one. Google follows and keeps the ranking earned. Effective after “Publish”.',
+    redirectionsExemple: '/old-page /new-page\n/prices.html /classes', enregistrerRedirections: 'Save redirects',
     assistants: 'AI assistants (ChatGPT, Claude, Perplexity…) may read the site to cite it with its link',
     entrainement: 'Robots that collect data to train AI models may read the site', robotsMoteurs: 'Google and other search engines are never affected.',
     enregistrerPartage: 'Save', depuis: 'From search (30 days)', moteurs: 'from a search engine', depuisAssistants: 'from an AI assistant',
-    fait: { site: 'The site is saved.', referencement: 'Titles and descriptions saved.', partage: 'Saved.' } as Record<string, string>,
+    fait: { site: 'The site is saved.', referencement: 'Titles and descriptions saved.', partage: 'Saved.', redirections: 'Redirects saved.' } as Record<string, string>,
     apercu: { a_jour: 'The preview is up to date: publish to put it online.', build_rouge: 'The preview could not be rebuilt: the change is kept, ask Claude to look.', rien_change: 'Nothing changed.' } as Record<string, string>,
     titre: 'Search (SEO)',
     servi: 'What vavi does for every site, with nothing to set',
@@ -84,7 +95,7 @@ const MOTS = {
       'The preview is never indexed: only the live site is.'],
     voir: 'View',
     note: 'Site score', pages: 'Score of each public page', sansPages: 'Public pages appear here after a first preview is built.',
-    lu: (enLigne: boolean) => (enLigne ? 'Read from the live site.' : 'Read from the preview: the site is not online yet.'),
+    lu: (enLigne: boolean, aPublier = false) => (enLigne ? `Read from the live site.${aPublier ? ' Your latest changes are not there yet: publish so the score counts them.' : ''}` : 'Read from the preview: the site is not online yet.'),
     criteres: {
       titre: (m?: number) => `Title of ${TITRE.min} to ${TITRE.max} characters${m !== undefined ? ` (${m})` : ''}`,
       titre_unique: () => 'Title unique to this page',
@@ -94,8 +105,8 @@ const MOTS = {
       editeur: () => 'Who publishes the site (name, contact): useful to Google and AI',
     } as Record<Critere, (m?: number) => string>,
     gestes: {
-      titre: 'Change it in “Appearance and titles”.', titre_unique: 'Change it in “Appearance and titles”.', description: 'Change it in “Appearance and titles”.',
-      texte: 'Ask Claude to write more content on this page.', image: 'Ask Claude to set a sharing image.', editeur: 'Ask Claude to declare the site’s publisher (name, address, contact).',
+      titre: 'Change it just below.', titre_unique: 'Change it just below.', description: 'Write it just below.',
+      texte: 'Ask Claude to write more content on this page.', image: 'Pick it in “Sharing image” below.', editeur: 'Fill in “Who publishes the site” above, then publish.',
     } as Record<Critere, string>,
     google: 'Google Search Console', googleExplication: 'To follow your positions and clicks in Google: add your site in Search Console (“HTML tag” method), paste the tag it shows here, save, then click “Verify” in Search Console.',
     googlePose: 'Tag set on the live site.', enregistrer: 'Save', googleSansBase: 'The Google tag comes with the next database update.',
@@ -143,6 +154,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const editeur = app?.editeur ?? {};
   const photos = Object.entries(lireLesImages(fichiers.get(CHEMIN_DES_IMAGES))).filter(([, i]) => i?.sources?.length)
     .map(([nom, i]) => ({ nom, alt: i.alt, vignette: i.sources[0]![1], partage: i.sources[i.sources.length - 1]![1] }));
+  const deposee = ref.image && !photos.some((x) => x.partage === ref.image) ? ref.image : null;
   const notes = d ? lesNotes(d, { image: Boolean(ref.image) }) : [];
   const site = laNoteDuSite(notes);
   const branche = await leDomaineDuProjet(c.base, id);
@@ -204,13 +216,13 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         {notes.length === 0 ? <p className="attenue">{m.sansPages}</p> : (
           <form action={enregistrerLeReferencement.bind(null, id)}>
             <input type="hidden" name="retour" value="referencement" />
-            <p className="attenue">{m.lu(enLigne)}</p>
+            <p className="attenue">{m.lu(enLigne, enLigne && projet.enLigneEmpreinte !== projet.apercuEmpreinte)}</p>
             {notes.map((n) => {
               const choisi = ref.pages[n.adresse] ?? {};
               return (
                 <details key={n.adresse} style={{ borderTop: '1px solid var(--bord)', padding: '0.6rem 0' }} open={n.note < 100 && notes.length <= 3}>
                   <summary style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-                    <span><strong>{n.titre || n.adresse}</strong> <span className="attenue">{n.adresse}</span></span>
+                    <span><strong>{n.titre || n.adresse}</strong> <span className="attenue">{n.adresse}{choisi.cachee ? ` · ${m.cachee}` : ''}</span></span>
                     <strong style={{ color: couleur(n.note) }}>{n.note}/100</strong>
                   </summary>
                   <ul style={{ listStyle: 'none', padding: 0, margin: '0.5rem 0' }}>{n.points.map((x) => <Ligne key={x.critere} p={x} m={m} />)}</ul>
@@ -218,7 +230,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                   <label htmlFor={`titre:${n.adresse}`}>{m.pageTitre} <span className="attenue">({m.conseil(TITRE.min, TITRE.max)})</span></label>
                   <input id={`titre:${n.adresse}`} name={`titre:${n.adresse}`} maxLength={70} defaultValue={choisi.titre ?? ''} placeholder={n.titre} />
                   <label htmlFor={`description:${n.adresse}`}>{m.pageDescription} <span className="attenue">({m.conseil(DESCRIPTION.min, DESCRIPTION.max)})</span></label>
-                  <textarea id={`description:${n.adresse}`} name={`description:${n.adresse}`} rows={2} maxLength={200} defaultValue={choisi.description ?? ''} />
+                  <textarea id={`description:${n.adresse}`} name={`description:${n.adresse}`} rows={2} maxLength={200} style={{ width: "100%" }} defaultValue={choisi.description ?? ''} placeholder={n.description} />
+                  <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', marginTop: '0.6rem' }}><input type="checkbox" name={`cachee:${n.adresse}`} value="oui" defaultChecked={choisi.cachee === true} /> {m.cacher}</label>
+                  <ApercuGoogle adresse={n.adresse} racine={racine || adresseDeLApp(id, 'en_ligne').replace(/\/$/, '')} titre={n.titre} description={n.description} legende={m.resultat} />
                 </details>
               );
             })}
@@ -231,9 +245,15 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <h2>{m.partage}</h2>
         <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
           <legend>{m.image}</legend>
-          {photos.length === 0 ? <p className="attenue">{m.sansPhoto}</p> : (
+          {photos.length === 0 && !deposee ? <p className="attenue">{m.sansPhoto}</p> : (
             <div style={GRILLE}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}><input type="radio" name="image" value="aucune" defaultChecked={!ref.image} /> {m.aucuneImage}</label>
+              {deposee && (
+                <label style={{ display: 'block', cursor: 'pointer' }}>
+                  <img src={deposee} alt="" style={{ width: '100%', aspectRatio: '1.91 / 1', objectFit: 'cover', borderRadius: 8 }} />
+                  <span><input type="radio" name="image" value={deposee} defaultChecked /> {m.deposee}</span>
+                </label>
+              )}
               {photos.map((x) => (
                 <label key={x.nom} style={{ display: 'block', cursor: 'pointer' }}>
                   <img src={x.vignette} alt={x.alt} style={{ width: '100%', aspectRatio: '1.91 / 1', objectFit: 'cover', borderRadius: 8 }} />
@@ -242,11 +262,21 @@ export default async function Page({ params, searchParams }: { params: Promise<{
               ))}
             </div>
           )}
+          <label htmlFor="photo-de-partage" style={{ marginTop: '0.8rem' }}>{m.deposer}</label>
+          <input id="photo-de-partage" name="photo" type="file" accept="image/jpeg,image/png,image/webp" />
+          <button type="submit" formAction={deposerLImageDePartage.bind(null, id)} className="discret petit" style={{ marginTop: "0.5rem" }}>{m.deposerBouton}</button>
         </fieldset>
         <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', marginTop: '1rem' }}><input type="checkbox" name="assistants" value="oui" defaultChecked={ref.ia?.assistants !== false} /> {m.assistants}</label>
         <label style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}><input type="checkbox" name="entrainement" value="oui" defaultChecked={ref.ia?.entrainement !== false} /> {m.entrainement}</label>
         <p className="attenue">{m.robotsMoteurs}</p>
         <button type="submit">{m.enregistrerPartage}</button>
+      </form>
+
+      <form action={enregistrerLesRedirections.bind(null, id)} className="carte" id="redirections">
+        <h2>{m.redirections}</h2>
+        <p className="attenue" style={{ marginTop: 0 }}>{m.redirectionsExplication}</p>
+        <textarea name="redirections" aria-label={m.redirections} rows={4} style={{ width: '100%', fontFamily: 'ui-monospace, monospace' }} defaultValue={lesRedirectionsEnTexte(ref.redirections)} placeholder={m.redirectionsExemple} />
+        <button type="submit">{m.enregistrerRedirections}</button>
       </form>
 
       <section className="carte">

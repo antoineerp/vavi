@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { emettreLaPreuve, laVisiteAttendue, lireLaPreuve, verdictDeLaVisite, verdictDesChamps, verdictDuContenu } from '@/lib/formulaires/le-jugement';
-import { recevoirUnEnvoi, type BoiteDesMessages, type DependancesDeLaReception, type Envoi } from '@/lib/formulaires/les-messages';
+import { recevoirUnEnvoi, transmettreUneLigne, type BoiteDesMessages, type DependancesDeLaReception, type Envoi } from '@/lib/formulaires/les-messages';
 import { lireLaVisite, resumerLAudience } from '@/lib/formulaires/l-audience';
 import { CHEMIN_DE_LA_MIGRATION_DES_FORMULAIRES, laMigrationDesFormulaires } from '@/lib/formulaires/le-sql-des-formulaires';
 
@@ -132,5 +132,26 @@ describe('l’audience par source et par période', async () => {
     expect(p.precedente.map((x) => x.jour)).toEqual(['2026-11-18', '2026-11-12']);
     expect(p.ecart).toBe(0);
     expect(lesDeuxPeriodes([l('2026-11-25')], 7, '2026-11-25').ecart).toBeNull();
+  });
+});
+
+describe('INCIDENT 26/11 — l’envoi d’un visiteur dans une table n’arrivait ni dans Messages ni par courriel', () => {
+  it('la ligne envoyée sans compte est gardée dans la boîte et part chez le propriétaire, chaque champ sous son libellé', async () => {
+    const { boite, gardes } = uneBoite(); const envoyes: Array<{ a: string; sujet: string; texte: string; repondreA: string | null }> = [];
+    const r = await transmettreUneLigne(deps(boite, envoyes), { projet: P, table: 'demandes', ligne: { Nom: 'Ada', Courriel: 'ada@exemple.fr', Message: 'Une place samedi ?' }, page: '/', adresse: 'a1' });
+    expect(r).toEqual({ lu: true, valeur: { garde: 'm0', courriel: 'envoye' } });
+    expect(gardes[0]).toMatchObject({ statut: 'recu', courriel: 'envoye', donnees: { Nom: 'Ada' } });
+    expect(envoyes[0]).toMatchObject({ a: 'moi@teravelo.fr', repondreA: 'ada@exemple.fr' });
+    expect(envoyes[0]!.texte).toContain('Message : Une place samedi ?');
+  });
+  it('sans courrier sur la plateforme, le message reste gardé et la console le dit', async () => {
+    const { boite, gardes } = uneBoite();
+    const r = await transmettreUneLigne(deps(boite, [], false), { projet: P, table: 'demandes', ligne: { Nom: 'Ada' }, page: null, adresse: null });
+    expect(r).toEqual({ lu: true, valeur: { garde: 'm0', courriel: 'non_configure' } });
+    expect(gardes).toHaveLength(1);
+  });
+  it('la route du dépôt transmet chaque envoi gardé', () => {
+    const route = readFileSync(join(process.cwd(), 'app/api/depot/[projet]/route.ts'), 'utf8');
+    expect(route).toMatch(/transmettreUneLigne\(laReceptionReelle\(\)/);
   });
 });

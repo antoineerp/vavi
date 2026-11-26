@@ -30,6 +30,7 @@ import { lireLaRemise } from './la-remise';
 import { lireLesEnvois } from './l-envoi-sans-compte';
 import { INSCRITS, lesAccesTraduits, TOUS } from './les-acces';
 import { lesFormesReparees } from './les-formes-reparees';
+import { lesErreursLues } from './les-erreurs-lues';
 
 export { CHIFFRES, Identifiant, Indicateur };
 
@@ -500,7 +501,7 @@ export function lireLeManifeste(json: unknown): { ok: true; manifeste: Manifeste
   const ventes = lesLecturesReparees(envois.valeur), repare = [...acces.repare, ...demandes.repare, ...liens.repare, ...cycles.repare, ...envois.repare, ...ventes.repare];
   const r = Manifeste.safeParse(ventes.valeur);
   if (r.success) return { ok: true, manifeste: avecSesEtatsOuverts(r.data), repare };
-  return { ok: false, erreurs: r.error.issues.map((i) => (i.path.length ? `${i.path.join('.')} : ${i.message}` : i.message)), repare };
+  return { ok: false, erreurs: lesErreursLues(r.error.issues), repare };
 }
 
 /**

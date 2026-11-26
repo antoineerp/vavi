@@ -40,6 +40,12 @@ export function titreDe(p: FaitDePage): string | null {
   return p.titre[langueCourante()] ?? p.titre[APP.langues.principale] ?? null;
 }
 
+/** La description d'une page dans la langue de la page ; `null` : elle n'en déclare pas. */
+export function descriptionDe(p: FaitDePage): string | null {
+  if (p.description === null || typeof p.description === 'string') return p.description;
+  return p.description[langueCourante()] ?? p.description[APP.langues.principale] ?? null;
+}
+
 /**
  * Où arrive une personne qui vient d'entrer : l'écran qu'app.json lui destine (`arrivee.ts`), sinon la première page
  * réservée à l'un de ses rôles, sinon la première derrière un compte.

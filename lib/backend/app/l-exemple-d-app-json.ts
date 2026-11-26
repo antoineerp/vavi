@@ -10,6 +10,7 @@
 import { POLICES_PROPOSEES } from '../fige/polices';
 import { MOUVEMENTS, Nature, Obtention, Organisations, REGISTRES, SIGNATURES, TypeDeChamp } from './manifeste';
 import { LIGNES } from './les-acces';
+import { CADENCES } from './les-automatisations';
 
 export const EXEMPLE_D_APP_JSON = {
   version: 1,
@@ -76,6 +77,7 @@ export function laFormeDAppJson(): string {
     `direction.registre: ${REGISTRES.join(' | ')}. direction.mouvement: ${MOUVEMENTS.join(' | ')}. direction.signatureVisuelle: ${SIGNATURES.join(' | ')}. Write \`direction\` as an art director for THIS request, after reading \`get_design_guide\` (callable without a project): its colours, fonts, register and \`intention\`.`,
     `Field type: ${v(TypeDeChamp)}. Role obtenu: ${v(Obtention)}. organisations: ${v(Organisations)}.`,
     `\`acces\` of a table says who does each gesture (lire, creer, modifier, supprimer): \`tous\` (anyone, with or without an account: a menu everyone reads, a booking anyone sends), \`inscrits\` (every role of the app), \`visiteur\` (only people without an account), or role names. \`lignes\` says which rows one sees: ${LIGNES.join(' | ')} (who manages the organisation always sees all). A table with a \`parent\` follows its parent row.`,
+    `Each of \`agents\` (work done with no one in front of the screen) is { nom, libelle, dit: what it does in one sentence (10 to 300 characters), reveil, ia_par_jour?: its daily cap of AI calls }; its code is \`src/agents/<nom>.ts\`. reveil is one of: { "type": "horaire", "cadence": ${CADENCES.map((c) => `"${c}"`).join(' | ')}, "heure"?: 0 to 23 (Paris time), "jour"?: 0 to 6 for a weekly one, Sunday being 0 } | { "type": "evenement", "table": a declared table, on each new row } | { "type": "bouton", "par": [roles that start it from a page] }.`,
     'Each of `demandes` is { passage: the words of the person, quoted; tenuePar: [at least one name of a declared screen, agent or automation that does it] }; for a site, or when unsure, write `"demandes": []`.',
   ].join('\n');
 }

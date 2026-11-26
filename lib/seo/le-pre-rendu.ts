@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import { poserLEnvironnement, type EnvDeLApp } from '@/lib/publication/servir';
 import { typeDe } from '@/lib/publication/publier';
-import { DOSSIER_DU_PRE_RENDU, FICHIER_DE_DECOUVERTE, MARQUE_DU_PRE_RENDU, TEXTE_D_UNE_PAGE, type Editeur } from './la-decouverte';
+import { DOSSIER_DU_PRE_RENDU, FICHIER_DE_DECOUVERTE, lesRedirectionsLues, MARQUE_DU_PRE_RENDU, TEXTE_D_UNE_PAGE, type Editeur } from './la-decouverte';
 
 export const BASE_DU_PRE_RENDU = '/__vavi_base__/';
 
@@ -112,12 +112,15 @@ export function servir(dist: ReadonlyMap<string, Buffer>, env: Omit<EnvDeLApp, '
   return new Promise((ok) => serveur.listen(0, '127.0.0.1', () => ok({ adresse: `http://127.0.0.1:${(serveur.address() as AddressInfo).port}`, serveur })));
 }
 
-/** Le choix des robots d'IA que le build porte (`referencement.json`, émis par le gabarit depuis `src/referencement.json`). */
-function lesChoixDesIa(dist: ReadonlyMap<string, Buffer>): { assistants: boolean; entrainement: boolean } | null {
+/** Le référencement que le build porte (`referencement.json`, émis par le gabarit depuis `src/referencement.json`) :
+ * le choix des robots d'IA, les pages cachées de Google, les redirections. */
+function leReferencementDuBuild(dist: ReadonlyMap<string, Buffer>): { ia: { assistants: boolean; entrainement: boolean } | null; cachees: ReadonlySet<string>; redirections: { de: string; vers: string }[] } {
   try {
-    const ia = (JSON.parse(dist.get('referencement.json')?.toString('utf8') ?? '{}') as { ia?: Record<string, unknown> }).ia;
-    return ia && typeof ia === 'object' ? { assistants: ia.assistants !== false, entrainement: ia.entrainement !== false } : null;
-  } catch { return null; }
+    const o = JSON.parse(dist.get('referencement.json')?.toString('utf8') ?? '{}') as { ia?: Record<string, unknown>; pages?: Record<string, { cachee?: unknown }>; redirections?: unknown };
+    const ia = o.ia && typeof o.ia === 'object' ? { assistants: o.ia.assistants !== false, entrainement: o.ia.entrainement !== false } : null;
+    const cachees = new Set(Object.entries(o.pages && typeof o.pages === 'object' ? o.pages : {}).filter(([, p]) => p?.cachee === true).map(([a]) => a));
+    return { ia, cachees, redirections: lesRedirectionsLues(o.redirections) };
+  } catch { return { ia: null, cachees: new Set(), redirections: [] }; }
 }
 
 export async function preRendre(navigateur: UnNavigateur, dist: ReadonlyMap<string, Buffer>, o: {
@@ -165,9 +168,13 @@ export async function preRendre(navigateur: UnNavigateur, dist: ReadonlyMap<stri
     serveur.close();
   }
   const fichiers = new Map<string, Buffer>(gardees.map((g) => [fichierDuPreRendu(g.adresse), Buffer.from(g.html, 'utf8')]));
+  const ref = leReferencementDuBuild(dist);
+  // Une page cachée l'est dans chaque langue : `/en/cours` suit le choix fait pour `/cours`.
+  const cachee = (a: string) => ref.cachees.has(a) || prefixes.some((x) => x && (a === x ? ref.cachees.has('/') : a.startsWith(`${x}/`) && ref.cachees.has(a.slice(x.length))));
   fichiers.set(FICHIER_DE_DECOUVERTE, Buffer.from(`${JSON.stringify({ version: 1, nom: o.app.nom, description: o.app.description, langue: o.app.langue,
-    pages: gardees.map((g) => ({ adresse: g.adresse, titre: g.titre, description: g.description, ...(g.texte ? { texte: g.texte } : {}) })),
-    routes: [...new Set(routes)], ...(o.app.editeur ? { editeur: o.app.editeur } : {}), ...(lesChoixDesIa(dist) ? { ia: lesChoixDesIa(dist) } : {}) }, null, 2)}\n`, 'utf8'));
+    pages: gardees.map((g) => ({ adresse: g.adresse, titre: g.titre, description: g.description, ...(g.texte ? { texte: g.texte } : {}), ...(cachee(g.adresse) ? { cachee: true } : {}) })),
+    routes: [...new Set(routes)], ...(o.app.editeur ? { editeur: o.app.editeur } : {}), ...(ref.ia ? { ia: ref.ia } : {}),
+    ...(ref.redirections.length ? { redirections: ref.redirections } : {}) }, null, 2)}\n`, 'utf8'));
   return { fichiers, gardees: gardees.map((g) => g.adresse), ecartees };
 }
 

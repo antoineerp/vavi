@@ -27,8 +27,9 @@ export default async function MiseEnPage({ children, params }: { children: React
   if (p.lu && !p.valeur) notFound();
   const m = f.lu ? leManifesteStocke(f.valeur.get('app.json')) : null;
   const vend = m?.lu ? laBoutique(m.manifeste) !== null : false;
-  // Une app a des comptes dès qu'elle déclare des rôles ou des tables (on s'y inscrit pour écrire).
-  const comptes = m?.lu ? m.manifeste.roles.length > 0 || m.manifeste.tables.length > 0 : false;
+  // « Utilisateurs » sert dès que d'autres que le propriétaire ont un compte : un rôle s'obtient autrement qu'en étant
+  // propriétaire (inscription, invitation, habilitation, paiement). Un site vitrine n'a que le sien.
+  const comptes = m?.lu ? m.manifeste.roles.some((r) => r.obtenu !== 'proprietaire') : false;
   const projet = p.lu ? p.valeur : null;
   const etat = projet ? lEtat(projet) : null;
   const NOMS_D_ETAT = { fr: { en_ligne: 'En ligne', a_publier: 'Changements à publier', apercu: 'Aperçu, pas encore en ligne', vide: 'Pas encore d’aperçu' }, en: { en_ligne: 'Online', a_publier: 'Changes to publish', apercu: 'Preview, not online yet', vide: 'No preview yet' } }[c.langue];

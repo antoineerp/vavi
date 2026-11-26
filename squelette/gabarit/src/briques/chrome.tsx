@@ -15,7 +15,8 @@ import { useSession, PORTE, MON_COMPTE } from '../lib/session';
 import { libellesPour } from '../lib/libelles';
 import { langueCourante, LANGUES } from '../lib/langue';
 import { BASE_DE_MONTAGE } from '../lib/env';
-import { arriveePour, type EntreeDuMenu } from '../lib/navigation';
+import { arriveePour, PAGES, type EntreeDuMenu } from '../lib/navigation';
+import { onEntreParUnCompte } from '../lib/le-menu';
 import { APP } from '../lib/app';
 import { usePanier } from '../lib/panier';
 import { IMAGES } from '../images';
@@ -35,13 +36,14 @@ const forme = (legende: boolean): string => `inline-flex items-center whitespace
 
 /**
  * Entrer, ou le compte connecté : son icône ouvre son espace, son compte et la sortie. À monter dans l'en-tête, une seule
- * fois. Une app sans rôle n'a pas de compte à ouvrir : la commande n'y rend rien.
+ * fois. Une app où l'on n'entre pas par un compte (`onEntreParUnCompte` : aucune page derrière un compte, aucun rôle qu'on
+ * obtient seul) n'en rend rien : un site vitrine n'a pas de « Se connecter ».
  */
 export function CommandeDuCompte({ className = '', legende = false }: { readonly className?: string; readonly legende?: boolean }) {
   const { compte, roles, seDeconnecter } = useSession();
   const [ouvert, ouvrir] = useState(false);
   const L = libellesPour(langueCourante());
-  if (APP.roles.length === 0) return null;
+  if (!onEntreParUnCompte(PAGES, APP.roles)) return null;
   const icone = <UserRound aria-hidden className="size-5" strokeWidth={1.75} />;
   if (!compte) return <Link to={PORTE} data-cadre="entrer" className={`${forme(legende)} ${className}`}>{icone}{L.seConnecter}</Link>;
   const espace = arriveePour(roles);

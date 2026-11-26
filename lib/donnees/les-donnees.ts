@@ -106,3 +106,21 @@ export function enCsv(t: TableDeLaConsole, lignes: readonly Readonly<Record<stri
     ...t.colonnes.map((c) => (l[c.nom] === null || l[c.nom] === undefined ? '' : typeof l[c.nom] === 'object' ? JSON.stringify(l[c.nom]) : String(l[c.nom])))]);
   return '﻿' + [tete, ...corps].map((r) => r.map(cite).join(';')).join('\r\n') + '\r\n';
 }
+
+/** Une ligne dont un champ affiche exactement un texte cliqué dans l'aperçu. */
+export interface LigneDuTexte { readonly table: string; readonly libelle: string; readonly ligne: string; readonly nom: string; readonly champ: string }
+
+/**
+ * PURE — les lignes dont un champ de texte vaut exactement le texte cliqué dans l'aperçu (espaces repliés) : ce passage
+ * est une donnée, il se modifie dans « Données de l'app ». Rien n'est deviné : un texte qu'aucun champ ne porte tel quel
+ * ne désigne aucune ligne.
+ */
+export function lesLignesDuTexte(texte: string, lues: readonly { readonly table: TableDeLaConsole; readonly lignes: readonly Readonly<Record<string, unknown>>[] }[]): LigneDuTexte[] {
+  const plier = (t: string) => t.replace(/\s+/g, ' ').trim();
+  const cherche = plier(texte);
+  if (!cherche) return [];
+  return lues.flatMap(({ table, lignes }) => lignes.flatMap((l) => {
+    const c = table.colonnes.find((x) => (x.type === 'texte' || x.type === 'texte_long' || x.type === 'choix') && typeof l[x.nom] === 'string' && plier(l[x.nom] as string) === cherche);
+    return c && typeof l.id === 'string' ? [{ table: table.nom, libelle: table.libelle, ligne: l.id, nom: leNomDUneLigne(table, l), champ: c.libelle }] : [];
+  })).slice(0, 5);
+}

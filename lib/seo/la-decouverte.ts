@@ -16,7 +16,8 @@ export const DOSSIER_DU_PRE_RENDU = '_pre-rendu';
 export const TEXTE_D_UNE_PAGE = 8000;
 export const FICHIERS_DE_DECOUVERTE: ReadonlySet<string> = new Set(['robots.txt', 'sitemap.xml', 'llms.txt', 'llms-full.txt']);
 
-export interface PageDecouverte { readonly adresse: string; readonly titre: string; readonly description: string; readonly texte?: string }
+/** `cachee` : le propriétaire la cache de Google (« Référencement ») : servie avec `noindex`, hors du plan du site et de llms.txt. */
+export interface PageDecouverte { readonly adresse: string; readonly titre: string; readonly description: string; readonly texte?: string; readonly cachee?: boolean }
 /** Qui publie le site, tel qu'app.json le déclare (`editeur`) ; rien d'autre. */
 export interface Editeur { readonly nom?: string; readonly adresse?: string; readonly telephone?: string; readonly courriel?: string }
 export interface Decouverte {
@@ -27,6 +28,8 @@ export interface Decouverte {
   readonly editeur: Editeur | null;
   /** Le choix du propriétaire pour les robots d'IA (« Référencement ») ; `null` : aucun choix, tous entrent. */
   readonly ia?: ChoixDesIa | null;
+  /** Les anciennes adresses que le propriétaire envoie ailleurs (301), relues de `src/referencement.json`. */
+  readonly redirections?: readonly { readonly de: string; readonly vers: string }[];
 }
 /** Les deux familles de robots d'IA : ceux qui lisent pour répondre en citant le site, ceux qui collectent pour entraîner. */
 export interface ChoixDesIa { readonly assistants: boolean; readonly entrainement: boolean }
@@ -44,15 +47,39 @@ export function lireLaDecouverte(brut: string): Decouverte | null {
   const pages = (d.pages as unknown[]).flatMap((p) => {
     const x = (p && typeof p === 'object' ? p : {}) as Record<string, unknown>;
     const adresse = texte(x.adresse, 300), lu = texte(x.texte, TEXTE_D_UNE_PAGE);
-    return ADRESSE.test(adresse) ? [{ adresse, titre: texte(x.titre, 200), description: texte(x.description, 400), ...(lu ? { texte: lu } : {}) }] : [];
+    return ADRESSE.test(adresse) ? [{ adresse, titre: texte(x.titre, 200), description: texte(x.description, 400), ...(lu ? { texte: lu } : {}), ...(x.cachee === true ? { cachee: true } : {}) }] : [];
   }).slice(0, 500);
   const routes = Array.isArray(d.routes) ? d.routes.map((r) => texte(r, 300)).filter((r) => ROUTE.test(r)).slice(0, 500) : [];
   const e = (d.editeur && typeof d.editeur === 'object' ? d.editeur : {}) as Record<string, unknown>;
   const editeur = Object.fromEntries((['nom', 'adresse', 'telephone', 'courriel'] as const).map((k) => [k, texte(e[k], 300)]).filter(([, v]) => v)) as Editeur;
   const ia = d.ia && typeof d.ia === 'object' ? d.ia as Record<string, unknown> : null;
+  const redirections = lesRedirectionsLues(d.redirections);
   return { nom: texte(d.nom, 200), description: texte(d.description, 400), langue: texte(d.langue, 20), pages, routes, editeur: Object.keys(editeur).length ? editeur : null,
-    ia: ia ? { assistants: ia.assistants !== false, entrainement: ia.entrainement !== false } : null };
+    ia: ia ? { assistants: ia.assistants !== false, entrainement: ia.entrainement !== false } : null, ...(redirections.length ? { redirections } : {}) };
 }
+
+const DE = /^\/[^\s?#:*"<>]{0,300}$/;
+const VERS = /^(\/[^\s"<>]{0,300}|https:\/\/[^\s"<>]{1,1000})$/;
+/** Les redirections relues strictement : une ancienne adresse du site, une page du site ou une adresse https ; 200 au plus. PURE. */
+export function lesRedirectionsLues(v: unknown): { readonly de: string; readonly vers: string }[] {
+  if (!Array.isArray(v)) return [];
+  return v.flatMap((x) => {
+    const o = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>;
+    return typeof o.de === 'string' && typeof o.vers === 'string' && DE.test(o.de) && VERS.test(o.vers) ? [{ de: o.de, vers: o.vers }] : [];
+  }).slice(0, 200);
+}
+
+/** Où envoie l'adresse demandée, si le propriétaire l'a redirigée (la barre finale ne compte pas) ; `null` sinon. PURE. */
+export function laRedirection(adresse: string, racine: string, d: Decouverte): string | null {
+  const sans = (a: string) => a.replace(/\/+$/, '') || '/';
+  const r = (d.redirections ?? []).find((x) => sans(x.de) === sans(adresse));
+  return r ? (r.vers.startsWith('/') ? url(racine, r.vers) : r.vers) : null;
+}
+
+/** Les pages que Google et les assistants peuvent référencer : toutes, sauf celles que le propriétaire cache. */
+const referencees = (d: Decouverte): readonly PageDecouverte[] => d.pages.filter((p) => !p.cachee);
+/** La page à cette adresse est-elle cachée de Google ? PURE. */
+export const estCachee = (adresse: string, d: Decouverte): boolean => d.pages.some((p) => p.cachee && p.adresse === adresse);
 
 const xml = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 /** L'adresse absolue d'une page : `racine` est l'adresse publique du site, sans `/` final. */
@@ -82,7 +109,7 @@ export function robotsTxt(racine: string, ia: ChoixDesIa | null = null): string 
 export const ROBOTS_DE_L_APERCU = 'User-agent: *\nDisallow: /\n';
 
 export function sitemapXml(racine: string, d: Decouverte): string {
-  const lignes = [...new Set(d.pages.map((p) => p.adresse))].map((a) => `  <url><loc>${xml(url(racine, a))}</loc></url>`);
+  const lignes = [...new Set(referencees(d).map((p) => p.adresse))].map((a) => `  <url><loc>${xml(url(racine, a))}</loc></url>`);
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${lignes.join('\n')}\n</urlset>\n`;
 }
 
@@ -97,16 +124,16 @@ const coordonnees = (e: Editeur | null, md: (t: string) => string): string[] => 
 export function llmsTxt(racine: string, d: Decouverte): string {
   const md = (t: string): string => t.replace(/[\r\n]+/g, ' ').replace(/([[\]])/g, '\\$1');
   return [`# ${md(d.nom || racine)}`, ...(d.description ? ['', `> ${md(d.description)}`] : []), '', '## Pages', '',
-    ...d.pages.map((p) => `- [${md(p.titre || p.adresse)}](${url(racine, p.adresse)})${p.description ? `: ${md(p.description)}` : ''}`),
+    ...referencees(d).map((p) => `- [${md(p.titre || p.adresse)}](${url(racine, p.adresse)})${p.description ? `: ${md(p.description)}` : ''}`),
     ...coordonnees(d.editeur, md),
-    ...(d.pages.some((p) => p.texte) ? ['', '## Optional', '', `- [Le texte complet des pages](${racine}/llms-full.txt)`] : []), ''].join('\n');
+    ...(referencees(d).some((p) => p.texte) ? ['', '## Optional', '', `- [Le texte complet des pages](${racine}/llms-full.txt)`] : []), ''].join('\n');
 }
 
 /** `llms-full.txt` : le texte que chaque page publique affiche, relevé au pré-rendu, jamais réécrit. */
 export function llmsCompletTxt(racine: string, d: Decouverte): string {
   const md = (t: string): string => t.replace(/\r/g, '');
   return [`# ${md(d.nom || racine)}`, ...(d.description ? ['', `> ${md(d.description)}`] : []),
-    ...d.pages.flatMap((p) => ['', `## ${md(p.titre || p.adresse)}`, '', `Adresse : ${url(racine, p.adresse)}`,
+    ...referencees(d).flatMap((p) => ['', `## ${md(p.titre || p.adresse)}`, '', `Adresse : ${url(racine, p.adresse)}`,
       ...(p.description ? [`Description : ${md(p.description)}`] : []), ...(p.texte ? ['', md(p.texte)] : [])]),
     ...coordonnees(d.editeur, md), ''].join('\n');
 }
@@ -140,7 +167,8 @@ export function laPageServie(html: string, racine: string, adresse: string, d: D
     isPartOf: { '@type': 'WebSite', url: `${racine}/`, ...(d.nom ? { name: d.nom } : {}) }, ...(editeur ? { publisher: { '@id': editeur['@id'] } } : {}) };
   const json = JSON.stringify(editeur ? { '@context': 'https://schema.org', '@graph': [page, editeur] } : { '@context': 'https://schema.org', ...page }).replace(/</g, '\\u003c');
   const propre = html.slice(0, i).replace(/<link[^>]+rel=["']canonical["'][^>]*>/gi, '');
-  return `${propre}<link rel="canonical" href="${u}"><meta property="og:url" content="${u}"><script type="application/ld+json">${json}</script>${html.slice(i)}`;
+  const robots = estCachee(adresse, d) ? '<meta name="robots" content="noindex">' : '';
+  return `${propre}${robots}<link rel="canonical" href="${u}"><meta property="og:url" content="${u}"><script type="application/ld+json">${json}</script>${html.slice(i)}`;
 }
 
 /** L'adresse demandée est-elle une adresse de l'app (`/the/:id` reconnaît `/the/42`) ? */

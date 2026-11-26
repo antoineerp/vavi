@@ -62,3 +62,29 @@ describe('gérer le contenu', () => {
     expect(JSON.parse(projets.etats.get(id)!.fichiers.get('src/images.json')!).hero.alt).toBe('Un voilier au large');
   });
 });
+
+describe('INCIDENT 26/11 — l’apparence ne s’enregistrait jamais depuis la console', () => {
+  it('la couleur du texte et la police du texte ne partagent plus un nom : le formulaire rend la police choisie', async () => {
+    const { lApparenceDuFormulaire, CHAMPS_DES_POLICES, COULEURS } = await import('@/lib/contenus/le-contenu');
+    const noms = [...COULEURS, 'rayon', CHAMPS_DES_POLICES.titres, CHAMPS_DES_POLICES.texte];
+    expect(new Set(noms).size).toBe(noms.length);
+    // Ce que le navigateur envoie, champ par champ, du formulaire de la page.
+    const f = new FormData();
+    for (const [k, v] of Object.entries({ fond: '#f6f1ea', texte: '#2a211b', accent: '#2f6b4f', surface: '#fffaf4', bordure: '#e2d6c6', rayon: 'doux' })) f.append(k, v);
+    f.append(CHAMPS_DES_POLICES.titres, 'Fraunces'); f.append(CHAMPS_DES_POLICES.texte, 'Inter');
+    const a = lApparenceDuFormulaire(f);
+    expect(a).toEqual({ lue: true, apparence: { couleurs: { fond: '#f6f1ea', texte: '#2a211b', accent: '#2f6b4f', surface: '#fffaf4', bordure: '#e2d6c6' }, rayon: 'doux', polices: { titres: 'Fraunces', texte: 'Inter' } } });
+    // La page nomme ses listes de polices par ces noms, jamais par celui d'une couleur.
+    const page = (await import('node:fs')).readFileSync('app/projets/[id]/gerer/l-apparence.tsx', 'utf8');
+    expect(page).toContain('name={CHAMPS_DES_POLICES.texte}');
+    expect(page).not.toMatch(/<select name="(texte|titres)"/);
+  });
+  it('enregistrer l’apparence garde la seconde couleur et l’ancre, que la console ne montre pas', async () => {
+    const { avecLApparence } = await import('@/lib/contenus/le-contenu');
+    const app = JSON.parse(APP_JSON);
+    app.direction = { ...app.direction, couleurs: { ...app.direction.couleurs, second: '#5f7a5a', ancre: '#2f2420' } };
+    const r = avecLApparence(JSON.stringify(app), { couleurs: { fond: '#ffffff', texte: '#111111', accent: '#2f6b4f', surface: '#fafafa', bordure: '#dddddd' }, rayon: 'net', polices: { titres: 'Fraunces', texte: 'Inter' } });
+    if (!r.ok) throw new Error(r.detail);
+    expect(JSON.parse(r.texte).direction.couleurs).toMatchObject({ accent: '#2f6b4f', second: '#5f7a5a', ancre: '#2f2420' });
+  });
+});
