@@ -74,4 +74,26 @@ describe.runIf(process.env.VAVI_BATIR === 'oui')('une app posée se construit', 
     const c = await construireLApp(ceQueLAppTire(arbre, m));
     if (!c.construite) throw new Error(JSON.stringify(c.ecarts));
   }, 600_000);
+  // 26/11 : la fiche du compte connecté (`personnes`) se lit par `useMaFiche`, et `<FicheManquante />` se monte.
+  it('une page qui lit la fiche du compte se construit', async () => {
+    const m = unManifeste({ nature: 'app', nom: 'Essai fiche',
+      roles: [{ nom: 'chef', libelle: 'Chef', obtenu: 'proprietaire' }, { nom: 'agent', libelle: 'Agent', obtenu: 'invitation' }],
+      tables: [{ nom: 'agents', libelle: 'Agents', appartenance: 'publique', lecture: ['chef', 'agent'], ecriture: ['chef'], personnes: 'agent',
+        champs: [{ nom: 'nom', libelle: 'Nom', type: 'texte', obligatoire: true }] }] });
+    const arbre = poserLeFige(m);
+    arbre.set('src/Chrome.tsx', CHROME);
+    arbre.set('src/pages/index.tsx', [
+      "import { reserveA } from '@/lib/acces';",
+      "import { useMaFiche, FicheManquante } from '@/lib/ma-fiche';",
+      "export const acces = reserveA('agent');",
+      'export default function Accueil() {',
+      "  const f = useMaFiche('agents');",
+      "  if (f.forme === 'aucune') return <FicheManquante />;",
+      "  return <section><h1>{f.forme === 'fiche' ? f.fiche.nom : '…'}</h1>{f.forme === 'fiche' && f.fiche.compte_id ? <p>relié</p> : null}</section>;",
+      '}',
+      '',
+    ].join('\n'));
+    const c = await construireLApp(ceQueLAppTire(arbre, m));
+    if (!c.construite) throw new Error(JSON.stringify(c.ecarts));
+  }, 600_000);
 });

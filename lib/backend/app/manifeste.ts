@@ -147,6 +147,8 @@ export const Table = z.object({
     fin: Identifiant.describe('le champ date où elle finit'),
     libelle: Identifiant.describe('le champ texte qui la nomme sur la frise'),
   }).optional().describe('chaque ligne occupe une période, de son début à sa fin : elle se montre aussi sur une frise'),
+  personnes: Identifiant.optional()
+    .describe('le rôle dont chaque compte a SA ligne dans cette table, sa fiche (un technicien, un salarié, un client suivi) : la base pose la colonne `compte_id`, que le propriétaire relie à un compte dans la console (Utilisateurs) ; la page lit la fiche du compte connecté par `useMaFiche`, jamais en comparant une adresse recopiée dans un champ'),
   propositions: z.boolean().default(false)
     .describe('l’IA propose des lignes de cette table ; chacune reste une proposition, marquée, jusqu’à ce qu’une personne la fasse avancer par une transition'),
   sansRelecture: Identifiant.optional()
@@ -338,6 +340,12 @@ export const Manifeste = z.object({
       if (t.ecriture.length === 0) ctx.addIssue({ code: 'custom', message: `${t.nom} reçoit des propositions de l’IA : un rôle l’écrit, au nom duquel l’IA propose` });
       if (t.appartenance === 'rattachee') ctx.addIssue({ code: 'custom', message: `${t.nom} : une table rattachée ne reçoit pas de propositions de l’IA` });
     }
+    if (t.personnes) {
+      if (!roles.has(t.personnes)) ctx.addIssue({ code: 'custom', message: `${t.nom} : \`personnes\` nomme le rôle ${t.personnes}, qui n'est pas déclaré` });
+      if (champs.has(COLONNE_DE_LA_FICHE)) ctx.addIssue({ code: 'custom', message: `${t.nom}.${COLONNE_DE_LA_FICHE} : la base pose déjà cette colonne (le compte de la fiche) ; nommez ce champ autrement` });
+      const autre = m.tables.find((x) => x !== t && x.personnes === t.personnes);
+      if (autre && m.tables.indexOf(autre) < m.tables.indexOf(t)) ctx.addIssue({ code: 'custom', message: `${t.nom} : le rôle ${t.personnes} a déjà sa fiche dans ${autre.nom} ; un compte a une seule fiche` });
+    }
     if (t.vente && !m.fonctions.panier) ctx.addIssue({ code: 'custom', message: `${t.nom} se vend : l'app a un panier` });
     lireLaLigneVendueUneFois(t, ctx);
     lireLIntegrite(t, ctx);
@@ -380,6 +388,9 @@ export const COLONNES_POSEES_PAR_LA_BASE: Readonly<Record<string, string>> = {
   id: 'l’identifiant de la ligne', created_at: 'sa date de création', owner_id: 'le compte qui l’a créée',
   auteur: 'le courriel de qui l’a créée', organisation_id: 'son organisation', etat: 'l’état de son cycle, quand elle en a un',
 };
+/** La colonne que la base pose sur une table à `personnes` : le compte dont la ligne est la fiche (unique, reliée par la console). */
+export const COLONNE_DE_LA_FICHE = 'compte_id';
+
 /** Celles qu'elle pose en plus sur une table qui reçoit des propositions de l'IA : leur provenance. */
 export const COLONNES_DES_PROPOSITIONS: Readonly<Record<string, string>> = {
   origine: 'qui a proposé la ligne, une personne ou l’IA', ia_explication: 'ce que l’IA en dit', ia_confiance: 'la confiance de l’IA',
