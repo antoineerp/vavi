@@ -119,6 +119,19 @@ export const DEFINITIONS = {
     description: 'Finds a real photo for each subject in the platform photo bank and sets it under its name (src/images.json, which you never write). A page shows it with `<Photo nom="…" />` from `@/briques/Photo`; photo credits are served by the platform. Never write an image address yourself.',
     geste: (c, a) => g.chercherDesImages(c, a),
   }),
+  import_images: def({
+    title: 'Take the images of a site', lecture: false,
+    entree: z.object({ project: projet, work_session: chantier,
+      rights: z.string().min(10).max(500).describe('The person\'s own words, quoted, saying the images are theirs or that the owner agreed (e.g. "ce sont mes photos", "Clara m\'a donné son accord").'),
+      images: z.array(z.object({
+        name: z.string().regex(/^[a-z][a-z0-9_]{0,40}$/).describe('The name a page shows it by: `<Photo nom="…" />`.'),
+        url: z.string().url().max(2000).describe('The direct https address of the image file (JPEG, PNG or WebP), read in the page\'s <img src> or srcset: the largest version.'),
+        alt: z.string().min(3).max(200).describe('The alternative text, in the language of the app.'),
+        credit: z.string().max(120).optional().describe('The photographer, if the person names one: shown on the photo credits page.'),
+      })).min(1).max(8) }),
+    description: 'Takes images from a site the person names (their current site, a site they own) into the app, under their declaration of rights. Use it only when the person says the images are theirs or that the owner agreed; otherwise ask them first. Quote their words in `rights`: vavi keeps them with each image, with the date and the original address, and does not judge the rights. Each image is downloaded by vavi (https only), checked as a real JPEG, PNG or WebP, stripped of its metadata, stored and served by vavi; a page shows it with `<Photo nom="…" />`.',
+    geste: (c, a) => g.reprendreDesImages(c, a),
+  }),
   add_packages: def({
     title: 'Add npm packages', lecture: false,
     entree: z.object({ project: projet, work_session: chantier, packages: z.array(z.object({

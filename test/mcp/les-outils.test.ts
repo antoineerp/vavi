@@ -430,6 +430,26 @@ describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {
     expect(JSON.stringify(f.files)).toContain('images.unsplash.com/p?w=640');
     expect((await refus('apply_changes', { project, work_session, why: 'écrire les photos', changes: [{ path: 'src/images.json', content: '{}' }] })).code).toBe('fichier_du_cadre');
   });
+  it('26/11 — import_images reprend les images d’un site par la porte de sortie, sous la déclaration de la personne', async () => {
+    const { project, work_session } = await unChantier();
+    const u32 = (v: number) => [(v >>> 24) & 255, (v >> 16) & 255, (v >> 8) & 255, v & 255];
+    const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 73, 72, 68, 82, ...u32(900), ...u32(600), 8, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 73, 69, 78, 68, 0, 0, 0, 0]);
+    const appels: string[] = [];
+    Object.assign(c, { resolveur: async (h: string) => (h === 'interne.fr' ? ['10.0.0.4'] : ['93.184.216.34']),
+      sortie: (async (u: string) => { appels.push(u); return new Response(png, { status: 200 }); }) as typeof fetch });
+    const r = await ok('import_images', { project, work_session, rights: 'Antoine : « ce sont mes photos »', images: [
+      { name: 'atelier', url: 'https://monsite.fr/a.png', alt: 'L’atelier' }, { name: 'cache', url: 'https://interne.fr/b.png', alt: 'Interne' }] });
+    expect((r.images as string[])[0]).toBe('atelier: set (900×600 px, metadata removed).');
+    expect((r.images as string[])[1]).toMatch(/not taken \(refused by vavi's gate/);
+    expect(appels).toEqual(['https://monsite.fr/a.png']);
+    const f = await ok('read_files', { project, paths: ['src/images.json'] });
+    const images = JSON.parse((f.files as { content: string }[])[0]!.content) as Record<string, { reprise: { droits: string; depuis: string } }>;
+    expect(images.atelier!.reprise).toMatchObject({ droits: 'Antoine : « ce sont mes photos »', depuis: 'https://monsite.fr/a.png' });
+    expect(images.cache).toBeUndefined();
+    expect((c.magasin as ReturnType<typeof unMagasinEnMemoire>).ecrits.some((k) => k.startsWith(`photos/${project}/`))).toBe(true);
+    // Sans les mots de la personne sur ses droits, l'outil ne part pas.
+    await expect(appel('import_images', { project, work_session, rights: 'oui', images: [{ name: 'a', url: 'https://monsite.fr/a.png', alt: 'aaa' }] })).rejects.toThrow(/import_images/);
+  });
   it('26/11 — les notes durables : écrites par write_notes, relues à l’état et au chantier, jamais écrasées sans avoir été lues', async () => {
     const { project } = await unChantier();
     const etat = await ok('get_project_state', { project });

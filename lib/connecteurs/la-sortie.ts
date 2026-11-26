@@ -144,6 +144,7 @@ export async function verifierSortie(
   url: string,
   autorises: ReadonlyArray<string>,
   resolveur: Resolveur = resolveurParDefaut,
+  toutHotePublic = false,
 ): Promise<VerdictSortie> {
   let u: URL;
   try {
@@ -168,7 +169,7 @@ export async function verifierSortie(
     };
   }
 
-  if (!hoteCouvert(hote, autorises)) {
+  if (!toutHotePublic && !hoteCouvert(hote, autorises)) {
     return {
       ok: false,
       raison: 'hote-hors-liste',
@@ -211,6 +212,11 @@ export interface OptionsSortie {
   resolveur?: Resolveur;
   /** Injectable pour les tests ; la production utilise `fetch`. */
   transport?: typeof fetch;
+  /**
+   * Tout hôte PUBLIC, sans liste (la reprise des images d'un site que la personne nomme, 26/11) : le reste de la porte
+   * tient (https seul, aucune adresse littérale ni interne, chaque saut revalidé).
+   */
+  toutHotePublic?: boolean;
 }
 
 export interface ReponseSortante {
@@ -254,6 +260,30 @@ export async function fetchSortant(
   }, true);
 }
 
+/** L'appel sortant, son corps rendu en octets (une image) : au-delà du plafond, `coupe` le dit et rien n'est rendu de plus. */
+export async function fetchSortantEnOctets(
+  url: string,
+  options: OptionsSortie,
+): Promise<{ readonly ok: boolean; readonly statut: number; readonly octets: Uint8Array; readonly coupe: boolean; readonly hote: string } | SortieRefusee> {
+  const plafond = options.tailleMaxOctets ?? TAILLE_MAX_OCTETS;
+  return suivre(url, options, async (reponse, hote) => {
+    const morceaux: Uint8Array[] = [];
+    let total = 0;
+    let coupe = false;
+    const lecteur = reponse.body?.getReader();
+    if (lecteur) {
+      for (;;) {
+        const { done, value } = await lecteur.read();
+        if (done) break;
+        if (total + value.byteLength > plafond) { coupe = true; await lecteur.cancel().catch(() => undefined); break; }
+        morceaux.push(value);
+        total += value.byteLength;
+      }
+    }
+    return { ok: reponse.ok, statut: reponse.status, octets: new Uint8Array(Buffer.concat(morceaux)), coupe, hote };
+  }, true);
+}
+
 /** La boucle commune : la porte à chaque saut, puis `lire` sur la réponse finale. */
 async function suivre<T>(
   url: string,
@@ -267,7 +297,7 @@ async function suivre<T>(
   let courante = url;
 
   for (let saut = 0; saut <= sautsMax; saut++) {
-    const verdict = await verifierSortie(courante, options.hotesAutorises, options.resolveur);
+    const verdict = await verifierSortie(courante, options.hotesAutorises, options.resolveur, options.toutHotePublic === true);
     if (!verdict.ok) return verdict;
 
     const controleur = new AbortController();

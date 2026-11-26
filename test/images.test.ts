@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { lireLesImages, poser, poserLesImages, type Banque, type ImageTrouvee } from '@/lib/images/la-banque';
+import { reprendreLesImages, type ImageReprise } from '@/lib/images/la-reprise';
 import { FICHIER_D_UNE_PHOTO, avecLaPhotoFournie, leFichierDeLaPhoto, leFormatDUnePhoto, sansLesMetadonnees } from '@/lib/images/la-photo-fournie';
 
 const une = (source: string, decrit: string): ImageTrouvee => ({ source: `https://images.unsplash.com/${source}`, largeur: 2400, hauteur: 1600, decrit,
@@ -81,5 +82,41 @@ describe('la photo fournie par la personne (« Gérer le contenu »)', () => {
     expect(avecLaPhotoFournie(avant, 'absente', fournie)).toMatchObject({ ok: false });
     const o = lire('photo.jpg');
     expect(leFichierDeLaPhoto(o, leFormatDUnePhoto(o)!)).toMatch(FICHIER_D_UNE_PHOTO);
+  });
+});
+
+/** Un PNG de `l`×`h` dont un bloc tEXt porte un lieu : l'en-tête suffit à le reconnaître. */
+function unPng(l: number, h: number): Uint8Array {
+  const bloc = (nom: string, corps: number[]) => { const n = corps.length; return [(n >>> 24) & 255, (n >> 16) & 255, (n >> 8) & 255, n & 255, ...[...nom].map((x) => x.charCodeAt(0)), ...corps, 0, 0, 0, 0]; };
+  const u32 = (v: number) => [(v >>> 24) & 255, (v >> 16) & 255, (v >> 8) & 255, v & 255];
+  return Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...bloc('IHDR', [...u32(l), ...u32(h), 8, 2, 0, 0, 0]),
+    ...bloc('tEXt', [...'GPS 48.85,2.35'].map((x) => x.charCodeAt(0))), ...bloc('IEND', [])]);
+}
+
+describe('la reprise des images d’un site (Antoine, 26/11 : sous la déclaration de la personne)', () => {
+  const droits = { declaration: '« ce sont mes photos »', le: '2026-11-26T10:00:00.000Z' };
+  const deps = (octets: Record<string, Uint8Array | string>) => {
+    const gardees: string[] = [];
+    return { gardees, d: { projet: 'p1', adresse: 'https://vavi.test', garder: async (cle: string) => { gardees.push(cle); },
+      lire: async (url: string) => { const o = octets[url]; return typeof o === 'string' || o === undefined ? (o ?? 'the site answered 404') : { octets: o, coupe: false }; } } };
+  };
+  it('pose l’image reconnue, sans ses métadonnées, servie par vavi, avec la déclaration, la date et l’adresse d’origine', async () => {
+    const { d, gardees } = deps({ 'https://site.fr/a.png': unPng(1200, 800) });
+    const r = await reprendreLesImages(undefined, [{ nom: 'atelier', url: 'https://site.fr/a.png', alt: 'L’atelier', credit: 'Clara' }], droits, d);
+    expect(r.dits).toEqual(['atelier: set (1200×800 px, metadata removed).']);
+    const i = lireLesImages(r.texte!).atelier as ImageReprise;
+    expect(i.sources[0]![1]).toMatch(/^https:\/\/vavi\.test\/photos\/p1\/[0-9a-f]{32}\.png$/);
+    expect(i.reprise).toEqual({ depuis: 'https://site.fr/a.png', droits: '« ce sont mes photos »', le: droits.le });
+    expect([i.auteur, i.banque, i.lienBanque]).toEqual(['Clara', 'site.fr', 'https://site.fr']);
+    expect(gardees).toEqual([`photos/p1/${i.sources[0]![1].split('/').pop()}`]);
+  });
+  it('dit chaque refus avec sa raison et ne pose rien : une page HTML, une icône, une porte fermée', async () => {
+    const { d, gardees } = deps({ 'https://site.fr/page': new TextEncoder().encode('<html></html>'), 'https://site.fr/i.png': unPng(64, 64), 'https://x.fr/y.png': 'refused by vavi\'s gate: interne' });
+    const r = await reprendreLesImages('{}', [{ nom: 'a', url: 'https://site.fr/page', alt: 'aaa' }, { nom: 'b', url: 'https://site.fr/i.png', alt: 'bbb' }, { nom: 'c', url: 'https://x.fr/y.png', alt: 'ccc' }], droits, d);
+    expect(r.texte).toBeNull();
+    expect(gardees).toEqual([]);
+    expect(r.dits[0]).toMatch(/not a JPEG, PNG or WebP/);
+    expect(r.dits[1]).toMatch(/icon or a thumbnail/);
+    expect(r.dits[2]).toMatch(/gate/);
   });
 });
