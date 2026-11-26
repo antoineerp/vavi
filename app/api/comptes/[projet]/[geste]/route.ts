@@ -32,7 +32,7 @@ export async function POST(requete: Request, { params }: { params: Promise<{ pro
   if (!passe.passe) return new Response(tropDAppels(passe.apres, { error: 'trop_d_appels' }).body, { status: 429, headers: { ...CORS, 'retry-after': String(passe.apres) } });
   const d = lesComptesReels();
   if (!d) return repondre({ error: 'comptes_indisponibles', detail: 'VAVI_CLE_DES_COMPTES' }, 503);
-  const p = await clientDeService().from('vavi_projets').select('*').eq('id', projet).maybeSingle<{ nom: string; inscription_sans_validation?: boolean }>();
+  const p = await clientDeService().from('vavi_projets').select('*').eq('id', projet).maybeSingle<{ nom: string; proprietaire: string; inscription_sans_validation?: boolean }>();
   if (p.error) return repondre({ error: 'panne' }, 503);
   if (!p.data) return repondre({ error: 'projet_inconnu' }, 404);
   const c = (await requete.json().catch(() => ({}))) as Record<string, unknown>;
@@ -40,10 +40,13 @@ export async function POST(requete: Request, { params }: { params: Promise<{ pro
   const ctx = { app, nomDeLApp: p.data.nom, langue: texte(c.langue, 8) || 'en',
     retour: `${adresseDeLApp(projet, c.ou === 'apercu' ? 'apercu' : 'en_ligne').replace(/\/$/, '')}${chemin}` };
   const sansValidation = p.data.inscription_sans_validation === true;
+  // L'adresse du propriétaire se confirme toujours (`seConfirme`) : c'est elle qui lui donne tous les rôles de son app.
+  const adresseDuProprietaire = sansValidation && (geste === 'inscrire' || geste === 'entrer')
+    ? (await clientDeService().auth.admin.getUserById(p.data.proprietaire).catch(() => null))?.data?.user?.email ?? null : null;
   try {
     switch (geste) {
-      case 'inscrire': return rendre(await sInscrire(d, { ...ctx, email: texte(c.email), motDePasse: texte(c.motDePasse, 200), sansValidation }));
-      case 'entrer': return rendre(await entrer(d, { app, email: texte(c.email), motDePasse: texte(c.motDePasse, 200), sansValidation }));
+      case 'inscrire': return rendre(await sInscrire(d, { ...ctx, email: texte(c.email), motDePasse: texte(c.motDePasse, 200), sansValidation, adresseDuProprietaire }));
+      case 'entrer': return rendre(await entrer(d, { app, email: texte(c.email), motDePasse: texte(c.motDePasse, 200), sansValidation, adresseDuProprietaire, lien: ctx }));
       case 'lien': return rendre(await envoyerUnLien(d, { ...ctx, email: texte(c.email), nature: 'entrer' }));
       case 'oublie': return rendre(await envoyerUnLien(d, { ...ctx, email: texte(c.email), nature: 'mot_de_passe' }));
       case 'echanger': return rendre(await echangerUnCode(d, { app, code: texte(c.code, 200) }));
