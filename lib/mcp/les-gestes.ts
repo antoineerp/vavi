@@ -33,6 +33,7 @@ import { revenirA } from '@/lib/versions/revenir';
 import type { LecturesDeLaVue } from './les-gestes-de-la-vue';
 import { leGuideDeDesign, lesEcartsDeLAccueil, type MesureVue } from '@/lib/design/le-guide';
 import { lesLiensMorts } from '@/squelette/les-liens';
+import type { Etape as EtapeDuParcours, Parcours } from '@/lib/parcours/le-parcours';
 import { CHEMIN_DES_IMAGES, poserLesImages, type Banque, type DemandeDImage } from '@/lib/images/la-banque';
 import { CHEMIN_DES_PAQUETS, PAQUETS_MAX, lesPaquetsAjoutes, leFichierDesPaquets, verifierAuRegistre } from '@/lib/paquets/les-paquets';
 
@@ -61,6 +62,8 @@ export interface Contexte {
   readonly refusPrecedents: Map<string, Refus>;
   /** Les builds rouges de suite, par compte et projet ; absent : une mémoire du processus. */
   readonly buildsRouges?: Map<string, number>;
+  /** Joue un parcours de visiteur sur le build vert d'empreinte donnée (`lib/parcours`) ; absent ou sans navigateur : la raison. */
+  readonly jouer?: (projet: string, empreinte: string, manifeste: Manifeste, etapes: readonly EtapeDuParcours[]) => Promise<Parcours | { readonly raison: string }>;
   /** Les chantiers où Claude a lu le guide de design (compte|projet|chantier) ; absent : une mémoire du processus. */
   readonly guidesLus?: Set<string>;
   /** L'abonnement du compte, tel que Claude le lit (l'offre, ce qu'elle publie, où la choisir) ; absent : non dit. */
@@ -656,6 +659,40 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
     prerendered: pre === 'en_fond' ? 'running in the background: the public pages are rendered for search engines after this answer'
       : pre === null ? 'skipped: no browser on this vavi server, public pages need JavaScript to be read'
         : 'erreur' in pre ? `failed: ${pre.erreur.slice(0, 200)}` : { pages: pre.gardees, not_kept: pre.ecartees },
+  });
+}
+
+/**
+ * Un parcours de visiteur joué sur le build vert de la version courante (Antoine, 26/11 : Claude essaie l'app, il ne se
+ * contente pas de la regarder). Rien n'est écrit : les écritures sont simulées et dites. Le résultat n'est jamais un refus
+ * de l'app : une étape qui échoue est un fait, que Claude corrige au tour.
+ */
+export async function jouerUnParcours(c: Contexte, a: { project: string; steps: readonly EtapeDuParcours[] }): Promise<Rendu> {
+  const p = await leProjet(c, a.project);
+  if (!p.ok) return p.refus;
+  const f = await lesFichiers(c, a.project);
+  if (!f.ok) return f.refus;
+  const arbre = await lArbreLu(f.valeur, c.magasin);
+  if (!arbre.lu) return refuser('app_json_refuse', `app.json does not hold: ${arbre.erreurs.join(' | ')}`, { fichier: 'app.json' });
+  const b = await c.projets.leBuild(c.compte, a.project, arbre.empreinte);
+  if (!b.lu) return panne(b.pourquoi);
+  if (!b.valeur) return refuser('build_perime', 'The current version has not been built: a journey plays the green build of the current version.');
+  if (!b.valeur.vert) return refuser('build_rouge', 'The last build of the current version is red: fix it before playing a journey.');
+  if (!c.jouer) return refuser('plateforme_en_panne', 'Journeys are not available on this vavi server.');
+  const t = Date.now();
+  const r = await c.jouer(a.project, arbre.empreinte, arbre.manifeste, a.steps).catch((e: unknown) => ({ raison: String((e as Error)?.message ?? e).slice(0, 300) }));
+  if ('raison' in r) return refuser('plateforme_en_panne', `The journey could not be played: ${r.raison}. This is not caused by your files.`);
+  const reussies = r.etapes.filter((e) => e.ok).length;
+  console.log(`[try_journey] ${a.project} ${reussies}/${a.steps.length} étapes en ${Date.now() - t} ms`);
+  return fait({
+    project: a.project, passed: r.arret === null, played: `${reussies} of ${a.steps.length} steps passed`,
+    steps: r.etapes.map((e) => ({ n: e.n, step: e.etape, ok: e.ok, ...(e.ok ? {} : { why: e.fait }), at: e.adresse })),
+    ...(r.arret ? { stopped_at: r.arret.n, screen: r.arret.capture ? 'the page where it stopped, as an image below' : 'not taken' } : {}),
+    ...(r.simule.length ? { simulated: r.simule } : {}),
+    ...(r.erreursDeLaPage.length ? { page_errors: r.erreursDeLaPage } : {}),
+    ...(r.arret?.capture ? { _images: [{ data: r.arret.capture.toString('base64'), mimeType: 'image/jpeg' }] } : {}),
+    next: r.arret === null ? 'The journey works. Tell the person what you checked.' : 'Fix what stopped the journey (the screen, the text, the label), build again, and play the journey again.',
+    not_checked: 'nothing was written or sent: writes and forms are simulated, so the rules of the database (required fields, duplicates) are not checked here; journeys with an account or a payment are not played yet.',
   });
 }
 

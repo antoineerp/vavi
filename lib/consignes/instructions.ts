@@ -13,7 +13,7 @@
 /** Les outils du serveur que les consignes ont le droit de nommer. */
 export const OUTILS = [
   'list_projects', 'create_project', 'get_project_state', 'read_files', 'ouvrir_chantier', 'abandonner_chantier',
-  'apply_changes', 'configure_backend', 'set_secret', 'get_design_guide', 'search_images', 'add_packages', 'build_preview', 'publish', 'history', 'rollback',
+  'apply_changes', 'configure_backend', 'set_secret', 'get_design_guide', 'search_images', 'add_packages', 'build_preview', 'try_journey', 'publish', 'history', 'rollback',
 ] as const;
 export type Outil = (typeof OUTILS)[number];
 
@@ -42,7 +42,6 @@ vavi's tools refuse what would break the project. When a tool refuses, read its 
 - If \`apply_changes\` answers \`conflit\`, someone changed the project since you read it: re-read the files it names and
   redo your change on their current version. Never write over them.
 - \`apply_changes\` builds and returns the errors: fix them one by one, where reported (file, line).
-  Never silence a type error with \`any\` or \`@ts-ignore\`.
 - If a change made things worse, propose \`rollback\` instead of piling fixes on top of it.
 
 ## Design
@@ -71,7 +70,8 @@ vavi's tools refuse what would break the project. When a tool refuses, read its 
 - Do not invent testimonials, customer reviews, figures, client references, addresses, or photos of real people. If a
   piece of information is missing, ask for it, or leave a clearly marked "to be completed" placeholder and tell the
   person.
-- Success is proven: say "it works" only after a green build. Also say what you could not check.
+- Success is proven: say "it works" only after a green build and its main journey played (\`try_journey\`). Also say
+  what you could not check.
 - Only the person puts the site online, with the Publish button of the vavi console; \`publish\` updates the preview.
 
 ## The conversation

@@ -360,6 +360,28 @@ describe('les règles seulement demandées, rendues sûres (choix d’Antoine du
   });
 });
 
+describe('Claude essaie l’app comme un visiteur (Antoine, 26/11)', () => {
+  it('try_journey joue le build vert de la version courante ; sans build, périmé ; une étape qui échoue revient avec sa capture en image', async () => {
+    const w = await unChantier();
+    expect((await refus('try_journey', { project: w.project, steps: [{ action: 'open', path: '/' }] })).code).toBe('build_perime');
+    await ok('apply_changes', { ...w, why: 'accueil', changes: [{ path: 'src/pages/index.tsx', content: 'export default function A() { return null; }' }] });
+    const vus: unknown[] = [];
+    (c as { jouer?: Contexte['jouer'] }).jouer = async (_p, empreinte, _m, etapes) => {
+      vus.push({ empreinte, etapes });
+      return { etapes: [{ n: 1, etape: 'open /', ok: true, fait: 'done', adresse: '/' }, { n: 2, etape: 'click « Envoyer »', ok: false, fait: 'nothing on the page matches it', adresse: '/' }],
+        arret: { n: 2, capture: Buffer.from([0xff, 0xd8, 0xff, 0xd9]) }, simule: ['form « contact » would be sent to the owner: {}'], erreursDeLaPage: [] };
+    };
+    const r = await servirLeMcp({ jsonrpc: '2.0', id: 12, method: 'tools/call', params: { name: 'try_journey', arguments: { project: w.project, steps: [{ action: 'open', path: '/' }, { action: 'click', target: 'Envoyer' }] } } },
+      { outils: c, langue: 'fr', gabaritPackageJson: GABARIT, noteDuChantier: async () => null }) as { result: { content: { type: string; text?: string }[]; structuredContent: Record<string, unknown> } };
+    expect(r.result.structuredContent).toMatchObject({ passed: false, played: '1 of 2 steps passed', stopped_at: 2, simulated: [expect.stringContaining('would be sent')] });
+    expect(r.result.content.filter((x) => x.type === 'image')).toHaveLength(1);
+    expect(vus).toEqual([{ empreinte: expect.stringMatching(/^[0-9a-f]{64}$/), etapes: [{ action: 'open', path: '/' }, { action: 'click', target: 'Envoyer' }] }]);
+    // Une étape mal formée est refusée par le schéma, avant tout navigateur.
+    const a = await appelerUnOutil(c, 'try_journey', { project: w.project, steps: [{ action: 'open', path: 'contact' }] });
+    expect(a.connu && 'invalide' in a).toBe(true);
+  });
+});
+
 describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {
   it('get_design_guide rend le guide de la vitrine et les règles de sa nature, en mots seuls', async () => {
     const { project } = await unChantier();

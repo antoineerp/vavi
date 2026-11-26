@@ -9,7 +9,7 @@ import { clientDeService } from '@/lib/supabase/service';
 import { projetsSurSupabase } from '@/lib/projets/les-projets';
 import { magasinS3 } from '@/lib/publication/le-magasin';
 import { racineDuBuild } from '@/lib/publication/publier';
-import { poserLEnvironnement } from '@/lib/publication/servir';
+import { poserLEnvironnement, servirUnDist } from '@/lib/publication/servir';
 import { leDomaineDesApps } from '@/lib/publication/les-adresses-des-apps';
 import { construireLApp } from '@/lib/atelier/construire';
 import { DOSSIER_DU_GABARIT } from '@/squelette/registre';
@@ -22,6 +22,7 @@ import { configurationPublique } from '@/lib/supabase/configuration';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { ouvrirLeNavigateur, preRendre } from '@/lib/seo/le-pre-rendu';
 import { capturer, type NavigateurAPhotographier } from '@/lib/seo/les-captures';
+import { jouerLeParcours, BASE_DU_PARCOURS, type NavigateurDuParcours } from '@/lib/parcours/le-parcours';
 import type { ContexteDuServeur } from './le-serveur';
 import { abonnementsSurSupabase } from '@/lib/abonnements/sur-supabase';
 import { lEtatDuCompte, laVueDeLAbonnement, leDroitDePublier } from '@/lib/abonnements/l-abonnement';
@@ -80,6 +81,19 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         if ('raison' in o) return { captures: [], manquees: [o.raison] };
         return capturer(o.navigateur as unknown as NavigateurAPhotographier, dist, {
           env: { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet }, langue: m.langues.principale, hotesDesImages: images });
+      },
+      async jouer(projet, empreinte, m, etapes) {
+        const publique = configurationPublique(process.env);
+        const schema = schemaDuProjet(projet);
+        if (!publique.lue || !schema) return { raison: 'the database of the app is not configured' };
+        if (!magasin.lu) return { raison: 'the storage of the builds is not configured' };
+        const images = [new URL(adresseDeLaPlateforme()).origin, 'https://images.unsplash.com'];
+        const o = await ouvrirLeNavigateur([publique.valeur.url, ...images]);
+        if ('raison' in o) return { raison: o.raison };
+        const env = { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet, base: BASE_DU_PARCOURS };
+        const racine = racineDuBuild(projet, empreinte);
+        return jouerLeParcours(o.navigateur as unknown as NavigateurDuParcours, etapes, {
+          lire: (segments) => servirUnDist(magasin.magasin, racine, segments, env), base: publique.valeur.url, images, langue: m.langues.principale });
       },
       // Après la réponse de l'outil : le serveur de vavi est un processus qui dure (Fly), le travail va au bout.
       enArrierePlan(nom, travail) { void travail().catch((e: unknown) => console.error(`[arrière-plan] ${nom} : ${(e as Error)?.message ?? e}`)); },
