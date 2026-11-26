@@ -18,7 +18,7 @@
  * la page qu'il a lue à une adresse (26/11 : une vue corrigée et déployée restait l'ancienne chez Antoine) ; une page
  * changée prend une adresse neuve, que l'hôte lit. `test/mcp/la-vue.test.ts` exige l'empreinte de la page servie.
  */
-export const EMPREINTE_DE_LA_VUE = '353eb1f87b';
+export const EMPREINTE_DE_LA_VUE = 'c52e02a560';
 export const RESSOURCE_DE_LA_VUE = `ui://vavi/projet/${EMPREINTE_DE_LA_VUE}`;
 export const TYPE_DE_LA_VUE = 'text/html;profile=mcp-app';
 
@@ -117,7 +117,7 @@ main{padding:12px 14px;display:grid;gap:10px}
     window.removeEventListener('message',recevoir);window.addEventListener('message',recevoir);journal.forEach(function(x){console.log.apply(console,x);});
     envoyer('ui/notifications/size-changed',{width:document.body?document.body.scrollWidth:640,height:720},true);}
   function mode(m){noter('panneau demandé',m);var repondu=false;setTimeout(function(){if(repondu)return;noter('panneau : pas de réponse de l’hôte');panneauRefuse='no answer to '+m;if(derniere)laBarre(derniere);},5000);
-    return envoyer('ui/request-display-mode',{mode:m}).then(function(r){repondu=true;modeCourant=(r&&r.mode)||modeCourant;noter('mode accordé',r&&r.mode);},function(x){repondu=true;noter('mode refusé',x&&x.message);panneauRefuse=(x&&x.message)||'refused';if(derniere)laBarre(derniere);});}
+    return envoyer('ui/request-display-mode',{mode:m}).then(function(r){repondu=true;modeCourant=(r&&r.mode)||modeCourant;noter('mode accordé',r&&r.mode);if(derniere)laBarre(derniere);},function(x){repondu=true;noter('mode refusé',x&&x.message);panneauRefuse=(x&&x.message)||'refused';if(derniere)laBarre(derniere);});}
   var STYLE=':host{all:initial}.barre{position:fixed;left:0;right:0;bottom:0;z-index:2147483647;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px;'
     +'font:13px/1.3 system-ui,-apple-system,sans-serif;background:#fff;color:#1c1c1c;border-top:1px solid #e3e3e3;box-shadow:0 -2px 10px rgba(0,0,0,.06)}'
     +'button{font:inherit;padding:6px 11px;border-radius:8px;border:1px solid #d6d6d6;background:#fff;color:inherit;cursor:pointer}'
@@ -135,7 +135,7 @@ main{padding:12px 14px;display:grid;gap:10px}
     // LES BOUTONS VIENNENT DE LA FICHE (lesBoutonsDeLaFiche, 26/11) : l'hôte garde cette page, le serveur décide.
     (f.buttons||[]).forEach(function(x){var t=(x.label&&(fr?x.label.fr:x.label.en))||'';
       if(x.do==='link'&&x.url)b.appendChild(el('button',{texte:t,onclick:function(){lien(x.url);}}));
-      if(x.do==='panel')b.appendChild(el('button',{texte:t,onclick:function(){mode(modes.indexOf('fullscreen')>=0||!modes.length?'fullscreen':'pip');}}));
+      if(x.do==='panel'&&modeCourant!=='fullscreen'&&modeCourant!=='pip')b.appendChild(el('button',{class:x.main?'principal':'',texte:t,onclick:function(){mode(modes.indexOf('fullscreen')>=0||!modes.length?'fullscreen':'pip');}}));
       // Deux clics, dans la vue : le cadre de l'hôte peut interdire window.confirm (bac à sable sans « allow-modals »).
       if(x.do==='publish')b.appendChild(el('button',{class:x.main?'principal':'',texte:t,onclick:function(e){var y=e.target;
         if(!y.dataset.sur){y.dataset.sur='1';y.textContent=T.publierQ;return;}
@@ -183,7 +183,7 @@ main{padding:12px 14px;display:grid;gap:10px}
     if(m.id!=null&&attendus[m.id]){var a=attendus[m.id];delete attendus[m.id];if(m.error)a.non(new Error(m.error.message));else a.ok(m.result);return;}
     if(m.method==='ui/notifications/tool-input'){var a2=(m.params&&m.params.arguments)||{};if(a2.project){entree=a2.project;if(!projet)charger(a2.project);}}
     if(m.method==='ui/notifications/tool-result'){var s=(m.params&&m.params.structuredContent)||{};var id=s.project||s.id||entree;if(id)charger(id);}
-    if(m.method==='ui/notifications/host-context-changed'&&m.params&&m.params.displayMode)modeCourant=m.params.displayMode;
+    if(m.method==='ui/notifications/host-context-changed'&&m.params&&m.params.displayMode){modeCourant=m.params.displayMode;if(derniere)laBarre(derniere);}
     if(m.method==='ui/resource-teardown'&&m.id!=null)window.parent.postMessage({jsonrpc:'2.0',id:m.id,result:{}},'*');
   }
   window.addEventListener('message',recevoir);
