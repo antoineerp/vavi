@@ -1,11 +1,11 @@
 /**
  * La tête de chaque page : son titre et sa description, tels que les moteurs de recherche et les liens partagés les
  * lisent. Le propriétaire les choisit dans « Gérer le contenu » (`src/referencement.json`, posé par la plateforme) ;
- * sans choix, le titre de la page suivi du nom de l'app, et la description de l'app.
+ * sans choix, le titre de la page suivi du nom de l'app, et la description que la page déclare, sinon celle de l'app.
  */
 import referencement from '../referencement.json';
 import { APP } from './app';
-import { PAGES, titreDe } from './navigation';
+import { descriptionDe, PAGES, titreDe } from './navigation';
 
 interface Choisi { readonly titre?: string; readonly description?: string }
 const REF = referencement as { readonly pages: Readonly<Record<string, Choisi>>; readonly image?: string };
@@ -16,7 +16,7 @@ export function laTeteDe(chemin: string): { readonly titre: string; readonly des
   const titre = page ? titreDe(page) : null;
   return {
     titre: choisi.titre || (titre && titre !== APP.nom ? `${titre} · ${APP.nom}` : APP.nom),
-    description: choisi.description || APP.description,
+    description: choisi.description || (page ? descriptionDe(page) : null) || APP.description,
     image: REF.image ?? null,
   };
 }
