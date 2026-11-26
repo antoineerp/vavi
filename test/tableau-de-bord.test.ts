@@ -34,6 +34,20 @@ describe('la console', () => {
     for (const e of ecrans(true)) expect(existsSync(join(process.cwd(), 'app', 'projets', '[id]', e, 'page.tsx')), e || 'vue d’ensemble').toBe(true);
     expect(leMenu('en', { vend: true, comptes: true }).flatMap((r) => r.ecrans.map((e) => e.ecran))).toEqual(ecrans(true));
   });
+  // 26/11 (essai de chaque écran, choix d'Antoine « Simplifier puis enrichir ») : un seul écran pour le contenu ; les
+  // anciens écrans « Textes » et « Apparence et titres » n'y sont plus et leurs adresses y mènent.
+  it('un seul écran du contenu au menu ; les anciennes adresses y mènent', () => {
+    const ecrans = leMenu('fr', { vend: false }).flatMap((r) => r.ecrans.map((e) => e.ecran));
+    expect(ecrans).toContain('gerer');
+    expect(ecrans).not.toContain('textes');
+    expect(ecrans).not.toContain('contenu');
+    for (const e of ['textes', 'contenu']) expect(readFileSync(join(process.cwd(), 'app', 'projets', '[id]', e, 'page.tsx'), 'utf8'), e).toMatch(/redirect\(`\/projets\/.*\/gerer/);
+    const gerer = readFileSync(join(process.cwd(), 'app', 'projets', '[id]', 'gerer', 'page.tsx'), 'utf8');
+    expect(gerer).toContain('<EditeurDeTextes');
+    expect(gerer).toContain('<Apparence');
+    const mise = readFileSync(join(process.cwd(), 'app', 'projets', '[id]', 'layout.tsx'), 'utf8');
+    expect(mise).toContain("roles.some((r) => r.obtenu !== 'proprietaire')");
+  });
 });
 
 

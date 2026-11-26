@@ -50,7 +50,7 @@ export async function publier(id: string) {
  * geste suivant est refusé (`chantier_requis`) et il en rouvre un.
  */
 export async function claudeAFini(id: string, ecran = '') {
-  if (!ID.test(id) || !['', 'contenu', 'textes'].includes(ecran)) redirect('/projets');
+  if (!ID.test(id) || !['', 'gerer'].includes(ecran)) redirect('/projets');
   const c = await laConsole(`/projets/${id}`);
   const p = await c.projets.lire(c.compte, id);
   if (!p.lu) retour(id, { erreur: 'panne' }, ecran);

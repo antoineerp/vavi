@@ -18,7 +18,7 @@ import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 async function lesDependances(id: string) {
-  const c = await laConsole(`/projets/${id}/contenu`);
+  const c = await laConsole(`/projets/${id}/gerer`);
   return { compte: c.compte, projets: c.projets, construire: async (projet: string) => {
     const ctx = await leContexteReel(c.compte);
     const b = await batir(ctx.outils, { project: projet });
@@ -28,7 +28,7 @@ async function lesDependances(id: string) {
   } };
 }
 
-const retour = (id: string, r: Changement, quoi: string, ecran = 'contenu'): never => redirect(`/projets/${id}/${ecran}?${new URLSearchParams(r.change
+const retour = (id: string, r: Changement, quoi: string, ecran = 'gerer'): never => redirect(`/projets/${id}/${ecran}?${new URLSearchParams(r.change
   ? { fait: quoi, apercu: r.apercu } : { erreur: r.pourquoi, ...(r.detail ? { detail: r.detail.slice(0, 300) } : {}) })}`);
 
 export async function enregistrerLApparence(id: string, f: FormData) {
@@ -48,8 +48,7 @@ export async function enregistrerLeReferencement(id: string, f: FormData) {
   }
   const r = await changerLeReferencement(await lesDependances(id), id, pages);
   if (r.change) console.log(`[contenu] ${id.slice(0, 8)} référencement (version ${r.version}, aperçu ${r.apercu})`);
-  // Le formulaire vit dans « Gérer le contenu » et dans « Référencement » : on revient où il a été envoyé.
-  retour(id, r, 'referencement', f.get('retour') === 'referencement' ? 'referencement' : 'contenu');
+  retour(id, r, 'referencement', 'referencement');
 }
 
 const NOM_DE_PHOTO = /^[A-Za-z0-9_-]{1,60}$/;
