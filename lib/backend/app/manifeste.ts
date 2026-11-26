@@ -220,8 +220,38 @@ export const Boutique = z.object({
 export const TABLES_DE_LA_PLATEFORME = ['membres', 'membres_invitations', 'membres_espaces', 'membres_choix', 'commande', 'coffre_documents', 'coffre_dossiers'] as const;
 
 const Couleur = z.string().regex(/^#[0-9a-f]{6}$/i);
+/**
+ * LA DIRECTION ARTISTIQUE RÉDIGÉE (Antoine, 26/11 : « on a perdu beaucoup de qualité design ») : Claude la rédige pour CETTE
+ * demande, en directeur artistique, comme le faisaient `llm-design-intelligence.ts` et `art-direction.ts` de constructor-v13
+ * (12/05, 948a77316) et sa direction d'octobre (`generateur/outils/la-direction-artistique.ts`). Chaque champ ajouté est
+ * facultatif : un app.json d'avant se lit tel quel. Le registre et le mouvement sont CHOISIS par Claude ; aucun mot-clé
+ * côté vavi ne les décide (ce qu'ils remplacent : les listes de mots de `detectArtDirection`). Le guide de chaque registre
+ * est dans `lib/design/le-langage.ts`.
+ */
+export const REGISTRES = ['classique', 'editorial', 'narratif', 'catalogue', 'brut', 'outil'] as const;
+export const MOUVEMENTS = ['vivant', 'discret', 'immobile'] as const;
+export const SIGNATURES = ['photo', 'bande-inversee', 'maillage', 'typographie'] as const;
+const Phrase = z.string().min(1).max(600);
+export const Intention = z.object({
+  signature: Phrase.optional().describe('the visual idea that makes THIS site and no other, in one sentence'),
+  premierEcran: Phrase.optional().describe('what the home page shows before any scroll, and how'),
+  composition: Phrase.optional().describe('how pages are organised and follow each other: grid, rhythm, density, the break that avoids monotony'),
+  typographie: Phrase.optional().describe('the character of the headlines and the text, and what they say of the subject'),
+  matiere: Phrase.optional().describe('surfaces, textures, photos (real subjects, framing, treatment)'),
+  voix: Phrase.optional().describe('the voice of the texts: register, sentence length, what is never said'),
+  pourquoiDesCouleurs: Phrase.optional().describe('why THESE colours for THIS subject, in one sentence'),
+}).describe('the art direction written for this request: each line says what holds for THIS site and not another');
+
 export const Direction = z.object({
-  couleurs: z.object({ fond: Couleur, texte: Couleur, accent: Couleur, surface: Couleur, bordure: Couleur }),
+  couleurs: z.object({ fond: Couleur, texte: Couleur, accent: Couleur, surface: Couleur, bordure: Couleur,
+    second: Couleur.optional().describe('a second hue, accomplice of the accent: the end of a gradient headline, a second mark'),
+    ancre: Couleur.optional().describe('the deep colour of dark bands (footer, inverted band), carrying light text; taken from the subject') }),
+  registre: z.enum(REGISTRES).optional().describe('the register of the public pages, chosen from what the request carries: classique (premium editorial), editorial (typography first), narratif (immersive, full-height, the scroll tells), catalogue (products photo first), brut (very large type, strong contrast), outil (the screen is the product)'),
+  mouvement: z.enum(MOUVEMENTS).default('vivant').describe('how much the app moves: vivant (reveal on scroll, hover, depth), discret (short and sober), immobile (nothing moves)'),
+  signatureVisuelle: z.enum(SIGNATURES).optional().describe('what one recognises from the first screen: photo (full-frame photo under a veil), bande-inversee (a full-width band in inverted contrast), maillage (two soft colour blurs behind the opening), typographie (a monumental headline)'),
+  verre: z.boolean().default(true).describe('true: frosted glass is allowed for the header and floating cards (`verre`); false: opaque surfaces'),
+  degrade: z.boolean().default(true).describe('true: one or two words of a headline may go from the accent to the second hue (`texte-degrade`); false: flat colours'),
+  intention: Intention.optional(),
   polices: z.object({ titres: z.enum(NOMS_DES_POLICES), texte: z.enum(NOMS_DES_POLICES) }),
   rayon: z.enum(['net', 'doux', 'rond']).describe('l’arrondi des boutons, des champs et des cartes'),
   travail: z.enum(['affirme', 'sobre']).default('affirme').describe('l’allure des écrans derrière un compte : `affirme`, une colonne de menu sombre et de grands titres ; `sobre`, une colonne de menu claire, l’écran ouvert à la teinte de l’accent, des titres de taille courante — celle d’une app jointe ou reprise qui a une colonne claire'),
@@ -229,7 +259,7 @@ export const Direction = z.object({
 }).superRefine((d, ctx) => {
   if (d.couleursDemandees) return;
   for (const [nom, hex] of Object.entries(d.couleurs)) {
-    if (estViolette(hex)) ctx.addIssue({ code: 'custom', path: ['couleurs', nom], message: `${hex} est violet, mauve ou indigo : ces teintes ne se posent que si la demande les nomme` });
+    if (hex && estViolette(hex)) ctx.addIssue({ code: 'custom', path: ['couleurs', nom], message: `${hex} est violet, mauve ou indigo : ces teintes ne se posent que si la demande les nomme` });
   }
 }).describe('la direction artistique, choisie pour le sujet de la demande : le contraste de lecture est construit à partir d’elle');
 

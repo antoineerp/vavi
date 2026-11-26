@@ -31,7 +31,7 @@ import { CHEMIN_DU_GABARIT, garderLeGabaritCourant, lArbreLu, laVersionFixee, le
 import { leGabaritCourant } from '@/squelette/registre';
 import { revenirA } from '@/lib/versions/revenir';
 import type { LecturesDeLaVue } from './les-gestes-de-la-vue';
-import { leGuideDeDesign, lesEcartsDeLAccueil, type MesureVue } from '@/lib/design/le-guide';
+import { leGuideAvantLeProjet, leGuideDeDesign, lesEcartsDeLAccueil, type MesureVue } from '@/lib/design/le-guide';
 import { lesLiensMorts } from '@/squelette/les-liens';
 import { lesEcartsDeDroit } from '@/squelette/les-droits-des-pages';
 import type { Etape as EtapeDuParcours, Parcours } from '@/lib/parcours/le-parcours';
@@ -545,7 +545,9 @@ export async function configurerLeBackend(c: Contexte, a: { project: string; wor
  * mots seuls. INCIDENT 25/11 (essai « Thème astral ») : le guide joignait des captures (des sites de marque, un projet
  * généré par constructor), que Claude.ai montrait à la personne en vignettes ; Claude conçoit seul (Antoine, 25/11 15h30).
  */
-export async function leGuideDuDesign(c: Contexte, a: { project: string }): Promise<Rendu> {
+export async function leGuideDuDesign(c: Contexte, a: { project?: string; nature?: Manifeste['nature'] }): Promise<Rendu> {
+  // Avant le projet (26/11) : comment écrire la direction d'app.json, et le langage qu'elle servira.
+  if (!a.project) return fait(leGuideAvantLeProjet(a.nature));
   const p = await leProjet(c, a.project);
   if (!p.ok) return p.refus;
   const f = await lesFichiers(c, a.project);
@@ -554,7 +556,7 @@ export async function leGuideDuDesign(c: Contexte, a: { project: string }): Prom
   if (!arbre.lu) return refuser('app_json_refuse', `app.json does not hold: ${arbre.erreurs.join(' | ')}`, { fichier: 'app.json' });
   const g = leGuideDeDesign(arbre.manifeste);
   (c.guidesLus ?? GUIDES_LUS).add(cleDuGuide(c, a.project, p.valeur.chantier?.id));
-  return fait({ guide: g.guide, rules: g.regles.map((r) => r.texte) });
+  return fait({ ...(g.direction ? { your_direction: g.direction } : {}), guide: g.guide, visual_language: g.langage, rules: g.regles.map((r) => r.texte) });
 }
 
 /**

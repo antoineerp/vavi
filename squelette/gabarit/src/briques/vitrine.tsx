@@ -32,8 +32,12 @@ export function Ouverture({ surtitre, titre, chapeau, gestes, visuel }: {
   const [premier, second] = gestes;
   // Les promesses viennent d'app.json, où chacune nomme ce qui la tient : aucune ne s'écrit dans la page.
   const preuves = (APP.promesses ?? []).map((p) => p.texte);
+  // La signature de la direction (26/11) : une bande en inversion de contraste, ou deux taches de couleur floues derrière.
+  const signature = APP.direction?.signatureVisuelle;
+  const fond = signature === 'bande-inversee' ? 'bande-ancre [&_.text-muted-foreground]:text-sur-ancre-attenue [&_.text-accent-texte]:text-seconde'
+    : signature === 'maillage' ? 'maillage overflow-hidden bg-background' : 'bg-secondary';
   return (
-    <section data-piece="ouverture" className={cn(PLEINE_LARGEUR, 'bg-secondary')}>
+    <section data-piece="ouverture" className={cn(PLEINE_LARGEUR, fond)}>
       <div className={cn('mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 md:gap-14 md:py-24', visuel && 'md:grid-cols-[1.15fr_1fr]')}>
         <div className={cn('space-y-7', !visuel && 'mx-auto max-w-3xl text-center [&_p]:mx-auto [&_ul]:justify-center [&>div]:justify-center')}>
           {surtitre ? <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent-texte">{surtitre}</p> : null}
@@ -41,7 +45,7 @@ export function Ouverture({ surtitre, titre, chapeau, gestes, visuel }: {
           <p className="max-w-xl text-pretty text-lg text-muted-foreground">{chapeau}</p>
           <div className="flex flex-wrap gap-3">
             <Link to={premier.vers} className={cn(buttonVariants({ size: 'lg' }), 'rounded-full px-7')}>{premier.libelle}</Link>
-            {second ? <Link to={second.vers} className={cn(buttonVariants({ size: 'lg', variant: 'outline' }), 'rounded-full border-foreground bg-transparent px-7')}>{second.libelle}</Link> : null}
+            {second ? <Link to={second.vers} className={cn(buttonVariants({ size: 'lg', variant: 'outline' }), 'rounded-full border-current bg-transparent px-7 text-inherit hover:bg-current/10 hover:text-inherit')}>{second.libelle}</Link> : null}
           </div>
           {preuves.length > 0 ? (
             <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
@@ -49,7 +53,7 @@ export function Ouverture({ surtitre, titre, chapeau, gestes, visuel }: {
             </ul>
           ) : null}
         </div>
-        {visuel ? <div className="[&>img]:aspect-[4/5] [&>img]:w-full [&>img]:rounded-xl [&>img]:shadow-lg md:[&>img]:aspect-[5/6]">{visuel}</div> : null}
+        {visuel ? <div className="apparait [&>img]:aspect-[4/5] [&>img]:w-full [&>img]:rounded-xl [&>img]:ombre-teintee md:[&>img]:aspect-[5/6]">{visuel}</div> : null}
       </div>
     </section>
   );
@@ -65,7 +69,7 @@ export function SectionIllustree({ surtitre, titre, texte, points = [], geste, v
   readonly geste?: Geste; readonly visuel: ReactNode; readonly inverse?: boolean;
 }) {
   return (
-    <section data-piece="section-illustree" className="grid items-center gap-10 py-14 md:grid-cols-2 md:gap-16 md:py-20">
+    <section data-piece="section-illustree" className="apparait grid items-center gap-10 py-14 md:grid-cols-[1fr_1.1fr] md:gap-16 md:py-20">
       <div className={cn('space-y-5', inverse && 'md:order-2')}>
         {surtitre ? <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent-texte">{surtitre}</p> : null}
         <h2 className="text-balance font-titre text-3xl leading-tight tracking-tight md:text-4xl">{titre}</h2>
@@ -75,7 +79,7 @@ export function SectionIllustree({ surtitre, titre, texte, points = [], geste, v
         ) : null}
         {geste ? <Link to={geste.vers} className="inline-block font-medium underline decoration-primary decoration-2 underline-offset-8">{geste.libelle}</Link> : null}
       </div>
-      <div className="min-w-0 [&>img]:aspect-[4/3] [&>img]:w-full [&>img]:rounded-xl">{visuel}</div>
+      <div className="min-w-0 [&>img]:aspect-[4/3] [&>img]:w-full [&>img]:rounded-xl [&>img]:ombre-teintee">{visuel}</div>
     </section>
   );
 }
@@ -83,8 +87,8 @@ export function SectionIllustree({ surtitre, titre, texte, points = [], geste, v
 /** La dernière section de l'accueil : une bande pleine de l'accent, une phrase qui décide et le geste principal. */
 export function AppelFinal({ titre, chapeau, geste }: { readonly titre: string; readonly chapeau?: string; readonly geste: Geste }) {
   return (
-    <section data-piece="appel-final" className={cn(PLEINE_LARGEUR, 'mt-10 bg-primary text-primary-foreground')}>
-      <div className="mx-auto max-w-3xl space-y-6 px-4 py-20 text-center">
+    <section data-piece="appel-final" className={cn(PLEINE_LARGEUR, 'mt-10 overflow-hidden bg-primary text-primary-foreground')}>
+      <div className="apparait mx-auto max-w-3xl space-y-6 px-4 py-20 text-center md:py-28">
         <h2 className="text-balance font-titre text-4xl tracking-tight md:text-5xl">{titre}</h2>
         {chapeau ? <p className="mx-auto max-w-xl text-pretty text-lg opacity-90">{chapeau}</p> : null}
         <Link to={geste.vers} className={cn(buttonVariants({ size: 'lg', variant: 'outline' }), 'rounded-full border-transparent bg-background px-8 text-foreground hover:bg-background/90')}>{geste.libelle}</Link>
@@ -121,7 +125,7 @@ export function CarteDObjet({ vers, photo, titre, detail, prix, etiquette }: {
   readonly vers: string; readonly photo: ReactNode; readonly titre: string; readonly detail?: string; readonly prix?: string; readonly etiquette?: string;
 }) {
   return (
-    <Link to={vers} data-piece="carte" className="group block space-y-3">
+    <Link to={vers} data-piece="carte" className="apparait group block space-y-3">
       <div className="relative aspect-[4/5] overflow-hidden rounded-lg bg-muted [&_img]:size-full [&_img]:transition-transform [&_img]:duration-500 group-hover:[&_img]:scale-[1.03]">
         {photo}
         {etiquette ? <span className="absolute left-3 top-3 rounded-full bg-background px-3 py-1 text-xs font-semibold">{etiquette}</span> : null}

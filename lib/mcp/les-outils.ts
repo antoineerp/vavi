@@ -17,6 +17,7 @@ import * as v from './les-gestes-de-la-vue';
 import { META_DE_LA_VUE, META_DE_LA_VUE_SEULE } from './la-vue';
 import { LONGUEUR_DES_NOTES } from '@/lib/projets/le-sql-des-projets';
 import { laFormeDAppJson } from '@/lib/backend/app/l-exemple-d-app-json';
+import { Nature } from '@/lib/backend/app/manifeste';
 
 const projet = z.string().min(1).max(64).describe('The project id, as `list_projects` returns it.');
 const chantier = z.string().min(1).max(64).describe('The id of the open work session, as `ouvrir_chantier` returned it.');
@@ -106,8 +107,10 @@ export const DEFINITIONS = {
     geste: (c, a) => g.poserUnSecret(c, a),
   }),
   get_design_guide: def({
-    title: 'Read the design guide', lecture: true, entree: z.object({ project: projet }),
-    description: 'Call it before writing or redesigning pages. What the pages of this app must be (sections, compositions, photos, the final check), and the design rules for its kind and what it carries. You design each page yourself: no existing site or other project is shown or to be looked at.',
+    title: 'Read the design guide', lecture: true,
+    entree: z.object({ project: projet.optional().describe('The project; leave it out BEFORE `create_project`, to write the art direction of app.json.'),
+      nature: Nature.optional().describe('Without a project: the kind of thing to build.') }),
+    description: 'Call it twice: before `create_project` (without `project`), to write the art direction of app.json (`direction`: colours, fonts, register, motion, intention) as an art director; and before writing or redesigning pages (with `project`): the direction you wrote, the visual language (typography, rhythm, depth, motion, lists, icons, the style of its register), what the pages must be (sections, compositions, photos, the final check), and the design rules for its kind. You design each page yourself: no existing site or other project is shown or to be looked at.',
     geste: (c, a) => g.leGuideDuDesign(c, a),
   }),
   search_images: def({

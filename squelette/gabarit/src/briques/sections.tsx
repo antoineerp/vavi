@@ -56,7 +56,7 @@ export function Galerie({ surtitre, titre, chapeau, photos }: {
   const [ouverte, ouvrir] = useState<number | null>(null);
   const vue = ouverte === null ? null : photos[ouverte];
   return (
-    <section data-piece="galerie" className="py-14 md:py-20">
+    <section data-piece="galerie" className="apparait py-14 md:py-20">
       <TeteDeSection surtitre={surtitre} titre={titre} chapeau={chapeau} />
       <div className="columns-2 gap-3 md:columns-3 md:gap-4 [&>*]:mb-3 md:[&>*]:mb-4">
         {photos.map((p, i) => (
@@ -97,7 +97,7 @@ export function Tarifs<T extends NomDeTable>({ table, demande, formule, surtitre
   const langue = langueCourante();
   const monnaie = devise ?? APP.vente?.devise ?? 'EUR';
   return (
-    <section data-piece="tarifs" className="py-14 md:py-20">
+    <section data-piece="tarifs" className="apparait py-14 md:py-20">
       <TeteDeSection surtitre={surtitre} titre={titre} chapeau={chapeau} />
       <div className="grid gap-5 md:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]">
         {lu.lignes.map((l, i) => {
@@ -139,7 +139,7 @@ export function Avis<T extends NomDeTable>({ table, demande, avis, surtitre, tit
   if ('rendu' in lu) return <>{lu.rendu}</>;
   if (lu.lignes.length === 0) return null;
   return (
-    <section data-piece="avis" className="py-14 md:py-20">
+    <section data-piece="avis" className="apparait py-14 md:py-20">
       <TeteDeSection surtitre={surtitre} titre={titre} chapeau={chapeau} />
       <div className="columns-1 gap-5 md:columns-2 lg:columns-3 [&>*]:mb-5">
         {lu.lignes.map((l, i) => {
