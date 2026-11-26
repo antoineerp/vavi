@@ -18,7 +18,7 @@
  * la page qu'il a lue à une adresse (26/11 : une vue corrigée et déployée restait l'ancienne chez Antoine) ; une page
  * changée prend une adresse neuve, que l'hôte lit. `test/mcp/la-vue.test.ts` exige l'empreinte de la page servie.
  */
-export const EMPREINTE_DE_LA_VUE = '8e161e0422';
+export const EMPREINTE_DE_LA_VUE = '353eb1f87b';
 export const RESSOURCE_DE_LA_VUE = `ui://vavi/projet/${EMPREINTE_DE_LA_VUE}`;
 export const TYPE_DE_LA_VUE = 'text/html;profile=mcp-app';
 
@@ -89,12 +89,12 @@ main{padding:12px 14px;display:grid;gap:10px}
 (function(){
   var JETON=${enScript(jeton)};
   var fr=(navigator.language||'').toLowerCase().indexOf('fr')===0;
-  var T=fr?{attente:'Chargement de l’aperçu…',enLigne:'En ligne',aPublier:'Changements à publier',rien:'Pas encore d’aperçu',grand:'Voir l’aperçu',
-    publier:'Publier',publierQ:'Confirmer : mettre en ligne cet aperçu',publie:'C’est en ligne.',console:'Console vavi',
+  var T=fr?{attente:'Chargement de l’aperçu…',enLigne:'En ligne',aPublier:'Changements à publier',rien:'Pas encore d’aperçu',
+    publierQ:'Confirmer : mettre en ligne cet aperçu',publie:'C’est en ligne.',
     erreur:'Cela n’a pas marché :',sansApercu:'Demandez à Claude de construire l’aperçu.',
     construit:'Claude construit :',prepare:'Claude prépare le premier aperçu, il s’affichera ici.',version:'Version'}
-  :{attente:'Loading the preview…',enLigne:'Online',aPublier:'Changes to publish',rien:'No preview yet',grand:'See the preview',
-    publier:'Publish',publierQ:'Confirm: put this preview online',publie:'It is online.',console:'vavi console',
+  :{attente:'Loading the preview…',enLigne:'Online',aPublier:'Changes to publish',rien:'No preview yet',
+    publierQ:'Confirm: put this preview online',publie:'It is online.',
     erreur:'That did not work:',sansApercu:'Ask Claude to build the preview.',
     construit:'Claude is building:',prepare:'Claude is preparing the first preview; it will show here.',version:'Version'};
   document.getElementById('attente').textContent=T.attente;
@@ -132,15 +132,15 @@ main{padding:12px 14px;display:grid;gap:10px}
     if(message)b.appendChild(el('span',{class:'mot',role:'status',texte:message}));
     else if(f.building)b.appendChild(el('span',{class:'mot',role:'status',texte:T.construit+' '+(f.work_session||'')}));
     if(!f.app_html&&!f.app_html_unchanged&&!f.building)b.appendChild(el('span',{class:'doux',texte:f.preview_url?T.attente:T.sansApercu}));
-    if(f.preview_url)b.appendChild(el('button',{texte:T.grand,onclick:function(){lien(f.preview_url);}}));
-    // TROIS BOUTONS (Antoine, 26/11 16h28) : l'aperçu, Publier, la console ; le reste (en grand, offre, site en ligne) passe
-    // par l'icône ⤢ de l'hôte ou par la console.
-    // Deux clics, dans la vue : le cadre de l'hôte peut interdire window.confirm (bac à sable sans « allow-modals »).
-    if(f.state==='a_publier')b.appendChild(el('button',{class:'principal',texte:T.publier,onclick:function(e){var x=e.target;
-      if(!x.dataset.sur){x.dataset.sur='1';x.textContent=T.publierQ;return;}
-      x.disabled=true;outil('vavi_mettre_en_ligne',{project:f.id,geste:JETON})
-        .then(function(r){montrer(r.fiche,T.publie);}).catch(function(y){montrer(f,T.erreur+' '+y.message);});}}));
-    b.appendChild(el('button',{texte:T.console,onclick:function(){lien(f.console_url);}}));
+    // LES BOUTONS VIENNENT DE LA FICHE (lesBoutonsDeLaFiche, 26/11) : l'hôte garde cette page, le serveur décide.
+    (f.buttons||[]).forEach(function(x){var t=(x.label&&(fr?x.label.fr:x.label.en))||'';
+      if(x.do==='link'&&x.url)b.appendChild(el('button',{texte:t,onclick:function(){lien(x.url);}}));
+      if(x.do==='panel')b.appendChild(el('button',{texte:t,onclick:function(){mode(modes.indexOf('fullscreen')>=0||!modes.length?'fullscreen':'pip');}}));
+      // Deux clics, dans la vue : le cadre de l'hôte peut interdire window.confirm (bac à sable sans « allow-modals »).
+      if(x.do==='publish')b.appendChild(el('button',{class:x.main?'principal':'',texte:t,onclick:function(e){var y=e.target;
+        if(!y.dataset.sur){y.dataset.sur='1';y.textContent=T.publierQ;return;}
+        y.disabled=true;outil('vavi_mettre_en_ligne',{project:f.id,geste:JETON})
+          .then(function(r){montrer(r.fiche,T.publie);}).catch(function(z){montrer(f,T.erreur+' '+z.message);});}}));});
     // Ce que l'hôte a répondu à la demande du panneau, lisible sans la console du navigateur (26/11).
     if(panneauRefuse)b.appendChild(el('span',{class:'doux',texte:'Claude: '+panneauRefuse}));
     ombre.appendChild(b);
