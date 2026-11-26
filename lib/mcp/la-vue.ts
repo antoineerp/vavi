@@ -95,6 +95,8 @@ main{padding:12px 14px;display:grid;gap:10px}
     construit:'Claude is building:',prepare:'Claude is preparing the first preview; it will show here.',version:'Version'};
   document.getElementById('attente').textContent=T.attente;
   var n=0,attendus={};
+  // Ce que l'hôte répond (modes, panneau), redit après chaque écriture de l'app : document.open efface la console du cadre.
+  var journal=[];function noter(){var x=['[vavi]'].concat([].slice.call(arguments));journal.push(x);console.log.apply(console,x);}
   function envoyer(methode,params,notif){var m={jsonrpc:'2.0',method:methode,params:params||{}};if(!notif){m.id=++n;}
     window.parent.postMessage(m,'*');if(notif)return Promise.resolve();return new Promise(function(ok,non){attendus[m.id]={ok:ok,non:non};});}
   function lien(url){return envoyer('ui/open-link',{url:url}).catch(function(){window.open(url,'_blank','noopener');});}
@@ -108,9 +110,9 @@ main{padding:12px 14px;display:grid;gap:10px}
   // écouteurs de la fenêtre : celui des messages de l'hôte est reposé après chaque écriture. La barre vit dans une ombre
   // (shadow DOM) : ni le style de l'app ne la touche, ni le sien ne touche l'app.
   function ecrire(html){if(ecrite===html)return;ecrite=html;document.open();document.write(html);document.close();
-    window.removeEventListener('message',recevoir);window.addEventListener('message',recevoir);
+    window.removeEventListener('message',recevoir);window.addEventListener('message',recevoir);journal.forEach(function(x){console.log.apply(console,x);});
     envoyer('ui/notifications/size-changed',{width:document.body?document.body.scrollWidth:640,height:720},true);}
-  function mode(m){return envoyer('ui/request-display-mode',{mode:m}).then(function(r){modeCourant=(r&&r.mode)||modeCourant;console.log('[vavi] mode accordé',r&&r.mode);},function(x){console.log('[vavi] mode refusé',x&&x.message);});}
+  function mode(m){return envoyer('ui/request-display-mode',{mode:m}).then(function(r){modeCourant=(r&&r.mode)||modeCourant;noter('mode accordé',r&&r.mode);},function(x){noter('mode refusé',x&&x.message);});}
   var STYLE=':host{all:initial}.barre{position:fixed;left:0;right:0;bottom:0;z-index:2147483647;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px;'
     +'font:13px/1.3 system-ui,-apple-system,sans-serif;background:#fff;color:#1c1c1c;border-top:1px solid #e3e3e3;box-shadow:0 -2px 10px rgba(0,0,0,.06)}'
     +'button{font:inherit;padding:6px 11px;border-radius:8px;border:1px solid #d6d6d6;background:#fff;color:inherit;cursor:pointer}'
@@ -181,7 +183,7 @@ main{padding:12px 14px;display:grid;gap:10px}
   }
   window.addEventListener('message',recevoir);
   envoyer('ui/initialize',{protocolVersion:'2026-01-26',appInfo:{name:'vavi',version:'1'},clientInfo:{name:'vavi',version:'1'},appCapabilities:{availableDisplayModes:['inline','fullscreen','pip']}})
-    .then(function(r){modes=(r&&r.hostContext&&r.hostContext.availableDisplayModes)||[];modeCourant=(r&&r.hostContext&&r.hostContext.displayMode)||null;if(projet&&derniere)ouvrirLePanneau();console.log('[vavi] modes de l’hôte',JSON.stringify(modes));envoyer('ui/notifications/initialized',{},true);taille();}).catch(function(){taille();});
+    .then(function(r){modes=(r&&r.hostContext&&r.hostContext.availableDisplayModes)||[];modeCourant=(r&&r.hostContext&&r.hostContext.displayMode)||null;if(projet&&derniere)ouvrirLePanneau();noter('modes de l’hôte',JSON.stringify(modes),'affichage',modeCourant);envoyer('ui/notifications/initialized',{},true);taille();}).catch(function(x){noter('initialisation refusée',x&&x.message);taille();});
 })();
 </script></body></html>`;
 }
