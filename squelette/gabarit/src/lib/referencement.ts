@@ -2,15 +2,16 @@
  * La tête de chaque page : son titre et sa description, tels que les moteurs de recherche et les liens partagés les
  * lisent. Le propriétaire les choisit dans « Gérer le contenu » (`src/referencement.json`, posé par la plateforme) ;
  * sans choix, le titre de la page suivi du nom de l'app, et la description que la page déclare, sinon celle de l'app.
+ * Une page qu'il cache de Google porte `noindex`.
  */
 import referencement from '../referencement.json';
 import { APP } from './app';
 import { descriptionDe, PAGES, titreDe } from './navigation';
 
-interface Choisi { readonly titre?: string; readonly description?: string }
+interface Choisi { readonly titre?: string; readonly description?: string; readonly cachee?: boolean }
 const REF = referencement as { readonly pages: Readonly<Record<string, Choisi>>; readonly image?: string };
 
-export function laTeteDe(chemin: string): { readonly titre: string; readonly description: string; readonly image: string | null } {
+export function laTeteDe(chemin: string): { readonly titre: string; readonly description: string; readonly image: string | null; readonly cachee: boolean } {
   const choisi = REF.pages[chemin] ?? {};
   const page = PAGES.find((p) => p.chemin === chemin);
   const titre = page ? titreDe(page) : null;
@@ -18,6 +19,7 @@ export function laTeteDe(chemin: string): { readonly titre: string; readonly des
     titre: choisi.titre || (titre && titre !== APP.nom ? `${titre} · ${APP.nom}` : APP.nom),
     description: choisi.description || (page ? descriptionDe(page) : null) || APP.description,
     image: REF.image ?? null,
+    cachee: choisi.cachee === true,
   };
 }
 
@@ -36,4 +38,6 @@ export function poserLaTete(chemin: string): void {
   meta('property', 'og:title', t.titre);
   meta('property', 'og:description', t.description);
   meta('property', 'og:image', t.image);
+  // Une page que le propriétaire cache de Google (« Référencement ») ; le site en ligne le dit aussi dans l'en-tête.
+  meta('name', 'robots', t.cachee ? 'noindex' : null);
 }

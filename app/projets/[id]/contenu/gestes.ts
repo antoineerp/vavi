@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import { laConsole } from '@/app/_partage/la-console';
 import { construireLApercu as batir, estUnRefus } from '@/lib/mcp/les-gestes';
 import { leContexteReel } from '@/lib/mcp/le-contexte-reel';
-import { changerLApparence, changerLeReferencement, changerLeSite, changerUneImage, CHEMIN_DU_REFERENCEMENT, lApparenceDuFormulaire, leReferencementStocke, type Apparence, type Changement } from '@/lib/contenus/le-contenu';
+import { changerLApparence, changerLeReferencement, changerLeSite, changerUneImage, CHEMIN_DU_REFERENCEMENT, lApparenceDuFormulaire, leReferencementStocke, lesRedirectionsTapees, type Apparence, type Changement } from '@/lib/contenus/le-contenu';
 import { CHEMIN_DES_IMAGES, lireLesImages } from '@/lib/images/la-banque';
 import { banqueDeLaPlateforme } from '@/lib/images/la-banque';
 import { TAILLE_MAX_D_UNE_PHOTO, laCleDeLaPhoto, leFichierDeLaPhoto, leFormatDUnePhoto, sansLesMetadonnees } from '@/lib/images/la-photo-fournie';
@@ -42,13 +42,24 @@ export async function enregistrerLApparence(id: string, f: FormData) {
 
 export async function enregistrerLeReferencement(id: string, f: FormData) {
   if (!ID.test(id)) redirect('/projets');
-  const pages: Record<string, { titre: string; description: string }> = {};
+  const pages: Record<string, { titre: string; description: string; cachee: boolean }> = {};
   for (const adresse of f.getAll('adresse').map(String).slice(0, 200)) {
-    pages[adresse] = { titre: String(f.get(`titre:${adresse}`) ?? ''), description: String(f.get(`description:${adresse}`) ?? '') };
+    pages[adresse] = { titre: String(f.get(`titre:${adresse}`) ?? ''), description: String(f.get(`description:${adresse}`) ?? ''), cachee: f.get(`cachee:${adresse}`) === 'oui' };
   }
   const r = await changerLeReferencement(await lesDependances(id), id, pages);
   if (r.change) console.log(`[contenu] ${id.slice(0, 8)} référencement (version ${r.version}, aperçu ${r.apercu})`);
   retour(id, r, 'referencement', 'referencement');
+}
+
+/** « Référencement » : les anciennes adresses envoyées vers les nouvelles (301), une par ligne ; l'aperçu est rebâti. */
+export async function enregistrerLesRedirections(id: string, f: FormData) {
+  if (!ID.test(id)) redirect('/projets');
+  const lues = lesRedirectionsTapees(String(f.get('redirections') ?? ''));
+  if (!lues.ok) retour(id, { change: false, pourquoi: 'mal_forme', detail: lues.detail }, 'redirections', 'referencement');
+  const d = await lesDependances(id);
+  const r = await changerLeReferencement(d, id, await lesPagesPosees(d, id), { redirections: (lues as Extract<typeof lues, { ok: true }>).redirections });
+  if (r.change) console.log(`[contenu] ${id.slice(0, 8)} redirections (version ${r.version}, aperçu ${r.apercu})`);
+  retour(id, r, 'redirections', 'referencement');
 }
 
 const NOM_DE_PHOTO = /^[A-Za-z0-9_-]{1,60}$/;
