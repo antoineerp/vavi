@@ -164,10 +164,15 @@ export function lesDemandesReparees(json: unknown): { readonly valeur: unknown; 
   const parTitre = new Map(ecrans.filter((e) => typeof e.titre === 'string').map((e) => [String(e.titre).trim().toLowerCase(), e.nom]));
   const repare: string[] = [];
   const demandes = brut.demandes.flatMap((d) => {
-    if (!d || typeof d !== 'object' || !Array.isArray((d as { tenuePar?: unknown }).tenuePar)) return [d];
-    const x = d as { passage?: unknown; tenuePar: unknown[] };
+    if (!d || typeof d !== 'object') return [d];
+    const x = d as { passage?: unknown; tenuePar?: unknown };
     const cite = `« ${String(x.passage ?? '').slice(0, 80)} »`;
-    const tenue = x.tenuePar.flatMap((t) => {
+    // Rien de nommé (INCIDENT 26/11, la scierie : `tenuePar: []` sur un site) : la demande ne tient rien, elle part.
+    if (!Array.isArray(x.tenuePar) || x.tenuePar.length === 0) {
+      repare.push(`la demande ${cite} ne nomme ni écran, ni agent, ni automatisation qui la tienne : retirée de \`demandes\``);
+      return [];
+    }
+    const tenue = (x.tenuePar as unknown[]).flatMap((t) => {
       if (typeof t !== 'string') return [];
       if (tenants.has(t)) return [t];
       const lu = parTitre.get(t.trim().toLowerCase()) ?? (tenants.has(t.trim().toLowerCase()) ? t.trim().toLowerCase() : undefined);
@@ -175,8 +180,8 @@ export function lesDemandesReparees(json: unknown): { readonly valeur: unknown; 
       return lu ? [lu] : [];
     });
     if (tenue.length) return [{ ...x, tenuePar: [...new Set(tenue)] }];
-    if (x.tenuePar.length) repare.push(`la demande ${cite} n’est tenue par rien de déclaré : retirée de \`demandes\``);
-    return x.tenuePar.length ? [] : [d];
+    repare.push(`la demande ${cite} n’est tenue par rien de déclaré : retirée de \`demandes\``);
+    return [];
   });
   return repare.length ? { valeur: { ...brut, demandes }, repare } : { valeur: json, repare: [] };
 }
