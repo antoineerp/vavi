@@ -514,6 +514,7 @@ describe('la forme d’app.json, dite avant le premier envoi (essai Yokono du 26
     for (const p of NOMS_DES_POLICES) expect(d).toContain(p);
     for (const t of TypeDeChamp.options) expect(d).toContain(t);
     expect(d).toContain('tenuePar');
+    expect(d).toContain('`visiteur`: anyone without an account');
     expect(lesOutils().find((o) => o.name === 'configure_backend')!.description).toContain('create_project');
   });
 });

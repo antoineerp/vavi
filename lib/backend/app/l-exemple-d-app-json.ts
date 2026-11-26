@@ -66,6 +66,7 @@ export function laFormeDAppJson(): string {
     `Its shape, to follow exactly (a complete valid app.json): ${EXEMPLE_D_APP_JSON_TEXTE}`,
     `Allowed values. nature: ${v(Nature)}. Font (direction.polices.titres and .texte): ${NOMS_DES_POLICES.join(' | ')}.`,
     `Field type: ${v(TypeDeChamp)}. Table appartenance: ${v(Appartenance)}. Role obtenu: ${v(Obtention)}. organisations: ${v(Organisations)}.`,
+    '`lecture` and `ecriture` of a table list declared roles, or `visiteur`: anyone without an account (in `lecture`, reads a `publique` table, such as a menu; in `ecriture`, sends a row, such as a booking). An empty `lecture` means nobody but the author reads it.',
     'Each of `demandes` is { passage: the words of the person, quoted; tenuePar: [names of the screens, agents or automations that do it] }; leave it [] when unsure.',
   ].join('\n');
 }
