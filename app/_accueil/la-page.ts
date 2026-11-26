@@ -163,6 +163,24 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 /* Sections */
 section{padding-block:64px}
 .titre-section{display:grid;gap:12px;margin-bottom:36px;max-width:44em}
+/* Ouverture sur une colonne, avec la capture réelle de Claude ; ce qui tourne ; l'abonnement */
+.ouverture.une-colonne .enveloppe{grid-template-columns:1fr;gap:36px}
+.ouverture.une-colonne .texte{max-width:46em}
+.ecran-claude,.capture-console{margin:0;display:grid;gap:10px;min-width:0}
+.ecran-claude img,.capture-console img{width:100%;height:auto;display:block;border:1px solid var(--trait);border-radius:14px;box-shadow:0 1px 0 var(--trait),0 30px 60px -34px var(--ombre);background:var(--carte)}
+.ecran-claude figcaption,.capture-console figcaption{font-family:var(--f-mono);font-size:.8rem;color:var(--encre-douce)}
+.tourne{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:36px;align-items:start}
+.ce-qui-tourne{list-style:none;margin:0;padding:0;display:grid;gap:18px}
+.ce-qui-tourne li{display:grid;gap:3px;padding-left:18px;border-left:2px solid var(--vert)}
+.ce-qui-tourne b{font-family:var(--f-titre);font-size:1.08rem}
+.ce-qui-tourne span{color:var(--encre-douce);font-size:.97rem}
+.surete{list-style:none;margin:32px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.surete li{background:var(--carte);border:1px solid var(--trait);border-radius:12px;padding:14px 16px;font-size:.95rem;font-weight:600}
+.surete li::before{content:"✓ ";color:var(--vert)}
+.deux-blocs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.bloc-abo{background:var(--carte);border:1px solid var(--trait);border-radius:14px;padding:24px;display:grid;gap:10px;align-content:start}
+.bloc-abo p{color:var(--encre-douce)}
+@media (max-width:860px){.tourne,.surete,.deux-blocs{grid-template-columns:1fr}}
 /* Les quatre apports et les captures réelles */
 .quatre{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
 .apport-q{background:var(--carte);border:1px solid var(--trait);border-radius:14px;padding:20px;display:grid;gap:8px;align-content:start;box-shadow:0 1px 0 var(--trait),0 22px 44px -28px var(--ombre)}
@@ -403,9 +421,9 @@ details p{margin-top:10px;color:var(--encre-douce)}
       vavi
     </a>
     <nav class="nav" aria-label="Sections">
+      <a href="#tourne">Ce que fait vavi</a>
       <a href="#etapes">Comment ça marche</a>
-      <a href="#quatre">Ce que vavi apporte</a>
-      <a href="#comparer">Comparer</a>
+      <a href="#abonnement">Votre abonnement</a>
       <a href="#prix">Prix</a>
       <a href="#questions">Questions</a>
     </nav>
@@ -416,275 +434,52 @@ details p{margin-top:10px;color:var(--encre-douce)}
 <main id="haut">
 
 <!-- ═════════ OUVERTURE ═════════ -->
-<div class="ouverture">
+<div class="ouverture une-colonne">
   <div class="enveloppe">
     <div class="texte">
       <span class="note">votre abonnement Claude suffit : aucun crédit d'IA à acheter</span>
-      <h1>Toute la puissance de Claude. <span class="surligne">vavi apporte tout le reste.</span></h1>
-      <p class="chapeau">Vous construisez votre site avec Claude, dans l'abonnement que vous avez déjà. vavi lui apporte ce qui lui manque : <strong>moins de jetons dépensés, des designs plus riches, un vrai backend et une console pour piloter votre site.</strong></p>
-      <ul class="pastilles" aria-label="Ce que vavi apporte">
-        <li>moins de jetons</li><li>designs plus riches</li><li>vrai backend</li><li>console de pilotage</li><li>paiements Stripe</li><li>RGPD, hébergé en Europe</li>
-      </ul>
+      <h1>Claude écrit votre site. <span class="surligne">vavi le fait tourner.</span> Vous le pilotez.</h1>
+      <p class="chapeau">Vous décrivez votre site à Claude, dans l'abonnement que vous avez déjà. vavi lui donne <strong>une vraie base de données, des comptes clients, les paiements et l'hébergement en Europe</strong>, et vous donne une console pour tout piloter.</p>
       <div class="gestes">
         <a class="bouton plein" href="__LIEN_D_INSTALLATION__" target="_blank" rel="noopener">Ajouter vavi à Claude</a>
         <a class="bouton" href="#etapes">Comment ça marche</a>
       </div>
-      <ul class="faits" aria-label="En bref">
-        <li><b>0</b><span>crédit de génération à acheter</span></li>
-        <li><b>1</b><span>prix fixe par mois, connu d'avance</span></li>
-        <li><b>100 %</b><span>hébergé en Europe</span></li>
-      </ul>
-      <p style="color:var(--encre-douce);font-size:.95rem">Essai gratuit, sans carte bancaire. Un compte Claude suffit : l'offre gratuite de Claude permet un connecteur personnalisé.</p>
+      <p style="color:var(--encre-douce);font-size:.95rem">Essai gratuit, sans carte bancaire. Vous ne payez vavi que pour publier.</p>
     </div>
-
-    <svg class="croquis" viewBox="0 0 560 400" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Croquis : une conversation avec Claude passe par vavi et devient un site en ligne">
-      <g>
-        <!-- conversation -->
-        <rect x="14" y="30" width="200" height="230" rx="16" fill="var(--carte)"/>
-        <path d="M14 66h200"/><circle cx="36" cy="48" r="6"/><path d="M50 48h60"/>
-        <rect x="70" y="84" width="130" height="54" rx="12" fill="var(--surligne-fond)"/>
-        <rect x="28" y="152" width="150" height="74" rx="12"/>
-        <path d="M42 172h110M42 188h120M42 204h80"/>
-        <!-- flèche vers vavi -->
-        <path class="trace" d="M218 150c40-30 60-30 92-4"/><path d="M300 136l12 12-16 4"/>
-        <!-- prise vavi -->
-        <rect x="300" y="152" width="96" height="76" rx="18" fill="var(--surligneur)"/>
-        <path d="M326 152v-22M370 152v-22M396 190h22"/>
-        <!-- flèche vers le site -->
-        <path class="trace" d="M418 190c24 0 30-40 30-70"/><path d="M438 128l10-14 10 14"/>
-      </g>
-      <g>
-        <rect x="300" y="250" width="246" height="140" rx="12" fill="var(--carte)"/>
-        <path d="M300 276h246"/><circle cx="316" cy="263" r="4"/><circle cx="330" cy="263" r="4"/><circle cx="344" cy="263" r="4"/>
-        <rect x="364" y="256" width="160" height="14" rx="7"/>
-        <path d="M318 300h90M318 316h70"/>
-        <rect x="318" y="332" width="64" height="22" rx="8" fill="var(--vert)" stroke="var(--encre)"/>
-        <!-- pain -->
-        <path d="M430 352c-6-30 20-46 50-46s56 16 50 46z" fill="url(#hachures)"/>
-        <path d="M452 316l-8 22M478 310l-6 26M504 316l-4 22"/>
-      </g>
-      <g>
-        <!-- le globe en haut à droite, la mise en ligne -->
-        <circle cx="440" cy="62" r="40" fill="var(--vert-fond)"/>
-        <path d="M400 62h80M440 22c-18 22-18 58 0 80M440 22c18 22 18 58 0 80M408 40h64M408 84h64"/>
-      </g>
-      <text x="82" y="106" font-size="16">Fais le site de</text>
-      <text x="82" y="128" font-size="16">ma boulangerie</text>
-      <text x="320" y="200" font-size="25.2" font-weight="700">vavi</text>
-      <text x="324" y="348" font-size="12.6" style="fill:#fff">Commander</text>
-      <text x="236" y="112" font-size="16.8" transform="rotate(-8 236 112)">Claude écrit</text>
-      <text x="484" y="150" font-size="16.8" style="fill:var(--vert)">en ligne !</text>
-      <text x="40" y="300" font-size="17.6">vous, dans Claude.ai</text>
-      <path d="M100 280c10-10 10-14 6-22" stroke="var(--encre)" stroke-width="1.8"/>
-    </svg>
+    <figure class="ecran-claude">
+      <img src="__IMAGES__/claude-et-vavi.png" alt="Claude.ai : la conversation à gauche, le site de la coiffeuse dans le panneau vavi à droite, avec le bouton Publier" width="1609" height="846">
+      <figcaption>Capture réelle : vous parlez à Claude à gauche, votre site se construit à droite.</figcaption>
+    </figure>
   </div>
 </div>
 
-<!-- ═════════ LES QUATRE APPORTS ═════════ -->
-<section id="quatre" aria-labelledby="t-quatre">
+<!-- ═════════ CE QUI TOURNE ═════════ -->
+<section id="tourne" aria-labelledby="t-tourne">
   <div class="enveloppe">
     <div class="titre-section">
-      <span class="main">Vous ne payez que Claude pour l'IA</span>
-      <h2 id="t-quatre">Ce que vavi ajoute à Claude</h2>
-      <p>Claude reste celui qui écrit. vavi lui donne quatre choses qu'il n'a pas seul.</p>
+      <span class="main">Après la conversation</span>
+      <h2 id="t-tourne">Claude écrit le code. vavi fait tourner tout le reste.</h2>
+      <p>Une conversation se ferme, votre site doit continuer de marcher. C'est le travail de vavi, et vous le pilotez depuis votre console.</p>
     </div>
-    <div class="quatre">
-      <div class="apport-q"><span class="main">1</span><h3>Moins de jetons dépensés</h3><p>Claude n'écrit ni la base, ni les comptes, ni les paiements, ni la configuration : vavi les fournit. Il modifie des passages ciblés, et les retouches de textes, photos et couleurs se font dans la console, sans Claude.</p><a href="#econome">Comment vavi économise votre abonnement</a></div>
-      <div class="apport-q"><span class="main">2</span><h3>Des designs plus riches</h3><p>Un guide de design servi à Claude, de vraies photos avec leurs crédits, des sections prêtes (galerie, tarifs, avis, plan, questions) et l'accueil vérifié sur ordinateur et sur téléphone.</p></div>
-      <div class="apport-q"><span class="main">3</span><h3>Un vrai backend</h3><p>Une base de données par site, avec ses règles d'accès posées par vavi, les comptes de vos clients, les formulaires protégés du spam et les paiements sur votre compte Stripe.</p></div>
-      <div class="apport-q"><span class="main">4</span><h3>Une console pour piloter</h3><p>Vos messages, vos clients, vos données, vos visites, vos versions et le bouton Publier. Vous changez vous-même un texte ou une photo, directement sur l'aperçu.</p></div>
+    <div class="tourne">
+      <ul class="ce-qui-tourne">
+        <li><b>Une base de données à vous</b><span>Vos produits, réservations ou dossiers, rangés dans leurs tables. Vous les modifiez, importez et exportez depuis la console.</span></li>
+        <li><b>Des comptes pour vos clients</b><span>Inscription, connexion, rôles. Chaque client ne voit que ce qui le concerne : vavi pose lui-même les règles d'accès.</span></li>
+        <li><b>Les paiements sur votre compte</b><span>vavi ouvre votre compte Stripe depuis la console. TVA par article, factures numérotées, stock.</span></li>
+        <li><b>Vos messages, sans spam</b><span>Chaque formulaire est filtré, puis arrive dans votre boîte de réception et par courriel.</span></li>
+        <li><b>Vos visites, sans cookie</b><span>Combien de visiteurs, et d'où ils viennent, assistants IA compris. Aucun bandeau de cookies à afficher.</span></li>
+        <li><b>Vos versions et le bouton Publier</b><span>Chaque changement est gardé. Vous publiez quand ça vous plaît, et vous revenez en arrière d'un clic.</span></li>
+      </ul>
+      <figure class="capture-console">
+        <img src="__IMAGES__/console-vue-d-ensemble.png" alt="La console vavi : vue d'ensemble d'un projet, son état, ses visites, ses messages et le travail en cours avec Claude" width="1896" height="822" loading="lazy">
+        <figcaption>Capture réelle de la console vavi.</figcaption>
+      </figure>
     </div>
-    <div class="captures">
-      <figure><img src="__IMAGES__/claude-et-vavi.png" alt="Une conversation avec Claude à gauche, et l'aperçu du site dans le panneau vavi à droite" loading="lazy"><figcaption class="main">Vous parlez à Claude, votre site s'affiche à côté.</figcaption></figure>
-      <figure><img src="__IMAGES__/console-vue-d-ensemble.png" alt="La vue d'ensemble d'un projet dans la console vavi : état du site, visites, messages, bouton Publier" width="1896" height="822" loading="lazy"><figcaption class="main">La console : votre site, vos visites, vos messages.</figcaption></figure>
-    </div>
-  </div>
-</section>
-
-<!-- ═════════ LE PROBLÈME ═════════ -->
-<section aria-labelledby="t-probleme">
-  <div class="enveloppe">
-    <div class="feuille">
-      <div class="colonnes">
-        <div style="display:grid;gap:14px">
-          <span class="main" style="font-size:1.5rem;color:var(--encre-douce)">Vous l'avez peut-être vécu</span>
-          <h2 id="t-probleme">Claude écrit vite un joli site. Un site qui fait tourner une entreprise demande bien plus.</h2>
-          <p>Le premier jet impressionne. Puis il faut des comptes clients, des paiements avec la TVA, des mentions RGPD, être trouvé sur Google, un design qui ne ressemble pas à tous les autres. Chaque morceau est un service de plus à choisir, à brancher et à payer.</p>
-        </div>
-        <div>
-          <p><b>Ce que vous auriez à assembler vous-même :</b></p>
-          <ul>
-            <li class="barre">une base de données et ses droits d'accès</li>
-            <li class="barre">un compte Stripe, la TVA, les factures</li>
-            <li class="barre">les mentions légales, la confidentialité, le consentement</li>
-            <li class="barre">le référencement et son suivi</li>
-            <li class="barre">des images qui ne sortent pas d'une banque de photos</li>
-            <li class="barre">l'hébergement, le domaine, le https</li>
-          </ul>
-          <p class="main" style="font-size:1.6rem;color:var(--vert);margin-top:12px">Avec vavi, tout ça est prêt avant que Claude écrive la première page.</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═════════ CE QUE VAVI APPORTE ═════════ -->
-<section id="apports" aria-labelledby="t-apports">
-  <div class="enveloppe">
-    <div class="titre-section">
-      <span class="main">Tout le reste, c'est quoi ?</span>
-      <h2 id="t-apports">Claude écrit les pages. vavi pose tout ce qu'il y a autour.</h2>
-      <p>Un écosystème complet, déjà réglé pour chaque site, pour que Claude n'ait rien à improviser et vous rien à assembler.</p>
-    </div>
-    <div class="apports">
-      <div class="apport">
-        <svg viewBox="0 0 80 80" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M40 8C20 8 8 22 8 38s12 30 28 30c6 0 6-6 2-10s0-10 6-10h10c10 0 18-6 18-18C72 18 58 8 40 8z" fill="var(--carte)"/><circle cx="26" cy="30" r="5" fill="var(--surligneur)"/><circle cx="42" cy="22" r="5" fill="var(--vert)"/><circle cx="56" cy="32" r="5" fill="var(--marge)"/></svg>
-        <h3>Un design à vos couleurs</h3>
-        <p>Claude suit les règles de design de vavi : couleurs lisibles, contraste vérifié, mise en page pensée pour le téléphone. Vous changez vous-même couleurs et polices dans la console.</p>
-      </div>
-      <div class="apport">
-        <svg viewBox="0 0 80 80" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><ellipse cx="34" cy="18" rx="22" ry="8" fill="var(--surligne-fond)"/><path d="M12 18v40c0 4 10 8 22 8s22-4 22-8V18M12 38c0 4 10 8 22 8s22-4 22-8"/><circle cx="62" cy="56" r="7" fill="var(--carte)"/><path d="M62 63v12M62 70h5"/></svg>
-        <h3>Une base déjà réglée</h3>
-        <p>Clients, commandes, rendez-vous, dossiers : la base est posée pour chaque site. Chacun ne voit que ce que son rôle permet.</p>
-      </div>
-      <div class="apport">
-        <svg viewBox="0 0 80 80" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="6" y="20" width="46" height="30" rx="5" fill="var(--carte)"/><path d="M6 30h46M14 42h12"/><path d="M42 36h30v38l-5-4-5 4-5-4-5 4-5-4-5 4z" fill="var(--surligne-fond)"/><path d="M48 48h18M48 56h12"/></svg>
-        <h3>Votre compte Stripe ouvert pour vous</h3>
-        <p>Un clic dans la console ouvre votre compte Stripe. Vous déposez vos pièces une seule fois, sur le formulaire sécurisé de Stripe. TVA par article et factures numérotées sont déjà prêtes.</p>
-      </div>
-      <div class="apport">
-        <svg viewBox="0 0 80 80" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M40 6l26 10v20c0 18-11 30-26 38C25 66 14 54 14 36V16z" fill="var(--carte)"/><rect x="28" y="36" width="24" height="18" rx="3" fill="var(--surligne-fond)"/><path d="M32 36v-6a8 8 0 0 1 16 0v6"/></svg>
-        <h3>Conforme au RGPD dès le départ</h3>
-        <p>Page de confidentialité tirée de ce que votre site collecte, aucun traceur donc aucun bandeau de cookies, formulaires protégés du spam. Un client peut récupérer ou effacer ses données.</p>
-      </div>
-      <div class="apport">
-        <svg viewBox="0 0 80 80" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="30" cy="30" r="20" fill="var(--carte)"/><path d="M45 45l18 18"/><path d="M20 38l7-8 6 5 9-12" stroke="var(--vert)"/></svg>
-        <h3>Le référencement, posé</h3>
-        <p>Vos pages publiques se lisent sans JavaScript, avec leur titre, leur description et le plan du site. Vous réglez titres et descriptions dans la console.</p>
-      </div>
-      <div class="apport">
-        <svg viewBox="0 0 80 80" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><rect x="8" y="26" width="54" height="26" rx="10" fill="var(--vert)"/><path d="M52 52l8 20 5-8 9 7 4-5-8-7 8-4z" fill="var(--carte)"/></svg>
-        <h3>Aperçu privé, puis Publier</h3>
-        <p>Vous testez chaque version sur un lien privé. Quand elle vous plaît, un clic dans la console la met en ligne.</p>
-      </div>
-      <div class="apport">
-        <svg viewBox="0 0 80 80" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="40" cy="40" r="30" fill="var(--carte)"/><path d="M10 40h60M40 10c-14 16-14 44 0 60M40 10c14 16 14 44 0 60"/><rect x="14" y="58" width="52" height="16" rx="5" fill="var(--surligne-fond)"/></svg>
-        <h3>Votre nom de domaine <small>(bientôt)</small></h3>
-        <p>Bientôt, vous brancherez l'adresse que vous possédez déjà. En attendant, votre site a son adresse sécurisée chez vavi.</p>
-      </div>
-      <div class="apport">
-        <svg viewBox="0 0 80 80" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="40" cy="40" r="30" fill="var(--carte)"/><g fill="var(--surligneur)"><circle cx="40" cy="16" r="3.5"/><circle cx="57" cy="23" r="3.5"/><circle cx="64" cy="40" r="3.5"/><circle cx="57" cy="57" r="3.5"/><circle cx="40" cy="64" r="3.5"/><circle cx="23" cy="57" r="3.5"/><circle cx="16" cy="40" r="3.5"/><circle cx="23" cy="23" r="3.5"/></g></svg>
-        <h3>Tout reste en Europe</h3>
-        <p>Votre site, vos fichiers et les données de vos clients sont hébergés en Europe.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═════════ LES AGENTS ═════════ -->
-<section id="agents" aria-labelledby="t-agents">
-  <div class="enveloppe">
-    <div class="agents-haut">
-      <div class="titre-section" style="margin:0">
-        <span class="main">Votre site travaille aussi quand vous dormez</span>
-        <h2 id="t-agents">Bientôt : des agents IA livrés avec votre site</h2>
-        <p class="attention"><b>Pas encore disponible.</b> Cette partie décrit ce qui arrive : les agents ne tournent pas encore.</p>
-        <p>Votre boutique ne sortira pas seule : elle arrivera avec ses agents. Ils connaissent vos produits, vos clients et vos commandes, parce qu'ils lisent la même base que votre site. Ils préparent le travail, vous gardez la main.</p>
-      </div>
-      <svg class="croquis" viewBox="0 0 380 250" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Croquis : un agent propose trois actions, vous validez">
-        <g>
-          <rect x="16" y="60" width="96" height="88" rx="22" fill="var(--surligneur)"/>
-          <path d="M64 60V38"/><circle cx="64" cy="32" r="7" fill="var(--carte)"/>
-          <circle cx="46" cy="96" r="7" fill="var(--carte)"/><circle cx="82" cy="96" r="7" fill="var(--carte)"/>
-          <path d="M46 122c10 8 26 8 36 0"/>
-          <path class="trace" d="M118 104c22-4 30-20 46-24"/>
-          <rect x="160" y="14" width="206" height="222" rx="12" fill="var(--carte)"/>
-          <rect x="174" y="52" width="178" height="40" rx="8" fill="var(--papier)"/>
-          <rect x="174" y="102" width="178" height="40" rx="8" fill="var(--papier)"/>
-          <rect x="174" y="152" width="178" height="40" rx="8" fill="var(--papier)"/>
-          <rect x="300" y="62" width="44" height="20" rx="8" fill="var(--vert)"/>
-          <rect x="300" y="112" width="44" height="20" rx="8" fill="var(--vert)"/>
-          <rect x="300" y="162" width="44" height="20" rx="8" fill="var(--vert)"/>
-        </g>
-        <text x="174" y="40" font-size="16" font-weight="700">Propositions du jour</text>
-        <text x="182" y="77" font-size="12.6">Newsletter nouveautés</text>
-        <text x="182" y="127" font-size="12.6">Relancer 4 paniers</text>
-        <text x="182" y="177" font-size="12.6">Campagne des soldes</text>
-        <text x="306" y="77" font-size="10.9" style="fill:#fff">valider</text>
-        <text x="306" y="127" font-size="10.9" style="fill:#fff">valider</text>
-        <text x="306" y="177" font-size="10.9" style="fill:#fff">valider</text>
-        <text x="190" y="224" font-size="14.3" style="fill:var(--vert)">rien ne part sans vous</text>
-        <text x="20" y="178" font-size="15.1">votre agent</text>
-      </svg>
-    </div>
-
-    <div class="agents">
-      <div class="agent">
-        <span class="pour-qui">Pour une boutique</span>
-        <h3>L'agent marketing</h3>
-        <ul>
-          <li>Prépare la newsletter quand vous ajoutez des produits</li>
-          <li>Relance les paniers abandonnés</li>
-          <li>Prépare vos campagnes publicitaires : textes, visuels, public visé, prêts à lancer</li>
-        </ul>
-      </div>
-      <div class="agent">
-        <span class="pour-qui">Pour un site vitrine</span>
-        <h3>L'agent des demandes</h3>
-        <ul>
-          <li>Trie les messages reçus et prépare une réponse</li>
-          <li>Rédige un brouillon de devis à partir de la demande</li>
-          <li>Relance les prospects qui n'ont pas répondu</li>
-        </ul>
-      </div>
-      <div class="agent">
-        <span class="pour-qui">Pour une app de gestion</span>
-        <h3>L'agent de suivi</h3>
-        <ul>
-          <li>Relance les factures impayées</li>
-          <li>Repère les dossiers en retard</li>
-          <li>Vous envoie le résumé de la semaine</li>
-        </ul>
-      </div>
-    </div>
-    <ul class="principes" aria-label="Comment travaillent les agents">
-      <li>L'agent propose, vous validez</li>
-      <li>Chaque action est notée dans un journal</li>
-      <li>Il ne lit que ce que son rôle permet</li>
-      <li>Vous le changez en le demandant à Claude</li>
+    <ul class="surete" aria-label="Ce qui protège votre site">
+      <li>Une version qui ne se construit pas ne part jamais en ligne.</li>
+      <li>Claude essaie le parcours de vos visiteurs avant de vous montrer le site.</li>
+      <li>Aucune clé secrète dans le code ni chez vos visiteurs.</li>
     </ul>
-  </div>
-</section>
-
-<!-- ═════════ LA COMPARAISON ═════════ -->
-<section id="comparer" aria-labelledby="t-comparer">
-  <div class="enveloppe">
-    <div class="titre-section">
-      <span class="main">Le calcul que personne ne fait</span>
-      <h2 id="t-comparer">Ailleurs, chaque correction fait tourner un compteur. Chez vavi, non.</h2>
-      <p>Beaucoup d'outils qui construisent un site par l'IA vendent des crédits : chaque demande en consomme. Avec vavi, l'IA qui construit, c'est Claude, déjà payé par votre abonnement Claude. vavi vend seulement ce qu'il fait tourner : la base, les paiements, l'hébergement.</p>
-    </div>
-
-
-    <div class="duel">
-      <div>
-        <span class="main" style="font-size:1.35rem;color:var(--marge)">Avec des crédits</span>
-        <svg class="croquis" viewBox="0 0 360 150" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <g><path d="M20 130h320M20 130V14"/><path d="M28 120l40-6 40-14 40-4 40-22 40-10 40-30 40-20" stroke="var(--marge)" stroke-width="2"/>
-          <circle cx="148" cy="96" r="5" fill="var(--marge)"/><circle cx="268" cy="34" r="5" fill="var(--marge)"/></g>
-          <text x="96" y="86" font-size="12.6">recharge</text><text x="210" y="24" font-size="12.6">recharge</text><text x="250" y="146" font-size="12.6">corrections →</text>
-        </svg>
-        <p>Plus vous corrigez, plus vous payez. On finit par hésiter à demander une retouche.</p>
-      </div>
-      <div>
-        <span class="main" style="font-size:1.35rem;color:var(--vert)">Avec vavi</span>
-        <svg class="croquis" viewBox="0 0 360 150" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <g><path d="M20 130h320M20 130V14"/><path d="M28 70h300" stroke="var(--vert)" stroke-width="2"/></g>
-          <text x="40" y="60" font-size="13.4" style="fill:var(--vert)">49 € le mois, que vous corrigiez 3 fois ou 30</text><text x="250" y="146" font-size="12.6">corrections →</text>
-        </svg>
-        <p>Le prix ne bouge pas avec le nombre de demandes. Vous corrigez jusqu'à ce que ce soit juste.</p>
-      </div>
-    </div>
   </div>
 </section>
 
@@ -1027,65 +822,23 @@ details p{margin-top:10px;color:var(--encre-douce)}
   </div>
 </section>
 
-<!-- ═════════ GARDE-FOUS ═════════ -->
-<section aria-labelledby="t-garde">
-  <div class="enveloppe garde">
-    <svg class="croquis" viewBox="0 0 360 320" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Croquis : un bouclier qui protège le site">
-      <g>
-        <path d="M180 20l120 40c0 120-40 200-120 240C100 260 60 180 60 60z" fill="var(--vert-fond)"/>
-        <path d="M180 48l92 30c-2 92-32 156-92 188-60-32-90-96-92-188z" fill="url(#hachures)"/>
-        <path d="M138 160l30 30 58-64" stroke="var(--vert)" stroke-width="5"/>
-      </g>
-      <text x="6" y="310" font-size="18.5">Claude travaille, vavi veille</text>
-    </svg>
-    <div>
-      <div class="titre-section" style="margin-bottom:24px">
-        <span class="main">Pour les débutants comme pour les autres</span>
-        <h2 id="t-garde">Des garde-fous intégrés, pour que rien ne casse</h2>
-        <p>Ces règles ne sont pas des conseils donnés à Claude : ce sont les outils de vavi qui refusent ce qui pourrait abîmer votre site.</p>
+<!-- ═════════ VOTRE ABONNEMENT CLAUDE ═════════ -->
+<section id="abonnement" aria-labelledby="t-abonnement">
+  <div class="enveloppe">
+    <div class="titre-section">
+      <span class="main">Votre abonnement Claude</span>
+      <h2 id="t-abonnement">Votre abonnement Claude suffit</h2>
+      <p>Ailleurs, chaque demande à l'IA consomme des crédits. Avec vavi, l'IA qui construit, c'est Claude, déjà payé par votre abonnement Claude.</p>
+    </div>
+    <div class="deux-blocs">
+      <div class="bloc-abo">
+        <h3>Aucun crédit qui fond</h3>
+        <p>vavi ne vous vend ni messages ni crédits. Son prix est fixe par mois, que vous corrigiez trois fois ou trente.</p>
       </div>
-      <ul class="liste-cochee">
-        <li><svg viewBox="0 0 34 34" fill="none" stroke="var(--vert)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="28" height="28" rx="6" stroke="var(--encre)" stroke-width="2"/><path d="M9 17l6 6 11-13"/></svg><div><b>Claude relit avant de modifier</b><span>vavi refuse une modification si Claude n'a pas lu la version actuelle du fichier. Une page ne se fait pas écraser par erreur.</span></div></li>
-        <li><svg viewBox="0 0 34 34" fill="none" stroke="var(--vert)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="28" height="28" rx="6" stroke="var(--encre)" stroke-width="2"/><path d="M9 17l6 6 11-13"/></svg><div><b>Aucun secret dans le code</b><span>Vos clés (Stripe, e-mail…) sont gardées par vavi. Elles ne sont jamais écrites dans les pages ni envoyées aux visiteurs.</span></div></li>
-        <li><svg viewBox="0 0 34 34" fill="none" stroke="var(--vert)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="28" height="28" rx="6" stroke="var(--encre)" stroke-width="2"/><path d="M9 17l6 6 11-13"/></svg><div><b>Seule une version qui marche part en ligne</b><span>vavi construit chaque version. S'il y a une erreur, elle n'est pas publiable, et Claude reçoit l'erreur exacte pour la corriger.</span></div></li>
-        <li><svg viewBox="0 0 34 34" fill="none" stroke="var(--vert)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="28" height="28" rx="6" stroke="var(--encre)" stroke-width="2"/><path d="M9 17l6 6 11-13"/></svg><div><b>Les droits sont posés par vavi</b><span>Claude décrit qui fait quoi. vavi écrit lui-même les règles d'accès de la base : un visiteur ne lit jamais les données d'un autre.</span></div></li>
-        <li><svg viewBox="0 0 34 34" fill="none" stroke="var(--vert)" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="28" height="28" rx="6" stroke="var(--encre)" stroke-width="2"/><path d="M9 17l6 6 11-13"/></svg><div><b>Toujours un retour en arrière</b><span>Chaque version est gardée. Vous revenez à celle d'hier en un clic.</span></div></li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<!-- ═════════ ÉCONOMISER SON ABONNEMENT ═════════ -->
-<section id="econome" aria-labelledby="t-econome">
-  <div class="enveloppe">
-    <div class="titre-section">
-      <span class="main">Votre abonnement Claude dure plus longtemps</span>
-      <h2 id="t-econome">vavi fait le ménage pour que Claude travaille léger</h2>
-      <p>Un abonnement Claude s'use surtout quand la conversation s'allonge, quand Claude relit tout le projet à chaque message ou quand il tourne en rond sur une erreur. vavi évite ces trois pièges.</p>
-    </div>
-    <ul class="econome" style="list-style:none;margin:0;padding:0">
-      <li><svg viewBox="0 0 52 52" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="10" y="6" width="32" height="40" rx="4" fill="var(--carte)"/><path d="M17 16h18M17 24h12"/></svg><div><b>Des règles courtes, toujours à jour</b><span>Les règles de vavi tiennent en une page, et vavi les tient à jour lui-même. Pas de long fichier d'instructions à recopier et à relire à chaque message.</span></div></li>
-      <li><svg viewBox="0 0 52 52" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="22" cy="22" r="14" fill="var(--carte)"/><path d="M32 32l14 14"/><path d="M16 22h12"/></svg><div><b>Claude lit ce qui compte, pas tout</b><span>Claude ouvre seulement les fichiers que sa modification touche. Le reste du projet n'entre pas dans la conversation.</span></div></li>
-      <li><svg viewBox="0 0 52 52" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="12" width="40" height="28" rx="5" fill="var(--carte)"/><path d="M14 26h6M24 26h14" stroke="var(--marge)"/></svg><div><b>Des erreurs dites en une ligne</b><span>Quand quelque chose ne marche pas, vavi donne le fichier et la ligne. Claude corrige du premier coup au lieu de chercher.</span></div></li>
-      <li><svg viewBox="0 0 52 52" fill="none" stroke="var(--encre)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14h26a6 6 0 0 1 0 12H18a6 6 0 0 0 0 12h24" fill="none"/><path d="M38 32l6 6-6 6"/></svg><div><b>Une nouvelle conversation sans rien perdre</b><span>vavi garde les notes de chaque chantier : ce qui est fait, ce qui reste. Quand la conversation devient longue, Claude vous propose de reprendre dans une nouvelle, au même point.</span></div></li>
-    </ul>
-  </div>
-</section>
-
-<!-- ═════════ POURQUOI VAVI ═════════ -->
-<section aria-labelledby="t-pourquoi">
-  <div class="enveloppe">
-    <div class="titre-section">
-      <span class="main">Pourquoi vavi</span>
-      <h2 id="t-pourquoi">Ce que vous y gagnez</h2>
-    </div>
-    <div class="pourquoi">
-      <div class="raison"><span class="main">Aucun crédit à acheter</span><h3>Claude travaille dans votre abonnement Claude</h3><p>La conversation avec Claude est déjà payée par votre abonnement Claude. vavi ne vous facture pas les messages, les essais ni les corrections.</p></div>
-      <div class="raison"><span class="main">Un prix fixe</span><h3>Vous savez ce que vous paierez</h3><p>Un abonnement mensuel par projet, le même quel que soit le nombre de changements demandés dans le mois.</p></div>
-      <div class="raison"><span class="main">Prêt pour vendre en Europe</span><h3>TVA, factures, paiement</h3><p>TVA par article, factures numérotées, frais de livraison, paiement par carte : déjà construits, à brancher sur votre compte Stripe.</p></div>
-      <div class="raison"><span class="main">Hébergé en Europe</span><h3>Vos données restent ici</h3><p>Base de données, fichiers et site sont hébergés en Europe, pour vous comme pour vos clients.</p></div>
-      <div class="raison"><span class="main">Vous restez libre</span><h3>Votre code, votre base</h3><p>Sur toutes les offres payantes, vous exportez le code et les données (un Postgres standard) quand vous voulez. Vous restez parce que le service vous sert, pas parce que vous êtes coincé.</p></div>
-      <div class="raison"><span class="main">Un seul connecteur</span><h3>Rien d'autre à brancher</h3><p>Base, paiements, aperçu, publication : tout passe par vavi. Vous ne jonglez pas entre cinq services.</p></div>
+      <div class="bloc-abo">
+        <h3>Claude travaille moins</h3>
+        <p>Claude n'écrit ni la base, ni les comptes, ni les paiements, ni la configuration : vavi les fournit. Il modifie des passages ciblés. Et les textes, photos, couleurs ou produits se changent dans la console, sans passer par Claude.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -1165,8 +918,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
       <details><summary>Où sont hébergées les données de mes clients ?</summary><p>En Europe : la base de données, les fichiers et le site.</p></details>
       <details><summary>Est-ce que vavi prend une commission sur mes ventes ?</summary><p>Non. Vous payez votre abonnement vavi. Les frais de paiement sont ceux de Stripe, prélevés directement par Stripe.</p></details>
       <details><summary>Mon site sera-t-il conforme au RGPD ?</summary><p>vavi pose ce que le RGPD demande à un site : mentions légales et politique de confidentialité avec vos informations, audience mesurée sans cookie, consentement sur les formulaires, données hébergées en Europe, et un moyen pour chaque client de récupérer ou d'effacer ses données. Vous restez responsable de l'usage que vous faites de ces données.</p></details>
-      <details><summary>Les agents IA consommeront-ils mon abonnement Claude ?</summary><p>Non. Les agents arrivent bientôt. Ils travailleront dans votre site, même quand vous n'êtes pas là. Ils utiliseront une clé d'IA à votre nom, facturée à l'usage par le fournisseur d'IA. vavi ne prend rien dessus.</p></details>
-      <details><summary>Un agent peut-il envoyer un e-mail ou lancer une publicité tout seul ?</summary><p>Non. Un agent prépare, vous validez. Rien n'est envoyé, payé ou publié sans votre clic.</p></details>
+      <details><summary>Et les agents IA ?</summary><p>Ils arrivent bientôt : des agents qui travaillent dans votre site, préparent et vous laissent valider. Ils utiliseront une clé d’IA à votre nom, facturée par le fournisseur d’IA ; vavi ne prend rien dessus.</p></details>
       <details><summary>Que demande Stripe pour ouvrir mon compte ?</summary><p>En général une pièce d'identité, un RIB et le numéro de votre entreprise. Vous les déposez une seule fois, sur le formulaire sécurisé de Stripe : vavi ne garde pas vos papiers.</p></details>
       <details><summary>Puis-je utiliser mon propre nom de domaine ?</summary><p>Bientôt, sur toutes les offres payantes. En attendant, votre site est en ligne à son adresse sécurisée chez vavi.</p></details>
     </div>
