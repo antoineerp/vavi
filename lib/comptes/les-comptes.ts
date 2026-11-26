@@ -101,12 +101,22 @@ async function envoyerUnCode(d: Dependances, c: CompteDApp, nature: Nature, o: {
 
 export interface Contexte { readonly app: string; readonly nomDeLApp: string; readonly retour: string; readonly langue: string }
 
+/**
+ * L'adresse du propriétaire de l'app se confirme toujours, même quand l'app inscrit sans validation : c'est à son
+ * adresse confirmée que la base lui donne tous les rôles de son app (`rejoindre`), et une adresse que personne n'a
+ * prouvée ne les donne jamais (INCIDENT 25/11 : le propriétaire, inscrit sans validation, lisait « pas encore de rôle »).
+ * Sans courrier, rien ne peut la prouver : l'app se comporte comme avant. PURE.
+ */
+export const seConfirme = (d: Pick<Dependances, 'courrier'>, email: string, sansValidation: boolean, adresseDuProprietaire: string | null | undefined): boolean =>
+  !sansValidation || (Boolean(d.courrier) && Boolean(adresseDuProprietaire) && email === adresseDuProprietaire!.trim().toLowerCase());
+
 /** S'inscrire : sans validation, la session s'ouvre ; sinon un lien de confirmation part et `aConfirmer` le dit. */
-export async function sInscrire(d: Dependances, x: Contexte & { readonly email: string; readonly motDePasse: string; readonly sansValidation: boolean }): Promise<Issue<{ readonly session: Session | null; readonly aConfirmer: boolean }>> {
+export async function sInscrire(d: Dependances, x: Contexte & { readonly email: string; readonly motDePasse: string; readonly sansValidation: boolean; readonly adresseDuProprietaire?: string | null }): Promise<Issue<{ readonly session: Session | null; readonly aConfirmer: boolean }>> {
   const email = adresseLue(x.email);
   if (!email) return refus('adresse_invalide');
   if (!motDePasseAccepte(x.motDePasse)) return refus('mot_de_passe_faible');
-  if (!x.sansValidation && !d.courrier) return refus('courrier_absent');
+  const sansValidation = !seConfirme(d, email, x.sansValidation, x.adresseDuProprietaire);
+  if (!sansValidation && !d.courrier) return refus('courrier_absent');
   const existant = await d.magasin.trouver(x.app, email);
   // Un compte créé par une invitation ou un lien, sans mot de passe encore et sans adresse confirmée, se reprend ici.
   if (existant && (existant.motDePasse || existant.confirmeLe)) return refus('compte_existant');
@@ -117,16 +127,20 @@ export async function sInscrire(d: Dependances, x: Contexte & { readonly email: 
     if (cree === 'existe') return refus('compte_existant');
     c = cree;
   }
-  if (x.sansValidation) return { ok: true, valeur: { session: await ouvrir(d, c, false), aConfirmer: false } };
+  if (sansValidation) return { ok: true, valeur: { session: await ouvrir(d, c, false), aConfirmer: false } };
   return (await envoyerUnCode(d, c, 'confirmer', x)) ? { ok: true, valeur: { session: null, aConfirmer: true } } : refus('panne');
 }
 
 /** Entrer avec son mot de passe ; une adresse à confirmer n'entre pas tant que l'app demande la validation. */
-export async function entrer(d: Dependances, x: { readonly app: string; readonly email: string; readonly motDePasse: string; readonly sansValidation: boolean }): Promise<Issue<Session>> {
+export async function entrer(d: Dependances, x: { readonly app: string; readonly email: string; readonly motDePasse: string; readonly sansValidation: boolean; readonly adresseDuProprietaire?: string | null; readonly lien?: Contexte }): Promise<Issue<Session>> {
   const email = adresseLue(x.email);
   const c = email ? await d.magasin.trouver(x.app, email) : null;
   if (!c || !(await motDePasseJuste(x.motDePasse, c.motDePasse))) return refus('identifiants_invalides');
-  if (!c.confirmeLe && !x.sansValidation) return refus('courriel_non_confirme');
+  if (!c.confirmeLe && seConfirme(d, c.email, x.sansValidation, x.adresseDuProprietaire)) {
+    // Le propriétaire inscrit avant, sans validation : le lien de confirmation part, il entre en le suivant.
+    if (x.sansValidation && x.lien) await envoyerUnCode(d, c, 'confirmer', x.lien);
+    return refus('courriel_non_confirme');
+  }
   return { ok: true, valeur: await ouvrir(d, c, c.confirmeLe !== null) };
 }
 
