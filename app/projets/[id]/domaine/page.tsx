@@ -6,9 +6,11 @@
 import { flyDeLEnvironnement } from '@/lib/domaines/les-certificats';
 import { laCibleDns, lePlanDns } from '@/lib/domaines/le-domaine';
 import { leDomaineDuProjet } from '@/lib/domaines/les-domaines';
-import { adresseDeLApp } from '@/app/_partage/l-adresse-des-apps';
+import { adresseMontreeDeLApp } from '@/app/_partage/l-adresse-des-apps';
+import { leDomaineDesApps } from '@/lib/publication/les-adresses-des-apps';
+import { nommerLeSite } from '@/lib/domaines/les-noms';
 import { leProjet } from '../le-projet';
-import { brancher, retirer, verifier } from './gestes';
+import { brancher, renommer, retirer, verifier } from './gestes';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,11 +26,13 @@ const MOTS = {
     verifier: 'Vérifier', retirer: 'Retirer ce domaine', retirerQ: 'Confirmer : le site reprend son adresse vavi',
     etats: { en_attente: 'En attente du DNS : l’enregistrement n’est pas encore visible.', dns_vu: 'DNS vu : le certificat HTTPS est en cours d’émission (quelques minutes).', actif: 'Actif : votre site répond à cette adresse, en HTTPS.', inconnu: 'Le certificat est redemandé : vérifiez à nouveau dans quelques minutes.' } as Record<string, string>,
     actif: 'Branché', enAttente: 'En cours de branchement', demandeLe: 'demandé le', actifLe: 'actif depuis le',
-    faits: { demande: 'Domaine demandé : créez l’enregistrement ci-dessous chez votre registrar.', retire: 'Domaine retiré : le site a repris son adresse vavi.' } as Record<string, string>,
+    faits: { demande: 'Domaine demandé : créez l’enregistrement ci-dessous chez votre registrar.', retire: 'Domaine retiré : le site a repris son adresse vavi.', renomme: 'Nom changé : le site répond à sa nouvelle adresse (une minute au plus).' } as Record<string, string>,
     erreurs: { panne: 'vavi n’a pas répondu ; réessayez.', fly_absent: 'Le branchement des domaines n’est pas encore activé sur vavi.', domaine_mal_forme: 'Domaine refusé :',
-      domaine_pris: 'Ce domaine est déjà branché sur un autre site de vavi.', fly: 'Le certificat n’a pas pu être demandé :' } as Record<string, string>,
+      domaine_pris: 'Ce domaine est déjà branché sur un autre site de vavi.', nom_pris: 'Ce nom est déjà pris par un autre site.', nom_invalide: 'Ce nom n’est pas permis :', fly: 'Le certificat n’a pas pu être demandé :' } as Record<string, string>,
     apres: 'Une fois actif, votre domaine devient l’adresse officielle du site : l’ancienne adresse y renvoie, et Google retient la nouvelle.',
     nonActive: 'Le branchement des domaines n’est pas encore activé sur vavi : il le sera prochainement.',
+    nomDuSite: 'Nom du site dans son adresse vavi', changerLeNom: 'Changer le nom',
+    nomAide: 'Lettres minuscules sans accent, chiffres et tirets, de 3 à 40 caractères. L’ancienne adresse cesse de répondre.',
   },
   en: {
     titre: 'Domain', intro: 'Your online site can have your own address, for example www.your-name.com. The domain is bought from a registrar (OVH, Gandi, IONOS, GoDaddy, Namecheap, Cloudflare…); vavi takes care of the HTTPS certificate.',
@@ -41,11 +45,13 @@ const MOTS = {
     verifier: 'Check', retirer: 'Remove this domain', retirerQ: 'Confirm: the site goes back to its vavi address',
     etats: { en_attente: 'Waiting for DNS: the record is not visible yet.', dns_vu: 'DNS seen: the HTTPS certificate is being issued (a few minutes).', actif: 'Active: your site answers at this address, over HTTPS.', inconnu: 'The certificate is requested again: check again in a few minutes.' } as Record<string, string>,
     actif: 'Plugged in', enAttente: 'Being plugged in', demandeLe: 'requested', actifLe: 'active since',
-    faits: { demande: 'Domain requested: create the record below at your registrar.', retire: 'Domain removed: the site is back at its vavi address.' } as Record<string, string>,
+    faits: { demande: 'Domain requested: create the record below at your registrar.', retire: 'Domain removed: the site is back at its vavi address.', renomme: 'Name changed: the site answers at its new address (within a minute).' } as Record<string, string>,
     erreurs: { panne: 'vavi did not answer; try again.', fly_absent: 'Plugging in domains is not enabled on vavi yet.', domaine_mal_forme: 'Domain refused:',
-      domaine_pris: 'This domain is already plugged into another vavi site.', fly: 'The certificate could not be requested:' } as Record<string, string>,
+      domaine_pris: 'This domain is already plugged into another vavi site.', nom_pris: 'This name is already taken by another site.', nom_invalide: 'This name is not allowed:', fly: 'The certificate could not be requested:' } as Record<string, string>,
     apres: 'Once active, your domain becomes the site’s official address: the old address points to it, and Google keeps the new one.',
     nonActive: 'Plugging in domains is not enabled on vavi yet: it will be soon.',
+    nomDuSite: 'Name of the site in its vavi address', changerLeNom: 'Change the name',
+    nomAide: 'Lowercase letters without accents, digits and dashes, 3 to 40 characters. The old address stops answering.',
   },
 };
 
@@ -59,7 +65,11 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const plan = domaine ? lePlanDns(domaine.hote, { cible: laCibleDns(process.env), interdits: [] }) : null;
   const enLigne = p.lu && Boolean(p.valeur?.enLigneEmpreinte);
   const branche = flyDeLEnvironnement(process.env) !== null;
-  const message = q.fait ? m.faits[q.fait] : q.etat ? m.etats[q.etat] : q.erreur ? `${m.erreurs[q.erreur] ?? q.erreur}${q.pourquoi ? ` ${q.pourquoi}` : ''}` : null;
+  // Le nom lisible du site (`<nom>.<domaine des apps>`), posé s'il manque ; avant sa migration ou sans domaine des apps : aucun.
+  const domaineDesApps = leDomaineDesApps(process.env);
+  const nom = domaineDesApps && p.lu && p.valeur ? await nommerLeSite(c.base, id, p.valeur.nom).then((r) => (r.lu ? r.valeur : null), () => null) : null;
+  const adresseVavi = enLigne ? await adresseMontreeDeLApp(id, 'en_ligne') : null;
+  const message = q.fait ? m.faits[q.fait] : q.etat ? m.etats[q.etat] : q.erreur ? `${m.erreurs[q.erreur] ?? q.erreur}${q.erreur === 'nom_invalide' ? ` ${m.nomAide}` : ''}${q.pourquoi ? ` ${q.pourquoi}` : ''}` : null;
   return (
     <main className="console">
       <h1>{m.titre}</h1>
@@ -67,9 +77,21 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       {message && <div className="carte" role={q.erreur ? 'alert' : 'status'}>{message}</div>}
       <div className="carte">
         <span className="attenue">{m.adresseActuelle}</span>
-        <p style={{ margin: '0.25rem 0 0' }}><strong>{domaine?.actifLe ? `https://${domaine.hote}/` : enLigne ? adresseDeLApp(id, 'en_ligne') : '—'}</strong></p>
+        <p style={{ margin: '0.25rem 0 0' }}><strong>{domaine?.actifLe ? `https://${domaine.hote}/` : adresseVavi ?? '—'}</strong></p>
         {!enLigne && <p className="attenue">{m.pasEnLigne}</p>}
       </div>
+      {nom && domaineDesApps && (
+        <form action={renommer.bind(null, id)} className="carte" autoComplete="off">
+          <label htmlFor="nom">{m.nomDuSite}</label>
+          <div className="ligne" style={{ alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="attenue">https://</span>
+            <input id="nom" name="nom" defaultValue={nom} minLength={3} maxLength={40} pattern="[a-z][a-z0-9\-]{1,38}[a-z0-9]" required style={{ maxWidth: '16rem' }} />
+            <span className="attenue">.{domaineDesApps}</span>
+          </div>
+          <p className="attenue">{m.nomAide}</p>
+          <button type="submit">{m.changerLeNom}</button>
+        </form>
+      )}
       {!d.lu ? <p role="alert">{m.erreurs.panne} ({d.pourquoi})</p> : !branche && !domaine ? <div className="carte"><p className="attenue">{m.nonActive}</p></div> : !domaine ? (
         <form action={brancher.bind(null, id)} className="carte" autoComplete="off">
           <label htmlFor="domaine">{m.saisir}</label>

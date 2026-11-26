@@ -5,6 +5,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { PlanDns } from './le-domaine';
+import { quandUnNomChange } from './les-noms';
 
 export type Issue<T> = { readonly lu: true; readonly valeur: T } | { readonly lu: false; readonly pourquoi: string };
 export interface DomaineDUnProjet { readonly hote: string; readonly racine: string | null; readonly creeLe: string; readonly actifLe: string | null }
@@ -47,25 +48,34 @@ export async function retirerLeDomaine(base: SupabaseClient, projet: string): Pr
   return r.error ? { lu: false, pourquoi: r.error.message } : { lu: true, valeur: true };
 }
 
-/** La carte des domaines actifs : hôte → projet, et projet → hôte. */
-export interface Carte { readonly parHote: ReadonlyMap<string, string>; readonly parProjet: ReadonlyMap<string, string> }
-const VIDE: Carte = { parHote: new Map(), parProjet: new Map() };
+/** La carte des domaines actifs : hôte → projet, et projet → hôte ; et les noms lisibles des sites (`./les-noms`). */
+export interface Carte {
+  readonly parHote: ReadonlyMap<string, string>; readonly parProjet: ReadonlyMap<string, string>;
+  readonly parNom: ReadonlyMap<string, string>; readonly nomParProjet: ReadonlyMap<string, string>;
+}
+const VIDE: Carte = { parHote: new Map(), parProjet: new Map(), parNom: new Map(), nomParProjet: new Map() };
+type Lignes<T> = () => Promise<Issue<readonly T[]>>;
 let carte: { valeur: Carte; lueLe: number } | null = null;
 let enCours: Promise<Carte> | null = null;
 const oublierLaCarte = () => { carte = null; };
+quandUnNomChange(oublierLaCarte);
 
-/** PURE — la carte depuis les lignes lues. */
-export function laCarte(lignes: readonly { readonly hote: string; readonly projet: string }[]): Carte {
-  return { parHote: new Map(lignes.map((l) => [l.hote, l.projet])), parProjet: new Map(lignes.map((l) => [l.projet, l.hote])) };
+/** PURE — la carte depuis les lignes lues (les noms, s'il y en a). */
+export function laCarte(lignes: readonly { readonly hote: string; readonly projet: string }[], noms: readonly { readonly nom: string; readonly projet: string }[] = []): Carte {
+  return { parHote: new Map(lignes.map((l) => [l.hote, l.projet])), parProjet: new Map(lignes.map((l) => [l.projet, l.hote])),
+    parNom: new Map(noms.map((n) => [n.nom, n.projet])), nomParProjet: new Map(noms.map((n) => [n.projet, n.nom])) };
 }
 
-export async function laCarteDesDomaines(lire: () => Promise<Issue<readonly { hote: string; projet: string }[]>>, maintenant = Date.now()): Promise<Carte> {
+/** Une lecture en panne garde ce qui était lu (un site branché ne tombe pas avec la base) ; les noms se lisent à part. */
+export async function laCarteDesDomaines(lire: Lignes<{ hote: string; projet: string }>, maintenant = Date.now(), lireLesNoms?: Lignes<{ nom: string; projet: string }>): Promise<Carte> {
   if (carte && maintenant - carte.lueLe < 60_000) return carte.valeur;
-  enCours ??= lire().then((r) => {
-    if (r.lu) carte = { valeur: laCarte(r.valeur), lueLe: maintenant };
-    else carte = { valeur: carte?.valeur ?? VIDE, lueLe: maintenant };
-    return carte?.valeur ?? VIDE;
-  }).catch(() => carte?.valeur ?? VIDE).finally(() => { enCours = null; });
+  const avant = carte?.valeur ?? VIDE;
+  enCours ??= Promise.all([lire().catch(() => null), lireLesNoms ? lireLesNoms().catch(() => null) : null]).then(([r, n]) => {
+    const domaines = r?.lu ? r.valeur.map((l) => ({ hote: l.hote, projet: l.projet })) : [...avant.parHote].map(([hote, projet]) => ({ hote, projet }));
+    const noms = n?.lu ? n.valeur : [...avant.parNom].map(([nom, projet]) => ({ nom, projet }));
+    carte = { valeur: laCarte(domaines, noms), lueLe: maintenant };
+    return carte.valeur;
+  }).catch(() => avant).finally(() => { enCours = null; });
   return enCours;
 }
 
