@@ -9,6 +9,7 @@ import { classerUnMessage, effacerUnMessage } from '@/lib/formulaires/sur-supaba
 import { completerLeModele, MODELES_DE_CONNECTEURS } from '@/lib/connecteurs/l-acces';
 import { enSecret, FORME_DU_NOM, lireUnConnecteur, PREFIXE_DU_SECRET, secretDuConnecteur } from '@/lib/connecteurs/les-connecteurs';
 import { redirect } from 'next/navigation';
+import { LONGUEUR_DES_NOTES } from '@/lib/projets/le-sql-des-projets';
 import { laConsole } from '@/app/_partage/la-console';
 import { mettreLApercuEnLigne, uneAUneParCompte } from '@/lib/projets/la-mise-en-ligne';
 import { magasinS3 } from '@/lib/publication/le-magasin';
@@ -58,6 +59,19 @@ export async function claudeAFini(id: string, ecran = '') {
   const r = await c.projets.fermerChantier(c.compte, id, ch!.id, 'publie');
   if (r.lu) console.log(`[console] ${id.slice(0, 8)} travail de Claude fermé par la personne`);
   retour(id, r.lu ? { fait: 'claude_a_fini' } : { erreur: 'panne' }, ecran);
+}
+
+/**
+ * Les notes durables, corrigées par la personne (Antoine, 26/11) : le texte entier, écrit s'il est encore celui que la
+ * page montrait (`avant`) ; Claude a pu les changer entre-temps, alors rien d'écrit et la page le dit.
+ */
+export async function ecrireLesNotes(id: string, formulaire: FormData) {
+  if (!ID.test(id)) redirect('/projets');
+  const c = await laConsole(`/projets/${id}`);
+  const texte = String(formulaire.get('notes') ?? '').replace(/\r\n/g, '\n').trim().slice(0, LONGUEUR_DES_NOTES) || null;
+  const avant = String(formulaire.get('avant') ?? '');
+  const r = await c.projets.ecrireLesNotes(c.compte, id, texte, avant === '' ? null : avant);
+  retour(id, !r.lu ? { erreur: 'panne' } : r.valeur.ecrites ? { fait: 'notes' } : { erreur: 'notes_changees' });
 }
 
 /** L'adresse qui reçoit les messages des formulaires ; vide : celle du compte. */

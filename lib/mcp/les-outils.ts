@@ -15,6 +15,7 @@ import { schemaJson } from './schema-json';
 import * as g from './les-gestes';
 import * as v from './les-gestes-de-la-vue';
 import { META_DE_LA_VUE, META_DE_LA_VUE_SEULE } from './la-vue';
+import { LONGUEUR_DES_NOTES } from '@/lib/projets/le-sql-des-projets';
 
 const projet = z.string().min(1).max(64).describe('The project id, as `list_projects` returns it.');
 const chantier = z.string().min(1).max(64).describe('The id of the open work session, as `ouvrir_chantier` returned it.');
@@ -64,6 +65,13 @@ export const DEFINITIONS = {
     title: 'Read files', lecture: true, entree: z.object({ project: projet, paths: z.array(z.string().min(1).max(300)).min(1).max(30) }),
     description: 'The exact content of files (yours, app.json, and the platform files) with the fingerprint to give back to `apply_changes`. Read everything you change and everything that uses it.',
     geste: (c, a) => g.lireDesFichiers(c, a),
+  }),
+  write_notes: def({
+    title: 'Write the project notes', lecture: false,
+    entree: z.object({ project: projet, notes: z.string().max(LONGUEUR_DES_NOTES).describe('The whole notes, rewritten: short lines in English.'),
+      read_fingerprint: z.string().min(1).max(64).describe('The fingerprint of the notes as you read them (`none` when there were none).') }),
+    description: 'The lasting notes of the project, kept across conversations and shown to the person in the vavi console: the person\'s choices that the code does not show (audience, tone, colours or ideas they refused, what they asked to keep). Not what you did: that is in the history. Read them in `get_project_state` or `ouvrir_chantier` and follow them; when the person states a lasting choice, add it here in the same turn.',
+    geste: (c, a) => g.ecrireLesNotes(c, a),
   }),
   ouvrir_chantier: def({
     title: 'Open a work session', lecture: false, _meta: META_DE_LA_VUE,

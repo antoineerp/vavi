@@ -239,6 +239,34 @@ export function commentContinuer(dernierGesteLe: string, maintenant: number): st
     : `Last change ${minutes} min ago, perhaps from another conversation of the same person. If the person asks you to work on this project here, call \`ouvrir_chantier\` with \`resume: true\`; ask them only if their request contradicts its intention.`;
 }
 
+/**
+ * Les notes durables du projet, telles que Claude les lit (Antoine, 26/11) : leur texte et leur empreinte, à rendre à
+ * `write_notes`. Illisibles (migration pas posée, panne) : dit, jamais une note vide inventée.
+ */
+async function lesNotesMontrees(c: Contexte, projet: string): Promise<{ readonly text: string | null; readonly fingerprint: string } | string> {
+  const n = await c.projets.notes(c.compte, projet);
+  if (!n.lu) return `could not be read: ${n.pourquoi}`;
+  return { text: n.valeur, fingerprint: n.valeur === null ? 'none' : empreinteDuFichier(n.valeur) };
+}
+
+/**
+ * Écrire les notes durables : le texte entier, remplacé seulement s'il est encore celui lu (une autre conversation a pu
+ * les changer : refusé, les actuelles rendues, rien de perdu).
+ */
+export async function ecrireLesNotes(c: Contexte, a: { project: string; notes: string; read_fingerprint: string }): Promise<Rendu> {
+  const p = await leProjet(c, a.project);
+  if (!p.ok) return p.refus;
+  const avant = await c.projets.notes(c.compte, a.project);
+  if (!avant.lu) return panne(avant.pourquoi);
+  const lue = avant.valeur === null ? 'none' : empreinteDuFichier(avant.valeur);
+  if (a.read_fingerprint !== lue) return refuser('conflit', `The project notes changed since you read them. Current notes (fingerprint ${lue}): ${JSON.stringify(avant.valeur)}`, { geste: 'Merge your change into the current notes, then call `write_notes` again with their fingerprint.' });
+  const texte = a.notes.trim() || null;
+  const w = await c.projets.ecrireLesNotes(c.compte, a.project, texte, avant.valeur);
+  if (!w.lu) return panne(w.pourquoi);
+  if (!w.valeur.ecrites) { const x = w.valeur.actuelles; return refuser('conflit', `The project notes changed while you wrote them. Current notes (fingerprint ${x === null ? 'none' : empreinteDuFichier(x)}): ${JSON.stringify(x)}`, { geste: 'Merge your change into the current notes, then call `write_notes` again with their fingerprint.' }); }
+  return fait({ notes: { text: texte, fingerprint: texte === null ? 'none' : empreinteDuFichier(texte) } });
+}
+
 export async function lEtatDuProjet(c: Contexte, a: { project: string }): Promise<Rendu> {
   const p = await leProjet(c, a.project);
   if (!p.ok) return p.refus;
@@ -257,6 +285,7 @@ export async function lEtatDuProjet(c: Contexte, a: { project: string }): Promis
     connectors: connecteurs ?? 'unknown',
     work_session: ch ? { id: ch.id, intention: ch.intention, opened_at: ch.ouvertLe, last_change_at: ch.dernierGesteLe, changes: ch.gestes, done: ch.fait, remaining: ch.reste,
       how_to_continue: commentContinuer(ch.dernierGesteLe, Date.now()) } : null,
+    project_notes: await lesNotesMontrees(c, a.project),
     database_laid_out_at: p.valeur.basePoseeLe,
     your_files: [...f.valeur].filter(([chemin]) => chemin !== 'app.json').map(([chemin, t]) => ({ path: chemin, fingerprint: empreinteDuFichier(t), size: t.length })),
     app_json: f.valeur.has('app.json') ? { fingerprint: empreinteDuFichier(f.valeur.get('app.json')!) } : null,
@@ -302,6 +331,7 @@ export async function ouvrirUnChantier(c: Contexte, a: { project: string; intent
   const ch = (await leProjet(c, a.project));
   const note = ch.ok && ch.valeur.chantier ? { done: ch.valeur.chantier.fait, remaining: ch.valeur.chantier.reste } : null;
   return fait({ work_session: o.valeur.chantier, resumed: o.valeur.repris, version: montee?.version ?? p.valeur.version, ...(o.valeur.repris ? { notes: note } : {}),
+    project_notes: await lesNotesMontrees(c, a.project),
     ...(montee ? { template: 'vavi updated the platform files of this project to the current template: run `build_preview` before `publish`, even if you change nothing else.' } : {}) });
 }
 

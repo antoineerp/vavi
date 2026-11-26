@@ -430,6 +430,18 @@ describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {
     expect(JSON.stringify(f.files)).toContain('images.unsplash.com/p?w=640');
     expect((await refus('apply_changes', { project, work_session, why: 'écrire les photos', changes: [{ path: 'src/images.json', content: '{}' }] })).code).toBe('fichier_du_cadre');
   });
+  it('26/11 — les notes durables : écrites par write_notes, relues à l’état et au chantier, jamais écrasées sans avoir été lues', async () => {
+    const { project } = await unChantier();
+    const etat = await ok('get_project_state', { project });
+    expect(etat.project_notes).toEqual({ text: null, fingerprint: 'none' });
+    const w = await ok('write_notes', { project, notes: '- Warm tone.\n- No purple.', read_fingerprint: 'none' });
+    const lue = (w.notes as { fingerprint: string }).fingerprint;
+    expect((await refus('write_notes', { project, notes: '- Formal tone.', read_fingerprint: 'none' })).code).toBe('conflit');
+    const ch = await ok('ouvrir_chantier', { project, intention: 'la carte', resume: true });
+    expect(ch.project_notes).toEqual({ text: '- Warm tone.\n- No purple.', fingerprint: lue });
+    await ok('write_notes', { project, notes: '- Warm tone.\n- No purple.\n- Families.', read_fingerprint: lue });
+    expect(((await ok('get_project_state', { project })).project_notes as { text: string }).text).toContain('Families');
+  });
   it('une clé de la banque refusée (401) dit de ne pas réessayer (incident du 26/11 : deux 401, « réessayez »)', async () => {
     const { project, work_session } = await unChantier();
     (c as { banque?: unknown }).banque = { chercher: async () => { throw new CleDeLaBanqueRefusee(401); }, signaler: async () => undefined };

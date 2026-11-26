@@ -8,7 +8,8 @@ import { adresseDeLApp } from '@/app/_partage/l-adresse-des-apps';
 import { lEtatDeLaMiseEnLigne } from '@/lib/projets/la-mise-en-ligne';
 import { boiteSurSupabase, lesVisites } from '@/lib/formulaires/sur-supabase';
 import { resumerLAudience } from '@/lib/formulaires/l-audience';
-import { claudeAFini, publier } from './gestes';
+import { claudeAFini, ecrireLesNotes, publier } from './gestes';
+import { LONGUEUR_DES_NOTES } from '@/lib/projets/le-sql-des-projets';
 import { leProjet, ERREURS } from './le-projet';
 import { Icone } from '@/app/_partage/les-icones';
 import { Aire } from '@/app/_partage/les-graphiques';
@@ -23,12 +24,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   if (!p.lu) return <main className="console"><p role="alert">{t.erreur} {p.pourquoi}</p></main>;
   const projet = p.valeur!;
   const fr = c.langue === 'fr';
-  const [messages, visites] = await Promise.all([boiteSurSupabase(c.base).lister(id, 100), lesVisites(c.base, id, 30)]);
+  const [messages, visites, notes] = await Promise.all([boiteSurSupabase(c.base).lister(id, 100), lesVisites(c.base, id, 30), c.projets.notes(c.compte, id)]);
   const audience = visites.lu ? resumerLAudience(visites.valeur) : null;
   const serie = audience ? lesJours(audience.parJour, 30, Date.now()) : null;
   const semaine = serie ? serie.slice(-7).reduce((n, x) => n + x.visites, 0) : null;
   const etat = lEtatDeLaMiseEnLigne(projet);
-  const message = q.fait === 'publie' ? t.publie : q.fait === 'claude_a_fini' ? t.claudeAFiniFait : q.erreur ? `${t.erreur} ${ERREURS[q.erreur]?.[c.langue] ?? q.erreur}` : null;
+  const message = q.fait === 'publie' ? t.publie : q.fait === 'claude_a_fini' ? t.claudeAFiniFait : q.fait === 'notes' ? (fr ? 'Notes enregistrées : Claude les relira au prochain travail.' : 'Notes saved: Claude will read them at the next work session.') : q.erreur ? `${t.erreur} ${ERREURS[q.erreur]?.[c.langue] ?? q.erreur}` : null;
   const recus = messages.lu ? messages.valeur.filter((m) => m.statut !== 'spam').length : null;
 
   const marche = (fait: boolean, ici: boolean) => (fait ? 'fait' : ici ? 'ici' : '');
@@ -57,6 +58,18 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <button type="submit" className="discret petit">{t.claudeAFini}</button>
         </form>
       )}
+
+      {/* LES NOTES DURABLES (Antoine, 26/11) : ce que Claude retient des choix de la personne, relu à chaque travail. */}
+      <form action={ecrireLesNotes.bind(null, id)} className="panneau" style={{ marginTop: '1rem' }}>
+        <div className="panneau-tete"><div><h2>{fr ? 'Ce que Claude retient de vos choix' : 'What Claude keeps of your choices'}</h2>
+          <p className="attenue">{fr ? 'Claude les relit à chaque travail sur ce projet et les complète quand vous lui dites un choix durable. Vous pouvez les corriger.' : 'Claude reads them at each work session on this project and adds to them when you state a lasting choice. You can edit them.'}</p></div></div>
+        {notes.lu ? <>
+          <input type="hidden" name="avant" value={notes.valeur ?? ''} />
+          <textarea name="notes" defaultValue={notes.valeur ?? ''} maxLength={LONGUEUR_DES_NOTES} rows={Math.min(14, Math.max(4, (notes.valeur ?? '').split('\n').length + 1))}
+            placeholder={fr ? 'Rien encore. Par exemple : ton chaleureux, pas de violet, public de familles.' : 'Nothing yet. For example: warm tone, no purple, aimed at families.'} style={{ width: '100%' }} />
+          <button type="submit" className="discret petit" style={{ marginTop: '0.5rem' }}>{fr ? 'Enregistrer les notes' : 'Save the notes'}</button>
+        </> : <p role="alert" className="attenue">{t.erreur} {notes.pourquoi}</p>}
+      </form>
 
       <section className="rangee">
         <div className="panneau">

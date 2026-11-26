@@ -238,3 +238,36 @@ export function laMigrationDesReglages(): string {
   ].join('\n');
 }
 
+
+/**
+ * LES NOTES DURABLES D'UN PROJET (Antoine, 26/11 : « ajoute des notes durables par projet ») : les choix de la personne
+ * qui valent au-delà d'un chantier (ton, couleurs refusées, public visé), que Claude écrit par `write_notes` et relit à
+ * chaque chantier, et que la console montre. Ce qu'elles remplacent : rien ne gardait ces choix d'une conversation à
+ * l'autre (les notes d'un chantier, `fait`/`reste`, partent avec lui). La plateforme les écrit par la clé de service.
+ */
+export const CHEMIN_DE_LA_MIGRATION_DES_NOTES = 'supabase/migrations/20261126100000_les_notes_du_projet.sql';
+export const LONGUEUR_DES_NOTES = 4000;
+
+export const SQL_DES_NOTES = `
+ALTER TABLE public.vavi_projets ADD COLUMN IF NOT EXISTS notes TEXT CHECK (notes IS NULL OR length(notes) <= ${LONGUEUR_DES_NOTES});
+
+-- Écrire les notes si elles sont encore celles lues (une autre conversation, ou la personne, a pu les changer).
+CREATE OR REPLACE FUNCTION public.vavi_ecrire_les_notes(p_projet UUID, p_notes TEXT, p_avant TEXT)
+RETURNS BOOLEAN
+LANGUAGE sql VOLATILE SECURITY INVOKER SET search_path = '' AS $$
+  WITH m AS (UPDATE public.vavi_projets SET notes = p_notes WHERE id = p_projet AND notes IS NOT DISTINCT FROM p_avant RETURNING 1)
+  SELECT EXISTS (SELECT 1 FROM m);
+$$;
+REVOKE ALL ON FUNCTION public.vavi_ecrire_les_notes(UUID, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.vavi_ecrire_les_notes(UUID, TEXT, TEXT) TO service_role;
+NOTIFY pgrst, 'reload schema';
+`;
+
+export function laMigrationDesNotes(): string {
+  return [
+    '-- LES NOTES DURABLES D\'UN PROJET — écrit par scripts/ecrire-la-migration-du-socle.ts depuis lib/projets/le-sql-des-projets.ts.',
+    '-- Ne pas modifier à la main : modifier la source, puis relancer le script.',
+    SQL_DES_NOTES.trim(),
+    '',
+  ].join('\n');
+}

@@ -14,7 +14,7 @@
 /** Les outils du serveur que les consignes ont le droit de nommer. */
 export const OUTILS = [
   'list_projects', 'create_project', 'get_project_state', 'read_files', 'ouvrir_chantier', 'abandonner_chantier',
-  'apply_changes', 'configure_backend', 'set_secret', 'get_design_guide', 'search_images', 'add_packages', 'build_preview', 'try_journey', 'publish', 'history', 'rollback',
+  'apply_changes', 'write_notes', 'configure_backend', 'set_secret', 'get_design_guide', 'search_images', 'add_packages', 'build_preview', 'try_journey', 'publish', 'history', 'rollback',
 ] as const;
 export type Outil = (typeof OUTILS)[number];
 
@@ -37,7 +37,7 @@ vavi's tools refuse what would break the project. When a tool refuses, read its 
 ## Changing without breaking
 - A new site or app is a new project (\`create_project\`): never open another one. To change a project, start with
   \`get_project_state\`, then read with \`read_files\` everything your change touches and everything
-  that uses it. Never assume the content of a file.
+  that uses it. Follow the project notes; add each lasting choice with \`write_notes\`.
 - Change as little as possible: a targeted edit beats a rewritten file. Do not rename, reorganise or "clean up"
   anything you were not asked to.
 - If \`apply_changes\` answers \`conflit\`, someone changed the project since you read it: re-read the files it names and
