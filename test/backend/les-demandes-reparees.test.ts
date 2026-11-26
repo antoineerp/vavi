@@ -18,6 +18,13 @@ describe('les demandes réparées', () => {
     expect(r.repare.join(' | ')).toContain('« Accueil » ne nomme aucun écran');
   });
 
+  it('un site : `tenuePar: []` (la scierie, 26/11) retire la demande au lieu de refuser', () => {
+    const r = lireLeManifeste({ ...base, nature: 'site', demandes: [{ passage: 'fais site web pour une scierie', tenuePar: [] }] });
+    if (!r.ok) throw new Error(r.erreurs.join(' | '));
+    expect(r.manifeste.demandes).toEqual([]);
+    expect(r.repare.join(' | ')).toContain('retirée de `demandes`');
+  });
+
   it('une app : le titre d’un écran est lu comme cet écran', () => {
     const r = lireLeManifeste({ ...base, nature: 'app',
       tables: [{ nom: 'notes', libelle: 'Notes', champs: [{ nom: 'nom', libelle: 'Nom', type: 'texte', obligatoire: true }], acces: { lire: ['proprietaire'], creer: ['proprietaire'], modifier: ['proprietaire'], supprimer: ['proprietaire'] } }],
