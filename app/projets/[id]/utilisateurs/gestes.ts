@@ -5,6 +5,8 @@ import { laConsole } from '@/app/_partage/la-console';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { changerUnRole, deconnecterPartout, inviterAvecUnRole, unRoleDeclare } from '@/lib/donnees/les-comptes-de-l-app';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
+import { relierUneFiche } from '@/lib/donnees/les-fiches';
+import { donneesSurSupabase } from '@/lib/donnees/sur-supabase';
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const retour = (id: string, q: Record<string, string>): never => redirect(`/projets/${id}/utilisateurs?${new URLSearchParams(q)}`);
@@ -52,4 +54,20 @@ export async function changerLInvitation(id: string, inviter: boolean, retiree: 
   const r = await inviterAvecUnRole(c.base, schema!, email, role, inviter);
   if (r.lu && r.valeur) console.log(`[utilisateurs] ${id.slice(0, 8)} invitation ${inviter ? 'posée' : 'retirée'}`);
   retour(id, r.lu && r.valeur ? { fait: inviter ? 'invite' : 'invitation_retiree' } : { erreur: 'roles_non_poses' });
+}
+
+/** Relier une fiche (formulaire : `ligne` ; vide : délier) d'une table de fiches d'app.json au compte. */
+export async function relierLaFiche(id: string, compte: string, table: string, f: FormData) {
+  if (!ID.test(id) || !ID.test(compte) || !/^[a-z_][a-z0-9_]{0,62}$/.test(table)) redirect('/projets');
+  const c = await laConsole(`/projets/${id}/utilisateurs`);
+  const [p, fichiers] = await Promise.all([c.projets.lire(c.compte, id), c.projets.fichiers(c.compte, id)]);
+  const schema = schemaDuProjet(id);
+  const m = fichiers.lu ? leManifesteStocke(fichiers.valeur.get('app.json')) : null;
+  if (!p.lu || !p.valeur || !schema || !m?.lu) retour(id, { erreur: 'panne' });
+  const ligne = String(f.get('ligne') ?? '');
+  if (ligne && !ID.test(ligne)) retour(id, { erreur: 'fiche_prise' });
+  const r = await relierUneFiche(donneesSurSupabase(c.base), m!.lu ? m!.manifeste : (null as never), schema!, c.compte, table, compte, ligne || null);
+  if ('refus' in r) { if (r.pourquoi) console.error(`[utilisateurs] ${id.slice(0, 8)} fiche : ${r.pourquoi}`); retour(id, { erreur: r.refus }); }
+  console.log(`[utilisateurs] ${id.slice(0, 8)} fiche ${ligne ? 'reliée' : 'déliée'}`);
+  retour(id, { fait: ligne ? 'fiche_reliee' : 'fiche_deliee' });
 }

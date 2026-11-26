@@ -6,7 +6,9 @@ import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 import { lesComptesAvecLeursRoles, lesComptesSurSupabase } from '@/lib/donnees/les-comptes-de-l-app';
 import { leProjet, ERREURS } from '../le-projet';
-import { changerLInvitation, changerLeRole, deconnecter } from './gestes';
+import { lesFichesDuCompte, lesTablesDeFiches } from '@/lib/donnees/les-fiches';
+import { donneesSurSupabase, type Ligne } from '@/lib/donnees/sur-supabase';
+import { changerLInvitation, changerLeRole, deconnecter, relierLaFiche } from './gestes';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +22,8 @@ const MOTS = {
     invitations: 'Invitations en attente', invite: 'invité le', sansRoles: 'Cette app ne déclare pas de rôles : chaque compte voit ses propres données.',
     fait: 'Compte déconnecté : il devra se reconnecter sur tous ses appareils.',
     donner: 'Donner', retirer: 'Retirer ce rôle', inviterTitre: 'Inviter quelqu’un', inviterExplication: 'La personne reçoit ce rôle à sa première connexion dans l’app, avec un compte confirmé à cette adresse.', inviter: 'Inviter', adresseAInviter: 'Adresse', retirerInvitation: 'Retirer l’invitation', invite_fait: 'Invitation posée : prévenez la personne, elle s’inscrit dans l’app à cette adresse.', invitationRetiree: 'Invitation retirée.', choisirRole: 'Rôle à donner', roleDonne: 'Rôle donné : il s’applique à la prochaine ouverture de l’app par ce compte.', roleRetire: 'Rôle retiré.',
-    erreurs: { role_inconnu: 'Ce rôle n’est pas déclaré par l’app.', compte_inconnu: 'Ce compte n’est pas un compte de cette app.', adresse_invalide: 'Cette adresse n’est pas valide.', roles_non_poses: 'Les rôles ne se changent pas encore : la mise à jour de la base de vavi (migration des membres) n’est pas posée.' } as Record<string, string>,
+    fiche: 'Fiche', ficheExplication: 'Chaque compte de ce rôle a sa fiche dans l’app : reliez-la ici, sinon l’app lui dit que sa fiche manque.', ficheManquante: 'fiche manquante', relier: 'Relier', delier: 'Délier', choisirFiche: 'Fiche à relier', aucuneFicheLibre: 'Aucune fiche libre : créez-la d’abord dans Données', ficheReliee: 'Fiche reliée : l’app la montre à ce compte dès sa prochaine ouverture.', ficheDeliee: 'Fiche déliée.',
+    erreurs: { role_inconnu: 'Ce rôle n’est pas déclaré par l’app.', compte_inconnu: 'Ce compte n’est pas un compte de cette app.', adresse_invalide: 'Cette adresse n’est pas valide.', roles_non_poses: 'Les rôles ne se changent pas encore : la mise à jour de la base de vavi (migration des membres) n’est pas posée.', fiche_prise: 'Cette fiche est déjà reliée à un autre compte.', table_sans_fiches: 'Cette table ne tient pas de fiches de comptes.' } as Record<string, string>,
   },
   en: {
     titre: 'Users', intro: 'Your app’s accounts: they sign up from the app, and each app has its own (an account of one app opens no other app). Roles are given here (“Give”, or an invitation), in the app (Team screen), at sign-up or by a payment; the app reads them again at each opening.',
@@ -31,7 +34,8 @@ const MOTS = {
     invitations: 'Pending invitations', invite: 'invited', sansRoles: 'This app declares no roles: each account sees its own data.',
     fait: 'Account signed out: it will have to sign in again on all its devices.',
     donner: 'Give', retirer: 'Remove this role', inviterTitre: 'Invite someone', inviterExplication: 'The person gets this role at their first sign-in to the app, with a confirmed account at this address.', inviter: 'Invite', adresseAInviter: 'Address', retirerInvitation: 'Remove the invitation', invite_fait: 'Invitation set: tell the person, they sign up in the app at this address.', invitationRetiree: 'Invitation removed.', choisirRole: 'Role to give', roleDonne: 'Role given: it applies the next time this account opens the app.', roleRetire: 'Role removed.',
-    erreurs: { role_inconnu: 'This role is not declared by the app.', compte_inconnu: 'This account is not an account of this app.', adresse_invalide: 'This address is not valid.', roles_non_poses: 'Roles cannot be changed yet: vavi’s database update (members migration) is not applied.' } as Record<string, string>,
+    fiche: 'Record', ficheExplication: 'Each account of this role has its record in the app: link it here, or the app tells them their record is missing.', ficheManquante: 'record missing', relier: 'Link', delier: 'Unlink', choisirFiche: 'Record to link', aucuneFicheLibre: 'No free record: create it first in Data', ficheReliee: 'Record linked: the app shows it to this account the next time it opens.', ficheDeliee: 'Record unlinked.',
+    erreurs: { role_inconnu: 'This role is not declared by the app.', compte_inconnu: 'This account is not an account of this app.', adresse_invalide: 'This address is not valid.', roles_non_poses: 'Roles cannot be changed yet: vavi’s database update (members migration) is not applied.', fiche_prise: 'This record is already linked to another account.', table_sans_fiches: 'This table holds no account records.' } as Record<string, string>,
   },
 };
 
@@ -46,7 +50,14 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const declares = manifeste?.lu ? manifeste.manifeste.roles : [];
   const libelles = Object.fromEntries(declares.map((r) => [r.nom, r.libelle]));
   const comptes = lus.lu ? lesComptesAvecLeursRoles(lus.valeur.comptes, lus.valeur.membres, lus.valeur.connectes, libelles) : [];
-  const message = q.fait === 'deconnecte' ? m.fait : q.fait === 'role_donne' ? m.roleDonne : q.fait === 'role_retire' ? m.roleRetire : q.fait === 'invite' ? m.invite_fait : q.fait === 'invitation_retiree' ? m.invitationRetiree
+  // Les fiches des comptes (`personnes` d'app.json) : lues une fois par table, reliées par compte.
+  const tablesDeFiches = manifeste?.lu ? lesTablesDeFiches(manifeste.manifeste) : [];
+  const donnees = donneesSurSupabase(c.base);
+  const lignesDesFiches = new Map<string, readonly Ligne[]>((await Promise.all(tablesDeFiches.map(async (x) => {
+    const r = await donnees.lire(schema, x.table, { limite: 5000 });
+    return [x.table, r.lu ? r.valeur.lignes : []] as const;
+  }))));
+  const message = q.fait === 'deconnecte' ? m.fait : q.fait === 'role_donne' ? m.roleDonne : q.fait === 'role_retire' ? m.roleRetire : q.fait === 'fiche_reliee' ? m.ficheReliee : q.fait === 'fiche_deliee' ? m.ficheDeliee : q.fait === 'invite' ? m.invite_fait : q.fait === 'invitation_retiree' ? m.invitationRetiree
     : q.erreur ? `${t.erreur} ${m.erreurs[q.erreur] ?? ERREURS[q.erreur]?.[c.langue] ?? q.erreur}` : null;
   const rolesLus = lus.lu && lus.valeur.membres !== null;
   return (
@@ -66,7 +77,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           {comptes.length === 0 ? <div className="carte"><p className="attenue">{m.aucun}</p></div> : (
             <div className="carte defile">
               <table className="tableau">
-                <thead><tr><th>{m.adresse}</th>{declares.length > 0 && <th>{m.roles}</th>}<th>{m.etat}</th><th>{m.depuis}</th><th /></tr></thead>
+                <thead><tr><th>{m.adresse}</th>{declares.length > 0 && <th>{m.roles}</th>}{tablesDeFiches.length > 0 && <th title={m.ficheExplication}>{m.fiche}</th>}<th>{m.etat}</th><th>{m.depuis}</th><th /></tr></thead>
                 <tbody>{comptes.map((x) => (
                   <tr key={x.id}>
                     <td>{x.email}</td>
@@ -89,6 +100,24 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                         )}
                       </div>
                     )}</td>}
+                    {tablesDeFiches.length > 0 && <td>{manifeste?.lu && lesFichesDuCompte(manifeste.manifeste, x.id, x.roles.map((r) => r.role), lignesDesFiches).map((fi) => (
+                      <div key={fi.table} className="ligne" style={{ gap: '0.35rem', flexWrap: 'nowrap' }}>
+                        {fi.fiche ? (
+                          <form action={relierLaFiche.bind(null, id, x.id, fi.table)} className="etat vert" style={{ gap: '0.3rem' }}>
+                            {fi.fiche.nom}<input type="hidden" name="ligne" value="" />
+                            <button type="submit" className="discret" aria-label={`${m.delier} : ${fi.fiche.nom}`} title={m.delier} style={{ padding: '0 0.3rem', fontSize: '0.8rem', lineHeight: 1.2 }}>×</button>
+                          </form>
+                        ) : fi.libres.length === 0 ? <span className="etat ambre" title={`${m.aucuneFicheLibre} > ${fi.libelle}`}>{m.ficheManquante} · {m.aucuneFicheLibre} &gt; {fi.libelle}</span> : (
+                          <form action={relierLaFiche.bind(null, id, x.id, fi.table)} className="ligne" style={{ gap: '0.3rem', flexWrap: 'nowrap' }}>
+                            <span className="etat ambre">{m.ficheManquante}</span>
+                            <select name="ligne" aria-label={`${m.choisirFiche} (${fi.libelle})`} style={{ padding: '0.25rem 0.4rem', fontSize: '0.85rem' }}>
+                              {fi.libres.map((l) => <option key={l.id} value={l.id}>{l.nom}</option>)}
+                            </select>
+                            <button type="submit" className="petit">{m.relier}</button>
+                          </form>
+                        )}
+                      </div>
+                    ))}</td>}
                     <td><span className={`etat${x.confirme ? ' vert' : ' ambre'}`}>{x.confirme ? m.confirme : m.nonConfirme}</span>{x.connecte && <> <span className="etat bleu">{m.connecte}</span></>}</td>
                     <td className="attenue">{date(x.creeLe)}</td>
                     <td>{x.connecte && <form action={deconnecter.bind(null, id, x.id)}><button type="submit" className="petit discret">{m.deconnecter}</button></form>}</td>

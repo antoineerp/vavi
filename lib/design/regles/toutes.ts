@@ -125,6 +125,8 @@ export const REGLES: readonly Regle[] = [
     natures: ['boutique', 'app'] }),
 
   // ── Rôles
+  regle({ id: 'la-fiche-du-compte', sujet: 'roles', natures: ['app'], porte: 'comptes', tenuePar: { fige: 'src/lib/ma-fiche.tsx' },
+    texte: 'Quand chaque compte d’un rôle est aussi une ligne d’une table (un technicien, un salarié, un client suivi), cette table déclare `personnes: "<role>"` : la base pose `compte_id`, que le propriétaire relie dans sa console. L’écran de ce rôle lit sa fiche par `useMaFiche(\'<table>\')` de `@/lib/ma-fiche` et filtre ses lignes par son `id` ; tant qu’elle vaut `aucune`, il montre `<FicheManquante />`. Jamais un champ d’adresse comparé au courriel du compte.' }),
   regle({ id: 'chaque-role-sa-page', sujet: 'roles',
     texte: 'Chaque rôle d’`app.json` a au moins une page qui lui est réservée et qui paraît au menu : c’est là qu’il arrive en entrant.',
     natures: ['boutique', 'app'], tenuePar: { controle: 'roles' } }),

@@ -35,15 +35,16 @@ function typesDe(t: Table): string {
   const etat = t.cycle ? [`readonly etat: ${t.cycle.etats.map((e) => JSON.stringify(e)).join(' | ')};`] : [];
   const parent = t.appartenance === 'rattachee' && t.parent ? [`readonly ${t.parent}_id: string;`] : [];
   const vente = t.nom === TABLE_DE_LA_COMMANDE ? COLONNES_DE_LA_VENTE.map((c) => `readonly ${c.nom}: ${c.ts};`) : [];
+  const fiche = t.personnes ? ['readonly compte_id: string | null;'] : [];
   const provenance = t.propositions ? ["readonly origine: 'personne' | 'ia';", 'readonly ia_explication: string | null;', "readonly ia_confiance: 'haute' | 'moyenne' | 'basse' | null;"] : [];
   const nouvelle = [...ecrits.map((c) => `readonly ${c.nom}${c.obligatoire ? '' : '?'}: ${typeDu(c)}${c.obligatoire ? '' : ' | null'};`),
     ...parent];
   const transitions = t.cycle ? `\n    transitions: ${t.cycle.transitions.map((x) => JSON.stringify(x.nom)).join(' | ')};` : '';
   const pieces = t.champs.filter(estUnePiece).map((c) => JSON.stringify(c.nom));
-  const suite = `${transitions}${pieces.length ? `\n    pieces: ${pieces.join(' | ')};` : ''}${t.propositions ? '\n    propositions: true;' : ''}${t.ecriture.includes(VISITEUR) ? '\n    sansCompte: true;' : ''}`;
+  const suite = `${transitions}${pieces.length ? `\n    pieces: ${pieces.join(' | ')};` : ''}${t.propositions ? '\n    propositions: true;' : ''}${t.personnes ? '\n    personnes: true;' : ''}${t.ecriture.includes(VISITEUR) ? '\n    sansCompte: true;' : ''}`;
   return [
     `  ${t.nom}: {`,
-    `    ligne: { ${[...COLONNES_DE_LA_BASE, ...parent, ...champs, ...etat, ...vente, ...provenance].join(' ')} };`,
+    `    ligne: { ${[...COLONNES_DE_LA_BASE, ...parent, ...champs, ...etat, ...vente, ...provenance, ...fiche].join(' ')} };`,
     // Une table qu'aucun rôle n'écrit (la base n'en donne pas le droit) ne se crée ni ne se modifie depuis une page.
     ...(t.ecriture.length === 0 ? ['    nouvelle: never;', `    modification: never;${suite}`] : [
       `    nouvelle: { ${nouvelle.join(' ')} };`,
