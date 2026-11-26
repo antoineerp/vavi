@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { leGuideAvantLeProjet, leGuideDeDesign } from '@/lib/design/le-guide';
-import { LE_LANGAGE, PAR_REGISTRE, leLangageDe } from '@/lib/design/le-langage';
+import { CE_QUI_TRAHIT, LE_LANGAGE, PAR_REGISTRE, leLangageDe } from '@/lib/design/le-langage';
 import { lesEffets, poserLesJetons, jetonsDeLaPeau, contraste } from '@/lib/design/la-peau';
 import { Direction, lireLeManifeste } from '@/lib/backend/app/manifeste';
 import { EXEMPLE_D_APP_JSON } from '@/lib/backend/app/l-exemple-d-app-json';
@@ -17,7 +17,7 @@ const METIER = ['carburant', 'vehicule', 'facture', 'audit', 'restaurant', 'hote
 
 describe('le langage visuel', () => {
   it('ne nomme aucun métier : il parle d’ambiance et de forme, pour toutes les apps', () => {
-    const tout = [...LE_LANGAGE, ...Object.values(PAR_REGISTRE), ...leGuideAvantLeProjet().direction].join(' ').toLowerCase();
+    const tout = [...LE_LANGAGE, ...CE_QUI_TRAHIT, ...Object.values(PAR_REGISTRE), ...leGuideAvantLeProjet().direction].join(' ').toLowerCase();
     expect(METIER.filter((m) => new RegExp(`\\b${m}\\b`).test(tout))).toEqual([]);
   });
   it('avant le projet : comment écrire la direction, le langage, le guide de la nature', () => {
@@ -34,6 +34,12 @@ describe('le langage visuel', () => {
     expect(g.langage).toContain(PAR_REGISTRE.narratif);
     expect(g.langage).not.toContain(PAR_REGISTRE.catalogue);
     expect(leLangageDe({ ...m.direction, verre: false }).join(' ')).toMatch(/no glass/);
+  });
+  it('ce qui trahit un site généré (constructor-v13, 24/09) atteint Claude, chaque interdit avec son remplaçant', () => {
+    const g = leGuideDeDesign(unManifeste({ nature: 'site' }));
+    expect(g.langage).toEqual(expect.arrayContaining([...CE_QUI_TRAHIT]));
+    expect(CE_QUI_TRAHIT.slice(1).every((l) => /instead/.test(l))).toBe(true);
+    expect(CE_QUI_TRAHIT.join(' ')).toMatch(/full-width band in the accent colour[\s\S]*centred hero[\s\S]*counters[\s\S]*sparkles/);
   });
 });
 

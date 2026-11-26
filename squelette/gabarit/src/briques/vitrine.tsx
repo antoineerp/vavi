@@ -20,7 +20,7 @@ export const PLEINE_LARGEUR = 'relative left-1/2 w-screen max-w-[100vw] -transla
 /**
  * L'ouverture de l'accueil : un fond uni, un titre très grand en deux lignes au plus, une phrase, deux gestes en pilule
  * (le premier plein), les promesses d'app.json (chacune tenue par ce qu'il déclare), et à droite ce que l'on vient chercher
- * (`visuel` : la photo du sujet, ou l'app elle-même par `<ApercuDuProduit />`). Sans visuel, tout se centre.
+ * (`visuel` : la photo du sujet, ou l'app elle-même par `<ApercuDuProduit />`). Sans visuel, le titre se cale à gauche, plus grand.
  */
 export function Ouverture({ surtitre, titre, chapeau, gestes, visuel }: {
   readonly surtitre?: string;
@@ -32,14 +32,16 @@ export function Ouverture({ surtitre, titre, chapeau, gestes, visuel }: {
   const [premier, second] = gestes;
   // Les promesses viennent d'app.json, où chacune nomme ce qui la tient : aucune ne s'écrit dans la page.
   const preuves = (APP.promesses ?? []).map((p) => p.texte);
-  // La signature de la direction (26/11) : une bande en inversion de contraste, ou deux taches de couleur floues derrière.
+  // La signature de la direction (26/11) : une bande en inversion de contraste, ou deux taches de couleur floues derrière ;
+  // sinon le fond de la page, sans bande teintée (Antoine, 26/11 : « des bandeaux très IA »).
   const signature = APP.direction?.signatureVisuelle;
   const fond = signature === 'bande-inversee' ? 'bande-ancre [&_.text-muted-foreground]:text-sur-ancre-attenue [&_.text-accent-texte]:text-seconde'
-    : signature === 'maillage' ? 'maillage overflow-hidden bg-background' : 'bg-secondary';
+    : signature === 'maillage' ? 'maillage overflow-hidden bg-background' : 'bg-background';
   return (
     <section data-piece="ouverture" className={cn(PLEINE_LARGEUR, fond)}>
       <div className={cn('mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 md:gap-14 md:py-24', visuel && 'md:grid-cols-[1.15fr_1fr]')}>
-        <div className={cn('space-y-7', !visuel && 'mx-auto max-w-3xl text-center [&_p]:mx-auto [&_ul]:justify-center [&>div]:justify-center')}>
+        {/* Sans visuel, le titre se cale à gauche et grandit : le héros centré à deux boutons est le motif des sites générés (26/11). */}
+        <div className={cn('space-y-7', !visuel && 'max-w-4xl lg:[&_h1]:text-8xl')}>
           {surtitre ? <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent-texte">{surtitre}</p> : null}
           <h1 className="text-balance font-titre text-5xl leading-[1.02] tracking-tight sm:text-6xl lg:text-7xl">{titre}</h1>
           <p className="max-w-xl text-pretty text-lg text-muted-foreground">{chapeau}</p>
@@ -84,15 +86,24 @@ export function SectionIllustree({ surtitre, titre, texte, points = [], geste, v
   );
 }
 
-/** La dernière section de l'accueil : une bande pleine de l'accent, une phrase qui décide et le geste principal. */
-export function AppelFinal({ titre, chapeau, geste }: { readonly titre: string; readonly chapeau?: string; readonly geste: Geste }) {
+/**
+ * La dernière section de l'accueil : une phrase qui décide et le geste principal, posés à côté de ce qui les porte
+ * (`visuel` : une `<Photo>` du sujet, les coordonnées, une carte). CE QU'ELLE REMPLACE (26/11, Antoine : « des bandeaux
+ * très IA ») : la bande pleine de l'accent, titre centré et un bouton, le motif que tout générateur produit (constructor-
+ * v13, interdits nommés du 24/09). Sans visuel, le texte se cale à gauche sous un filet, en grand, sans bande.
+ */
+export function AppelFinal({ surtitre, titre, chapeau, geste, visuel }: {
+  readonly surtitre?: string; readonly titre: string; readonly chapeau?: string; readonly geste: Geste; readonly visuel?: ReactNode;
+}) {
   return (
-    <section data-piece="appel-final" className={cn(PLEINE_LARGEUR, 'mt-10 overflow-hidden bg-primary text-primary-foreground')}>
-      <div className="apparait mx-auto max-w-3xl space-y-6 px-4 py-20 text-center md:py-28">
-        <h2 className="text-balance font-titre text-4xl tracking-tight md:text-5xl">{titre}</h2>
-        {chapeau ? <p className="mx-auto max-w-xl text-pretty text-lg opacity-90">{chapeau}</p> : null}
-        <Link to={geste.vers} className={cn(buttonVariants({ size: 'lg', variant: 'outline' }), 'rounded-full border-transparent bg-background px-8 text-foreground hover:bg-background/90')}>{geste.libelle}</Link>
+    <section data-piece="appel-final" className={cn('apparait mt-10 grid items-center gap-10 border-t border-border py-16 md:py-24', visuel && 'md:grid-cols-[1.1fr_1fr] md:gap-16')}>
+      <div className="max-w-2xl space-y-6">
+        {surtitre ? <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent-texte">{surtitre}</p> : null}
+        <h2 className="text-balance font-titre text-4xl leading-[1.05] tracking-tight md:text-6xl">{titre}</h2>
+        {chapeau ? <p className="max-w-xl text-pretty text-lg text-muted-foreground">{chapeau}</p> : null}
+        <Link to={geste.vers} className={cn(buttonVariants({ size: 'lg' }), 'souleve rounded-full px-8')}>{geste.libelle}</Link>
       </div>
+      {visuel ? <div className="min-w-0 [&>img]:aspect-[4/3] [&>img]:w-full [&>img]:rounded-xl [&>img]:ombre-teintee">{visuel}</div> : null}
     </section>
   );
 }
