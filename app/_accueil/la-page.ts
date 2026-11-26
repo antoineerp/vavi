@@ -463,7 +463,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
     </div>
     <div class="captures">
       <figure><img src="__IMAGES__/claude-et-vavi.png" alt="Une conversation avec Claude à gauche, et l'aperçu du site dans le panneau vavi à droite" loading="lazy"><figcaption class="main">Vous parlez à Claude, votre site s'affiche à côté.</figcaption></figure>
-      <figure><img src="__IMAGES__/console-vue-d-ensemble.png" alt="La vue d'ensemble d'un projet dans la console vavi : état du site, visites, messages, bouton Publier" width="1280" height="900" loading="lazy"><figcaption class="main">La console : votre site, vos visites, vos messages.</figcaption></figure>
+      <figure><img src="__IMAGES__/console-vue-d-ensemble.png" alt="La vue d'ensemble d'un projet dans la console vavi : état du site, visites, messages, bouton Publier" width="1896" height="822" loading="lazy"><figcaption class="main">La console : votre site, vos visites, vos messages.</figcaption></figure>
     </div>
   </div>
 </section>
