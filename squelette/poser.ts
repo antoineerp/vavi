@@ -54,6 +54,17 @@ function resoudre(depuis: string, cible: string): string | null {
   return parts.join('/');
 }
 
+/** Les fichiers de l'arbre qu'un fichier importe (`import`, `from`, `import()`), résolus ; un paquet n'en est pas. PUR. */
+export function lesImportsDe(chemin: string, source: string, existe: (c: string) => boolean): string[] {
+  const trouves: string[] = [];
+  for (const [, cible] of source.matchAll(IMPORTS)) {
+    const base = resoudre(chemin, cible!);
+    const trouve = base === null ? undefined : SUFFIXES.map((s) => `${base}${s}`).find(existe);
+    if (trouve) trouves.push(trouve);
+  }
+  return trouves;
+}
+
 /**
  * L'arbre que l'app TIRE : chaque fichier de l'agent, ce qui n'est pas sous `src/`, ce que la plateforme y pose, et du
  * figé seulement ce qu'un import atteint depuis eux. Une pièce du cadre (`import.meta.glob`) qu'app.json n'offre pas
@@ -77,11 +88,7 @@ export function ceQueLAppTire(arbre: ReadonlyMap<string, string>, m: Manifeste):
     tires.add(c);
     const source = arbre.get(c) ?? '';
     if (!/\.(tsx?|css)$/.test(c)) continue;
-    for (const [, cible] of source.matchAll(IMPORTS)) {
-      const base = resoudre(c, cible!);
-      const trouve = base === null ? undefined : SUFFIXES.map((s) => `${base}${s}`).find((x) => arbre.has(x));
-      if (trouve) file.push(trouve);
-    }
+    file.push(...lesImportsDe(c, source, (x) => arbre.has(x)));
     for (const [, g] of source.matchAll(GLOBS)) {
       const base = resoudre(c, g!);
       if (base) file.push(...[...arbre.keys()].filter((x) => motif(base).test(x) && (!figes.has(x) || offerte(arbre.get(x) ?? ''))));

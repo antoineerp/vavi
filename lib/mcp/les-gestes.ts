@@ -36,6 +36,7 @@ import { lesLiensMorts } from '@/squelette/les-liens';
 import type { Etape as EtapeDuParcours, Parcours } from '@/lib/parcours/le-parcours';
 import { CHEMIN_DES_IMAGES, CleDeLaBanqueRefusee, poserLesImages, type Banque, type DemandeDImage } from '@/lib/images/la-banque';
 import { CHEMIN_DES_PAQUETS, PAQUETS_MAX, lesPaquetsAjoutes, leFichierDesPaquets, verifierAuRegistre } from '@/lib/paquets/les-paquets';
+import { lIndex } from '@/squelette/l-index';
 
 export interface Contexte {
   readonly compte: string;
@@ -275,6 +276,7 @@ export async function lEtatDuProjet(c: Contexte, a: { project: string }): Promis
   const arbre = await lArbreLu(f.valeur, c.magasin);
   const build = arbre.lu ? await c.projets.leBuild(c.compte, a.project, arbre.empreinte) : null;
   const ch = p.valeur.chantier;
+  const index = lIndex(f.valeur, (x) => arbre.lu && arbre.fige.has(x));
   const plan = c.abonnement ? await c.abonnement() : null;
   // Les connecteurs branchés par la personne, par leur nom seul (ce que la page passe à `capacites.connecteur.appeler`).
   const secrets = await c.projets.nomsDesSecrets(c.compte, a.project);
@@ -287,7 +289,10 @@ export async function lEtatDuProjet(c: Contexte, a: { project: string }): Promis
       how_to_continue: commentContinuer(ch.dernierGesteLe, Date.now()) } : null,
     project_notes: await lesNotesMontrees(c, a.project),
     database_laid_out_at: p.valeur.basePoseeLe,
-    your_files: [...f.valeur].filter(([chemin]) => chemin !== 'app.json').map(([chemin, t]) => ({ path: chemin, fingerprint: empreinteDuFichier(t), size: t.length })),
+    // L'INDEX (Antoine, 26/11) : les pages et, pour chaque fichier, ceux de Claude qui l'importent : ce qu'un changement touche.
+    pages: index.pages,
+    your_files: [...f.valeur].filter(([chemin]) => chemin !== 'app.json').map(([chemin, t]) => ({ path: chemin, fingerprint: empreinteDuFichier(t), size: t.length,
+      ...(index.utilisePar.has(chemin) ? { used_by: index.utilisePar.get(chemin) } : {}) })),
     app_json: f.valeur.has('app.json') ? { fingerprint: empreinteDuFichier(f.valeur.get('app.json')!) } : null,
     platform_files: { read_first: CHEMINS_MONTRES, all: arbre.lu ? [...arbre.fige.keys()] : [] },
     ...(arbre.repli ? { template: arbre.repli } : {}),
@@ -304,6 +309,7 @@ export async function lireDesFichiers(c: Contexte, a: { project: string; paths: 
   const f = await lesFichiers(c, a.project);
   if (!f.ok) return f.refus;
   const arbre = await lArbreLu(f.valeur, c.magasin);
+  const index = lIndex(f.valeur, (x) => arbre.lu && arbre.fige.has(x));
   let lus = 0;
   const files = a.paths.map((chemin) => {
     const platform = estFige(chemin) && chemin !== 'app.json';
@@ -313,7 +319,8 @@ export async function lireDesFichiers(c: Contexte, a: { project: string; paths: 
     if (texte === undefined) return { path: chemin, missing: true };
     if (lus + texte.length > MAX_LU) return { path: chemin, not_sent: 'too much text in one call: read this file in another call' };
     lus += texte.length;
-    return { path: chemin, fingerprint: empreinteDuFichier(texte), ...(platform ? { platform: true } : {}), content: texte };
+    const par = index.utilisePar.get(chemin);
+    return { path: chemin, fingerprint: empreinteDuFichier(texte), ...(platform ? { platform: true } : {}), ...(par ? { used_by: par } : {}), content: texte };
   });
   return fait({ version: p.valeur.version, files });
 }

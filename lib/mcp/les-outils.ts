@@ -58,12 +58,12 @@ export const DEFINITIONS = {
   }),
   get_project_state: def({
     title: 'Read the state of a project', _meta: META_DE_LA_VUE, lecture: true, entree: z.object({ project: projet }),
-    description: 'Call it first on the project you change (a new site or app is a new project: `create_project`). The version, the open work session and its notes, your files with their fingerprints, the platform files to read first, the connectors the person plugged in, the state of the current build.',
+    description: 'Call it first on the project you change (a new site or app is a new project: `create_project`). The version, the open work session and its notes, the project notes, the pages with their address, your files with their fingerprints and `used_by` (your files that import each one: what a change touches), the platform files to read first, the connectors the person plugged in, the state of the current build.',
     geste: (c, a) => g.lEtatDuProjet(c, a),
   }),
   read_files: def({
     title: 'Read files', lecture: true, entree: z.object({ project: projet, paths: z.array(z.string().min(1).max(300)).min(1).max(30) }),
-    description: 'The exact content of files (yours, app.json, and the platform files) with the fingerprint to give back to `apply_changes`. Read everything you change and everything that uses it.',
+    description: 'The exact content of files (yours, app.json, and the platform files) with the fingerprint to give back to `apply_changes`, and `used_by`: your files that import it. Read everything you change and everything that uses it.',
     geste: (c, a) => g.lireDesFichiers(c, a),
   }),
   write_notes: def({
