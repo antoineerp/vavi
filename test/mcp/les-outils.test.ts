@@ -55,7 +55,7 @@ const empreinteDe = async (project: string, path: string) => {
 beforeEach(() => {
   const ctx = {
     compte: MOI, projets: desProjetsEnMemoire(), magasin: unMagasinEnMemoire(), permis: lesPaquetsDuGabarit(GABARIT),
-    adresse: 'https://vavi.test', refusPrecedents: new Map<string, Refus>(), buildsRouges: new Map<string, number>(), scellerUnSecret: (_p: string, _n: string, v: string) => `scelle(${v.length})`,
+    adresse: 'https://vavi.test', refusPrecedents: new Map<string, Refus>(), buildsRouges: new Map<string, number>(), guidesLus: new Set<string>(), scellerUnSecret: (_p: string, _n: string, v: string) => `scelle(${v.length})`,
     prochain: vert(), construits: 0, sqlRefuse: null as string | null,
     base: { rpc: async (f: string, a: Record<string, unknown>) => (f === 'create_app_schema' ? { data: schemaDuProjet(String(a.project_id)), error: null }
       : ctx.sqlRefuse ? { data: null, error: { message: ctx.sqlRefuse } } : { data: null, error: null }) },
@@ -333,6 +333,30 @@ describe('Claude voit ce qu’il a fait (Antoine, 25/11, « comme Lovable »)', 
     (c as { capturer?: Contexte['capturer'] }).capturer = async () => ({ captures: [], manquees: ['Chromium did not start'] });
     const b = await ok('apply_changes', { ...w, why: 'encore', changes: [{ path: 'src/pages/index.tsx', read_fingerprint: await empreinteDe(w.project, 'src/pages/index.tsx'), content: 'export default function B() { return null; }' }] });
     expect((b.build as Record<string, unknown>).screens).toBe('not taken: Chromium did not start');
+  });
+});
+
+describe('les règles seulement demandées, rendues sûres (choix d’Antoine du 26/11)', () => {
+  it('écrire des écrans sans avoir lu le guide de design le redit ; lu sur ce chantier, plus rien', async () => {
+    const w = await unChantier();
+    const r1 = await ok('apply_changes', { ...w, why: 'accueil', build: false, changes: [{ path: 'src/pages/index.tsx', content: 'export default function A() { return null; }' }] });
+    expect(r1.design_guide).toMatch(/`get_design_guide`/);
+    expect((await ok('apply_changes', { ...w, why: 'style', build: false, changes: [{ path: 'src/styles/a.css', content: 'a{}' }] })).design_guide).toBeUndefined();
+    await ok('get_design_guide', { project: w.project });
+    const r2 = await ok('apply_changes', { ...w, why: 'page', build: false, changes: [{ path: 'src/pages/tarifs.tsx', content: 'export default function T() { return null; }' }] });
+    expect(r2.design_guide).toBeUndefined();
+  });
+  it('le build vert rend la mesure de l’accueil comparée au guide, et les liens qui ne mènent nulle part', async () => {
+    const w = await unChantier();
+    (c as { capturer?: Contexte['capturer'] }).capturer = async () => ({ captures: [], manquees: ['x'], mesure: { sections: 3, photos: 4, photosCassees: 0, titres: 1 } });
+    const r = await ok('apply_changes', { ...w, why: 'accueil', changes: [{ path: 'src/pages/index.tsx', content: 'export default function A() {\n  return <a href="/equipe">Équipe</a>;\n}' }] });
+    const b = r.build as Record<string, unknown>;
+    expect(b.home_checks).toMatchObject({ to_fix: [expect.stringContaining('3 section(s)')] });
+    expect(b.broken_links).toMatchObject({ links: ['src/pages/index.tsx:2 /equipe'] });
+    (c as { capturer?: Contexte['capturer'] }).capturer = async () => ({ captures: [], manquees: ['x'], mesure: { sections: 7, photos: 5, photosCassees: 0, titres: 1 } });
+    const r2 = await ok('apply_changes', { ...w, why: 'la page', changes: [{ path: 'src/pages/equipe.tsx', content: 'export default function E() { return null; }' }] });
+    expect((r2.build as Record<string, unknown>).home_checks).toMatch(/holds the design guide/);
+    expect((r2.build as Record<string, unknown>).broken_links).toBeUndefined();
   });
 });
 

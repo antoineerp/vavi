@@ -12,6 +12,9 @@ import type { Manifeste } from '../backend/app/manifeste';
 import { ceQueLAppPorte } from './regles/porte';
 import { REGLES } from './regles/toutes';
 
+/** Ce que l'accueil d'une app à vitrine porte au moins : le guide le demande, la mesure du build vert le compare. */
+export const CIBLES_DE_L_ACCUEIL = { sections: 6, photos: 4 } as const;
+
 /** Le guide de toute page publique, quelle que soit la nature (elle a une vitrine). */
 const VITRINE = [
   'A public page is never poor: it looks like a current professional site about THIS subject, from its first screen.',
@@ -30,12 +33,33 @@ const PAR_NATURE: Readonly<Partial<Record<Manifeste['nature'], readonly string[]
 
 const VERIFIER = 'Before `build_preview`, check: does the first screen look like THIS subject? Six sections or more, with different rhythms? Four real photos? Nothing generic, nothing invented, nothing left empty?';
 
+/** L'app a-t-elle une vitrine publique (le guide de la vitrine la concerne) ? */
+export const aUneVitrine = (m: Manifeste): boolean => !ceQueLAppPorte(m).privee && m.nature !== 'jeu';
+
+/** Ce que l'accueil rendu affiche (compté par `lib/seo/les-captures`, même forme). */
+export interface MesureVue { readonly sections: number; readonly photos: number; readonly photosCassees: number; readonly titres: number }
+
+/**
+ * Les écarts de l'accueil rendu au guide, en phrases pour Claude ; vide : rien à dire. Remplace la seule vérification
+ * demandée (`VERIFIER`) : la mesure est prise sur la page affichée (choix d'Antoine du 26/11). Jamais un refus : Claude
+ * corrige au tour. PUR.
+ */
+export function lesEcartsDeLAccueil(m: Manifeste, v: MesureVue): readonly string[] {
+  if (!aUneVitrine(m)) return [];
+  const e: string[] = [];
+  if (v.sections < CIBLES_DE_L_ACCUEIL.sections) e.push(`the home page shows ${v.sections} section(s); the design guide asks for at least ${CIBLES_DE_L_ACCUEIL.sections} real ones`);
+  if (v.photos < CIBLES_DE_L_ACCUEIL.photos) e.push(`the home page shows ${v.photos} large image(s); the design guide asks for at least ${CIBLES_DE_L_ACCUEIL.photos} real photos of the subject (\`search_images\`, then \`<Photo nom="…" />\`)`);
+  if (v.photosCassees > 0) e.push(`${v.photosCassees} image(s) on the home page did not load`);
+  if (v.titres !== 1) e.push(`the home page has ${v.titres} <h1> titles; it needs exactly one`);
+  return e;
+}
+
 export interface GuideDeDesign { readonly guide: readonly string[]; readonly regles: readonly { readonly id: string; readonly texte: string }[] }
 
 /** Le guide et les règles de l'app ; `reprise` : elle reprend une autre app, dont elle garde la mise en page. */
 export function leGuideDeDesign(m: Manifeste, o: { readonly reprise?: boolean } = {}): GuideDeDesign {
   const porte = ceQueLAppPorte(m);
-  const vitrine = !porte.privee && m.nature !== 'jeu';
+  const vitrine = aUneVitrine(m);
   const regles = REGLES.filter((r) => r.sujet !== 'methode' && (!r.natures || r.natures.includes(m.nature)) && (!r.porte || Boolean(porte[r.porte]))
     && (!r.seulement || r.seulement === (o.reprise ? 'reprise' : 'creation')));
   return {

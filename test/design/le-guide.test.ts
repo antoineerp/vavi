@@ -21,3 +21,20 @@ describe('le guide de design', () => {
     expect(g.guide.join(' ')).not.toMatch(/six real sections/);
   });
 });
+
+describe('la mesure de l’accueil comparée au guide (choix d’Antoine du 26/11)', () => {
+  it('dit chaque écart d’une vitrine, rien quand l’accueil tient le guide, rien pour une app privée', async () => {
+    const { lesEcartsDeLAccueil, CIBLES_DE_L_ACCUEIL } = await import('@/lib/design/le-guide');
+    const site = unManifeste({ nature: 'site' });
+    expect(lesEcartsDeLAccueil(site, { sections: 6, photos: 4, photosCassees: 0, titres: 1 })).toEqual([]);
+    const e = lesEcartsDeLAccueil(site, { sections: 2, photos: 1, photosCassees: 1, titres: 0 });
+    expect(e).toHaveLength(4);
+    expect(e.join(' ')).toMatch(/2 section\(s\).*at least 6.*1 large image\(s\).*at least 4.*did not load.*0 <h1>/);
+    // Le guide dit les mêmes nombres que la mesure.
+    expect(CIBLES_DE_L_ACCUEIL).toEqual({ sections: 6, photos: 4 });
+    expect(leGuideDeDesign(site).guide.join(' ')).toMatch(/at least six real sections[\s\S]*at least four real photos/);
+    const privee = unManifeste({ nature: 'app', roles: [{ nom: 'gerant', libelle: 'Gérant', obtenu: 'proprietaire' }],
+      tables: [{ nom: 'note', libelle: 'Notes', appartenance: 'personnelle', lecture: ['gerant'], ecriture: ['gerant'], champs: [{ nom: 'texte', libelle: 'Texte', type: 'texte' }] }] });
+    expect(lesEcartsDeLAccueil(privee, { sections: 0, photos: 0, photosCassees: 0, titres: 0 })).toEqual([]);
+  });
+});
