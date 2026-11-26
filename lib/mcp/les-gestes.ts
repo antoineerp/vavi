@@ -35,6 +35,9 @@ import { leGuideDeDesign, lesEcartsDeLAccueil, type MesureVue } from '@/lib/desi
 import { lesLiensMorts } from '@/squelette/les-liens';
 import type { Etape as EtapeDuParcours, Parcours } from '@/lib/parcours/le-parcours';
 import { CHEMIN_DES_IMAGES, CleDeLaBanqueRefusee, poserLesImages, type Banque, type DemandeDImage } from '@/lib/images/la-banque';
+import { REPRISES_MAX, reprendreLesImages } from '@/lib/images/la-reprise';
+import { TAILLE_MAX_D_UNE_PHOTO } from '@/lib/images/la-photo-fournie';
+import { fetchSortantEnOctets, type Resolveur } from '@/lib/connecteurs/la-sortie';
 import { CHEMIN_DES_PAQUETS, PAQUETS_MAX, lesPaquetsAjoutes, leFichierDesPaquets, verifierAuRegistre } from '@/lib/paquets/les-paquets';
 import { lIndex } from '@/squelette/l-index';
 
@@ -75,6 +78,9 @@ export interface Contexte {
   readonly banque?: Banque | null;
   /** L'appel au registre npm (`add_packages`) ; absent : `fetch`. Les essais passent un faux registre. */
   readonly registre?: typeof fetch;
+  /** La sortie vers le web (`import_images`) et son résolveur DNS ; absents : `fetch` et le DNS du serveur. Les essais les passent. */
+  readonly sortie?: typeof fetch;
+  readonly resolveur?: Resolveur;
 }
 
 export type Rendu = { readonly ok: true; readonly [champ: string]: unknown } | Refus;
@@ -561,6 +567,39 @@ export async function chercherDesImages(c: Contexte, a: { project: string; work_
   if (!w.lu) return panne(w.pourquoi);
   if (!w.valeur.applique) return 'conflit' in w.valeur ? refuser('conflit', 'The photos changed while they were searched.', { fichiers: w.valeur.conflit }) : refuser('chantier_requis', 'The work session was closed.');
   return fait({ version: w.valeur.version, images: r.dits, next: 'Show each set photo with `<Photo nom="…" />` from `@/briques/Photo` (a name not set does not compile), then run `build_preview`.' });
+}
+
+/**
+ * Les images d'un site que la personne nomme, reprises sous SA déclaration de droits (Antoine, 26/11) : chacune lue par la
+ * porte de sortie (https, aucune adresse interne, chaque redirection revalidée), gardée au magasin, posée dans
+ * `src/images.json` avec la déclaration, la date et l'adresse d'origine, en une version.
+ */
+export async function reprendreDesImages(c: Contexte, a: { project: string; work_session: string; rights: string; images: readonly { name: string; url: string; alt: string; credit?: string }[] }): Promise<Rendu> {
+  const p = await leChantier(c, a.project, a.work_session);
+  if (!p.ok) return p.refus;
+  const magasin = c.magasin;
+  if (!magasin) return refuser('plateforme_en_panne', 'The storage of the photos is not configured on this vavi server.', { geste: 'Use `search_images`, or write the page without these photos for now.' });
+  const f = await lesFichiers(c, a.project);
+  if (!f.ok) return f.refus;
+  const actuel = f.valeur.get(CHEMIN_DES_IMAGES);
+  const r = await reprendreLesImages(actuel, a.images.slice(0, REPRISES_MAX).map((x) => ({ nom: x.name, url: x.url, alt: x.alt, credit: x.credit })),
+    { declaration: a.rights.trim(), le: new Date().toISOString() }, {
+      projet: a.project, adresse: c.adresse,
+      lire: async (url) => {
+        const s = await fetchSortantEnOctets(url, { hotesAutorises: [], toutHotePublic: true, tailleMaxOctets: TAILLE_MAX_D_UNE_PHOTO, transport: c.sortie, resolveur: c.resolveur })
+          .catch((e: unknown) => `the site did not answer: ${String((e as Error)?.message ?? e).slice(0, 120)}`);
+        if (typeof s === 'string') return s;
+        if ('raison' in s) return `refused by vavi's gate: ${s.detail}`;
+        return s.ok ? { octets: s.octets, coupe: s.coupe } : `the site answered ${s.statut}`;
+      },
+      garder: (cle, octets, format) => magasin.poser(cle, Buffer.from(octets), { type: format.type, cache: 'public, max-age=31536000, immutable' }),
+    });
+  if (r.texte === null) return fait({ images: r.dits, written: false, next: 'No image was taken: read the reasons, give the direct image addresses, or use `search_images`.' });
+  const w = await c.projets.appliquer(c.compte, a.project, { chantier: a.work_session, attendus: { [CHEMIN_DES_IMAGES]: actuel === undefined ? null : empreinteDuFichier(actuel) },
+    ecrits: new Map([[CHEMIN_DES_IMAGES, r.texte]]), supprimes: [], pourquoi: `images taken from ${[...new Set(a.images.map((x) => { try { return new URL(x.url).hostname; } catch { return '?'; } }))].join(', ')}, rights declared by the person: "${a.rights.trim().slice(0, 200)}"` });
+  if (!w.lu) return panne(w.pourquoi);
+  if (!w.valeur.applique) return 'conflit' in w.valeur ? refuser('conflit', 'The photos changed while they were taken.', { fichiers: w.valeur.conflit }) : refuser('chantier_requis', 'The work session was closed.');
+  return fait({ version: w.valeur.version, images: r.dits, next: 'Show each set image with `<Photo nom="…" />` from `@/briques/Photo`, then run `build_preview`. vavi keeps the person\'s declaration with each image; it does not judge the rights.' });
 }
 
 /**
