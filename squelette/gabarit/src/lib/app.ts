@@ -57,8 +57,9 @@ export const APP = { ...manifeste, tables: [...manifeste.tables, ...TABLES_DE_LA
   readonly organisations: 'une' | 'plusieurs' | 'clients';
   readonly fonctions: Readonly<Record<'panier' | 'ia', boolean>>;
   readonly indicateurs: readonly IndicateurDeLApp[];
-  /** Les agents : ce qu'ils lisent, où ils proposent, et qui les lance. */
-  readonly agents: readonly { readonly nom: string; readonly libelle: string; readonly propose: string; readonly par: readonly string[] }[];
+  /** Les agents : quand ils se réveillent ; leur code est `src/agents/<nom>.ts`. */
+  readonly agents: readonly { readonly nom: string; readonly libelle: string; readonly dit: string;
+    readonly reveil: { readonly type: 'horaire' | 'evenement' } | { readonly type: 'bouton'; readonly par: readonly string[] } }[];
   readonly vente?: {
     readonly pays: string; readonly devise: string; readonly tva: 'assujettie' | 'franchise';
     readonly livraison: { readonly pays: readonly string[]; readonly prix: number; readonly offerteDes: number | null; readonly retrait: string | null };

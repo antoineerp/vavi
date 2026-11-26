@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { construireLApp } from '@/lib/atelier/construire';
+import { lancerUnAgent } from '@/lib/agents/le-moteur';
 import { ceQueLAppTire, poserLeFige } from '@/squelette/poser';
 import { unManifeste } from '../aides/un-manifeste';
 
@@ -23,6 +24,39 @@ describe.runIf(process.env.VAVI_BATIR === 'oui')('une app posée se construit', 
     expect(c.faits).not.toBeNull();
   }, 600_000);
 
+  // 26/11 : un agent (Antoine, « Quatre briques, Claude écrit l'agent ») : son code est typé contre les tables d'app.json,
+  // assemblé pour node dans `dist/_agents/`, et tourne ; son erreur dit la ligne de `src/agents/<nom>.ts`.
+  it('un agent se construit dans dist/_agents, tourne, et son erreur nomme sa ligne', async () => {
+    const m = unManifeste({ nature: 'app', nom: 'Essai agent',
+      roles: [{ nom: 'gerant', libelle: 'Gérant', obtenu: 'proprietaire' }],
+      tables: [{ nom: 'demande', libelle: 'Demandes', appartenance: 'publique', lecture: ['gerant'], ecriture: ['gerant'],
+        champs: [{ nom: 'texte', libelle: 'Texte', type: 'texte', obligatoire: true }, { nom: 'urgence', libelle: 'Urgence', type: 'texte' }] }],
+      agents: [{ nom: 'tri', libelle: 'Tri', dit: 'Classe les demandes nouvelles.', reveil: { type: 'bouton', par: ['gerant'] } }] });
+    const arbre = poserLeFige(m);
+    arbre.set('src/Chrome.tsx', CHROME);
+    arbre.set('src/pages/index.tsx', "import { PUBLIC } from '@/lib/acces';\nimport { Agent } from '@/briques/Agent';\nexport const acces = PUBLIC;\nexport default function Accueil() {\n  return <section><h1>Tri</h1><Agent nom=\"tri\" /></section>;\n}\n");
+    arbre.set('src/agents/tri.ts', [
+      "import type { Agent } from '@/lib/agent';",
+      'const agent: Agent = async (ctx) => {',
+      "  const ds = await ctx.base.lire('demande');",
+      "  for (const d of ds) await ctx.base.modifier('demande', d.id, { urgence: (await ctx.ia.texte(d.texte)).slice(0, 10) });",
+      "  if (ds.length === 0) throw new Error('rien à classer');",
+      '  return `${ds.length} classées`;',
+      '};',
+      'export default agent;',
+      '',
+    ].join('\n'));
+    const c = await construireLApp(ceQueLAppTire(arbre, m));
+    if (!c.construite) throw new Error(JSON.stringify(c.ecarts));
+    const code = c.dist.get('_agents/tri.cjs');
+    expect(code).toBeDefined();
+    const briques = (lignes: unknown[]) => ({ ia: async () => ({ lu: true as const, valeur: 'haute' }), lire: async () => ({ lu: true as const, valeur: lignes }),
+      creer: async () => ({ lu: true as const, valeur: 'x' }), modifier: async () => ({ lu: true as const, valeur: null }) });
+    expect(await lancerUnAgent({ code: code!, briques: briques([{ id: 'd1', texte: 'fuite' }]), declencheur: { type: 'essai', entree: '' } })).toMatchObject({ ok: true, resultat: '1 classées' });
+    const r = await lancerUnAgent({ code: code!, briques: briques([]), declencheur: { type: 'essai', entree: '' } });
+    expect(r).toMatchObject({ ok: false, etape: 'agent', erreur: 'rien à classer' });
+    expect(r.ok ? '' : r.pile).toMatch(/src\/agents\/tri\.ts:5/);
+  }, 600_000);
   // 25/11 : l'IA servie par vavi, et ce que Claude fait lui-même dans la page (un PDF), compilent dans une app posée.
   it('une page qui appelle l’IA et compose un PDF dans la page se construit', async () => {
     const m = unManifeste({ nature: 'site', nom: 'Essai IA', fonctions: { ia: true } });

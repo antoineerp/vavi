@@ -15,7 +15,7 @@ import { construireLApp } from '@/lib/atelier/construire';
 import { DOSSIER_DU_GABARIT } from '@/squelette/registre';
 import { lesPaquetsDuGabarit, type Refus } from '@/lib/consignes';
 import { adresseDeLaPlateforme } from './l-adresse';
-import { scellerUnSecret } from './les-jetons';
+import { ouvrirUnSecret, scellerUnSecret } from './les-jetons';
 import { lesFichiersDansLaPage, lesFichiersEnEntier } from './la-vue';
 import { avecUneMemoire, etatSurSupabase, type EtatDeLAcces } from './l-etat-de-l-acces';
 import { configurationPublique } from '@/lib/supabase/configuration';
@@ -36,6 +36,7 @@ import { lEtatDuCompte, laVueDeLAbonnement, leDroitDePublier } from '@/lib/abonn
 import { boiteSurSupabase, lesVisites } from '@/lib/formulaires/sur-supabase';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 import { banqueDeLaPlateforme } from '@/lib/images/la-banque';
+import { faireTournerUnAgent } from '@/lib/agents/l-agent-reel';
 
 const REFUS_PRECEDENTS = new Map<string, Refus>();
 const LANGUES_DES_COMPTES = new Map<string, string>();
@@ -155,6 +156,15 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
               compte: { id: c.essai.compte, email: c.essai.email, confirme: true } } } } : {}) });
         });
         if (!r.ok) await o.navigateur.close().catch(() => undefined);
+        return r.ok ? r.valeur : { raison: r.raison };
+      },
+      async essayerUnAgent(projet, empreinte, m, nom, entree) {
+        if (!magasin.lu) return { raison: 'the storage of the builds is not configured' };
+        const agent = m.agents.find((a) => a.nom === nom);
+        if (!agent) return { raison: `app.json declares no agent ${nom}` };
+        // Sur une copie de la base (ses lignes d'exemple), pour le propriétaire : rien de réel n'est touché.
+        const r = await avecUneCopie(base, m, compte, null, (c) => faireTournerUnAgent({ base, magasin: magasin.magasin, ouvrir: ouvrirUnSecret, projet, empreinte,
+          agent, schema: c.schema, compte, declencheur: { type: 'essai', entree } }));
         return r.ok ? r.valeur : { raison: r.raison };
       },
       // Après la réponse de l'outil : le serveur de vavi est un processus qui dure (Fly), le travail va au bout.
