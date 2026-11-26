@@ -2,6 +2,7 @@
 import type { Metadata } from 'next';
 import { lAdministrateur } from '@/app/_partage/l-administration-reelle';
 import { leTableau, lEtatDesServices } from '@/lib/administration/le-tableau';
+import { enClair, lePremierSite } from '@/lib/administration/le-premier-site';
 import { OFFRES, OFFRES_PAYANTES, type EtatDeLAbonnement } from '@/lib/abonnements/les-offres';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { changerLaGrille, offrirUnAbonnement, reduire, retirerLaReduction, retirerUnOffert } from './gestes';
@@ -20,7 +21,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const q = await searchParams;
   const { sur } = await lAdministrateur();
   const maintenant = Date.now();
-  const [brut, comptes] = await Promise.all([sur.leTableauBrut(new Date(maintenant - JOURS * 24 * 3600 * 1000).toISOString()), sur.lesComptes()]);
+  const [brut, comptes, premier] = await Promise.all([sur.leTableauBrut(new Date(maintenant - JOURS * 24 * 3600 * 1000).toISOString()), sur.lesComptes(), sur.lePremierSiteBrut()]);
   const services = lEtatDesServices(process.env);
   if (!brut.lu || !comptes.lu) {
     return <main className="console"><h1>Administration</h1><p role="alert">Je n’ai pas pu lire la base : {!brut.lu ? brut.pourquoi : !comptes.lu ? comptes.pourquoi : ''}</p></main>;
@@ -50,6 +51,18 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         <thead><tr><th>Compte</th><th>Créé</th><th>Dernière connexion</th><th>Projets (en ligne)</th><th>Abonnement</th><th>Facturé / mois</th></tr></thead>
         <tbody>{t.comptes.map((c) => <tr key={c.id}><td>{c.courriel ?? c.id}</td><td>{date(c.creeLe)}</td><td>{date(c.derniereConnexion)}</td><td>{c.projets} ({c.enLigne})</td><td>{lEtat(c.etat)}</td><td>{euros(c.montant)}</td></tr>)}</tbody>
       </table></div>
+
+      <h2>Le temps jusqu’au premier site</h2>
+      {premier.lu ? (() => {
+        const etapes = lePremierSite(premier.valeur, comptes.valeur);
+        const total = etapes[0]?.atteinte ?? 0;
+        return <div className="defile carte"><table className="tableau">
+          <thead><tr><th>Étape</th><th>Comptes</th><th>Part des comptes</th><th>Depuis l’étape d’avant (médiane)</th><th>Depuis le compte (médiane)</th></tr></thead>
+          <tbody>{etapes.map((e) => <tr key={e.etape}><td>{e.libelle}</td><td>{e.atteinte}</td><td>{total ? `${Math.round((e.atteinte / total) * 100)} %` : '—'}</td>
+            <td>{enClair(e.depuisLAvant)}</td><td>{enClair(e.depuisLeCompte)}</td></tr>)}</tbody>
+        </table></div>;
+      })() : <p className="carte attenue">La mesure n’est pas lisible ({premier.pourquoi}) : colle la migration 20261126090000_le_premier_site.sql dans Supabase.</p>}
+      <p className="attenue">Le connecteur et le parcours sont notés depuis le 26/11 ; le projet, le build vert et la mise en ligne se lisent aussi des projets existants.</p>
 
       <h2>Offrir un abonnement</h2>
       <form action={offrirUnAbonnement} className="carte formulaire-admin">

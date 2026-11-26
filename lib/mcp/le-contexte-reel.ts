@@ -47,12 +47,22 @@ async function laLangue(base: ReturnType<typeof clientDeService>, compte: string
   return l;
 }
 
+/** Les premières fois déjà notées par ce processus : la base n'est appelée qu'une fois par compte et par étape. */
+const PREMIERES_FOIS_NOTEES = new Set<string>();
+
 export async function leContexteReel(compte: string): Promise<ContexteDuServeur> {
   const base = clientDeService();
   const projets = projetsSurSupabase(base);
   const magasin = magasinS3();
   return {
     langue: await laLangue(base, compte),
+    noter(etape) {
+      const cle = `${compte}|${etape}`;
+      if (PREMIERES_FOIS_NOTEES.has(cle)) return;
+      void Promise.resolve(base.rpc('vavi_noter_une_premiere_fois', { p_compte: compte, p_etape: etape })).then((r) => {
+        if (r.error) console.error(`[premier-site] ${etape} non notée : ${r.error.message}`); else PREMIERES_FOIS_NOTEES.add(cle);
+      }, (e: unknown) => console.error(`[premier-site] ${etape} non notée : ${String(e)}`));
+    },
     gabaritPackageJson: leGabarit(),
     async noteDuChantier(id) {
       const p = await projets.lire(compte, id);
