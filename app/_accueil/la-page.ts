@@ -136,7 +136,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .sous{margin:4px 0 0;padding:0;list-style:none;counter-reset:sous;display:grid;gap:8px}
 .sous li{counter-increment:sous;display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}
 .sous li::before{content:counter(sous,lower-alpha);font-family:var(--f-main);font-weight:700;font-size:1.3rem;line-height:1;width:26px;height:26px;display:grid;place-items:center;border:1.6px solid var(--encre);border-radius:50%;background:var(--surligne-fond)}
-.sous kbd{font-family:var(--f-texte);font-size:.92em;font-weight:700;border:1.5px solid var(--encre);border-radius:7px;padding:0 7px;background:var(--papier);white-space:nowrap}
+.sous kbd,.kit kbd,.etape-d kbd{font-family:var(--f-texte);font-size:.92em;font-weight:700;border:1.5px solid var(--encre);border-radius:7px;padding:0 7px;background:var(--papier);white-space:nowrap}
 .attention{border:2px dashed var(--marge);border-radius:10px;padding:10px 14px;font-size:.95rem}
 .attention b{color:var(--encre)}
 .bloque{margin-top:28px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
@@ -197,6 +197,39 @@ section{padding-block:64px}
 .chemin span{border:1.5px solid var(--encre);border-radius:8px;padding:2px 9px;background:var(--papier)}
 .chemin i{font-style:normal;color:var(--encre-douce)}
 .copie{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+/* Comment ça marche : le kit de départ, puis les étapes à déplier */
+.demarrer{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:28px;align-items:center;background:var(--carte);border:2px solid var(--encre);border-radius:12px 16px 10px 14px;padding:26px;box-shadow:5px 6px 0 var(--trait);margin-bottom:34px}
+.kit{display:grid;gap:12px;justify-items:start;min-width:0}
+.kit p{color:var(--encre-douce)}
+.kit .chemin{font-size:.97rem;line-height:1.9}
+.kit .chemin{line-height:1.8}
+.copie.grande code{font-size:1.15rem;padding:10px 16px;word-break:break-all}
+.copie.grande button{padding:10px 16px;font-size:1rem}
+.liste-etapes{display:grid;gap:10px}
+.groupe-etapes{font-size:1.45rem;color:var(--encre-douce);margin:14px 0 2px}
+.etape-d{background:var(--carte);border:2px solid var(--encre);border-radius:12px 9px 14px 10px}
+details.etape-d>summary{list-style:none;cursor:pointer;font-weight:400;font-size:1rem;display:grid;grid-template-columns:48px minmax(0,1fr) auto 28px;gap:14px;align-items:center;padding:14px 18px}
+.etape-d summary::-webkit-details-marker{display:none}
+details.etape-d>summary::after,details.etape-d[open]>summary::after{content:none}
+.etape-d .num{font-size:2.3rem;line-height:1;color:var(--vert);text-align:center}
+.etape-d .resume{display:grid;gap:2px;min-width:0}
+.etape-d .resume b{font-family:var(--f-titre);font-size:1.15rem;font-weight:600}
+.etape-d .resume span{color:var(--encre-douce);font-size:.96rem}
+.etape-d .duree{font-family:var(--f-main);font-size:1.2rem;color:var(--encre-douce);white-space:nowrap}
+.etape-d .plus{width:26px;height:26px;border:2px solid var(--encre);border-radius:50%;position:relative}
+.etape-d .plus::before,.etape-d .plus::after{content:"";position:absolute;left:50%;top:50%;width:12px;height:2px;background:var(--encre);transform:translate(-50%,-50%)}
+.etape-d .plus::after{transform:translate(-50%,-50%) rotate(90deg);transition:transform .2s}
+.etape-d[open] .plus::after{transform:translate(-50%,-50%) rotate(0)}
+.etape-d[open]{box-shadow:5px 6px 0 var(--trait)}
+.etape-d .detail{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.85fr);gap:28px;align-items:center;padding:4px 24px 24px 80px}
+.etape-d .corps{display:grid;gap:10px;min-width:0}
+.etape-d .astuce{font-family:var(--f-main);font-size:1.3rem;color:var(--encre-douce);line-height:1.25}
+.etape-d summary:hover .resume b{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
+.bloque-d{margin-top:22px}
+details.bloque-d>summary{display:inline-flex;gap:10px;align-items:center;font-family:var(--f-main);font-weight:700;font-size:1.5rem;color:var(--marge);width:max-content}
+@media (prefers-reduced-motion:reduce){.etape-d .plus::after{transition:none}}
+@media (max-width:860px){.demarrer{grid-template-columns:1fr}.etape-d .detail{grid-template-columns:1fr;padding:4px 18px 20px}}
+@media (max-width:560px){details.etape-d>summary{grid-template-columns:36px minmax(0,1fr) 26px;gap:10px;padding:12px 14px}.etape-d .duree{display:none}.etape-d .num{font-size:1.9rem}}
 .copie code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:1.05rem;background:var(--surligne-fond);padding:6px 12px;border-radius:8px;border:1.5px dashed var(--encre)}
 .copie button{font:inherit;font-size:.9rem;padding:6px 12px;border:1.5px solid var(--encre);border-radius:8px;background:var(--carte);color:var(--encre);cursor:pointer}
 .exemple{border-left:3px solid var(--surligneur);padding:6px 12px;font-style:italic;background:var(--papier)}
@@ -394,7 +427,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
       </ul>
       <div class="gestes">
         <a class="bouton plein" href="__LIEN_D_INSTALLATION__" target="_blank" rel="noopener">Ajouter vavi à Claude</a>
-        <a class="bouton" href="#etapes">Voir les 7 étapes</a>
+        <a class="bouton" href="#etapes">Comment ça marche</a>
       </div>
       <ul class="faits" aria-label="En bref">
         <li><b>0</b><span>crédit de génération à acheter</span></li>
@@ -660,11 +693,19 @@ details p{margin-top:10px;color:var(--encre-douce)}
   <div class="enveloppe">
     <div class="titre-section">
       <span class="main">Comment ça marche</span>
-      <h2 id="t-etapes">Sept étapes, de l'idée au site qui vend</h2>
-      <p>Les deux premières se font une seule fois, en deux minutes environ. Suivez-les dans l'ordre, chaque bouton est nommé. Ensuite, tout se passe en parlant à Claude.</p>
+      <h2 id="t-etapes">Deux minutes pour brancher vavi, puis vous parlez à Claude</h2>
+      <p>Cliquez sur une étape pour voir le détail.</p>
     </div>
 
-    <figure class="film" aria-label="Animation : les trois étapes pour brancher vavi dans Claude">
+    <div class="demarrer">
+      <div class="kit">
+        <span class="main" style="font-size:1.5rem;color:var(--vert)">Tout ce qu'il vous faut</span>
+        <a class="bouton plein" href="__LIEN_D_INSTALLATION__" target="_blank" rel="noopener">Ajouter vavi à Claude</a>
+        <p>Le bouton ouvre Claude.ai avec vavi déjà rempli. Un compte Claude suffit : l'offre gratuite permet un connecteur personnalisé.</p>
+        <p class="chemin"><b>Le bouton ne s'ouvre pas ?</b> Dans Claude.ai : icône de votre compte → <kbd>Réglages</kbd> → <kbd>Plug-ins</kbd> (ou <kbd>Connecteurs</kbd>) → <kbd>Ajouter</kbd> → <kbd>Ajouter un connecteur personnalisé</kbd>. Nom : <b>vavi</b>. Adresse :</p>
+        <div class="copie grande"><code id="adresse-mcp">__ADRESSE_MCP__</code><button type="button" data-copier="adresse-mcp">Copier</button></div>
+      </div>
+      <figure class="film" aria-label="Animation : les trois étapes pour brancher vavi dans Claude">
   <svg class="croquis" viewBox="0 0 640 360" fill="none" stroke="var(--encre)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="1, dans Claude.ai : l'icône de votre compte, Réglages, Plug-ins, Ajouter, Ajouter un connecteur personnalisé, puis le nom vavi et son adresse ; 2, vous vous connectez et autorisez Claude ; 3, vous décrivez votre projet et l'aperçu apparaît">
     <g filter="url(#stylo)">
       <rect x="10" y="10" width="620" height="340" rx="18" fill="var(--papier)"/>
@@ -782,24 +823,21 @@ details p{margin-top:10px;color:var(--encre-douce)}
   </svg>
   <figcaption class="legende"><span class="l1">1. Ajouter vavi</span><span class="l2">2. Autoriser Claude</span><span class="l3">3. Décrire votre projet</span></figcaption>
 </figure>
+    </div>
 
-    <ol class="etapes" style="list-style:none;margin:0;padding:0">
-
-      <!-- 1 -->
-      <li class="etape">
-        <div class="numero"><svg viewBox="0 0 84 84" fill="none" stroke="var(--encre)" stroke-width="2.4" filter="url(#stylo)" aria-hidden="true"><path d="M42 6c22 0 36 14 36 36S62 78 40 78 6 62 7 40 22 5 46 7"/></svg>1</div>
-        <div class="corps">
-          <span class="qui">Vous, dans <b>Claude.ai</b> · une fois</span>
-          <h3>Ajoutez vavi à Claude, d'un bouton</h3>
-          <p><a class="bouton plein" href="__LIEN_D_INSTALLATION__" target="_blank" rel="noopener">Ajouter vavi à Claude</a></p>
+    <div class="liste-etapes">
+      <p class="groupe-etapes main">Une seule fois, deux minutes</p>
+      <details class="etape-d" name="etapes" open>
+        <summary><span class="num main">1</span><span class="resume"><b>Ajoutez vavi à Claude, d'un bouton</b><span>Un bouton, puis Ajouter.</span></span><span class="duree">1 min · une fois</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="detail">
+<div class="corps">
           <ol class="sous">
             <li><span>Le bouton ouvre Claude.ai avec le nom et l'adresse de vavi déjà remplis. Connectez-vous à Claude si on vous le demande.</span></li>
             <li><span>Vérifiez que le nom est <b>vavi</b>, puis cliquez sur <kbd>Ajouter</kbd>.</span></li>
           </ol>
-          <p class="astuce">Un compte Claude suffit : l'offre gratuite permet un connecteur personnalisé. Le bouton ne s'ouvre pas ? Dans Claude.ai, cliquez sur l'icône de votre compte, puis <kbd>Réglages</kbd>, puis <kbd>Plug-ins</kbd> (ou <kbd>Connecteurs</kbd>), <kbd>Ajouter</kbd> et <kbd>Ajouter un connecteur personnalisé</kbd>. Nom : vavi. Adresse : celle-ci.</p>
-          <div class="copie"><code id="adresse-mcp">__ADRESSE_MCP__</code><button type="button" data-copier="adresse-mcp">Copier</button></div>
+          <p class="astuce">Le bouton ne s'ouvre pas ? Suivez le chemin de l'encadré au-dessus, avec l'adresse à copier.</p>
         </div>
-        <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <g filter="url(#stylo)">
             <rect x="14" y="14" width="292" height="172" rx="14" fill="var(--papier)"/>
             <rect x="34" y="66" width="252" height="30" rx="8" fill="var(--carte)"/>
@@ -812,14 +850,12 @@ details p{margin-top:10px;color:var(--encre-douce)}
           <text x="206" y="166" font-size="18" style="fill:#fff">Ajouter</text>
           <text x="36" y="166" font-size="18" style="fill:var(--vert)" transform="rotate(-6 36 166)">déjà rempli ↑</text>
         </svg>
-      </li>
-
-      <!-- 2 -->
-      <li class="etape">
-        <div class="numero"><svg viewBox="0 0 84 84" fill="none" stroke="var(--encre)" stroke-width="2.4" filter="url(#stylo)" aria-hidden="true"><path d="M44 7c20 1 34 16 33 36S60 78 39 77 6 60 8 39 25 6 48 8"/></svg>2</div>
-        <div class="corps">
-          <span class="qui">Vous, entre <b>Claude.ai</b> et <b>vavi</b> · une fois</span>
-          <h3>Connectez-vous et autorisez Claude</h3>
+        </div>
+      </details>
+      <details class="etape-d" name="etapes">
+        <summary><span class="num main">2</span><span class="resume"><b>Connectez-vous et autorisez Claude</b><span>Un lien reçu par courriel, puis Autoriser.</span></span><span class="duree">1 min · une fois</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="detail">
+<div class="corps">
           <ol class="sous">
             <li><span>À côté de vavi, cliquez sur <kbd>Se connecter</kbd>. Une page vavi s'ouvre.</span></li>
             <li><span>Tapez votre adresse e-mail. Ouvrez le courriel de vavi et cliquez sur le lien : votre compte vavi est créé, sans mot de passe.</span></li>
@@ -828,7 +864,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
           <p>Claude peut alors travailler sur vos projets vavi, et seulement eux.</p>
           <p class="astuce">Vous pouvez retirer cet accès à tout moment depuis votre console vavi.</p>
         </div>
-        <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <g filter="url(#stylo)">
             <rect x="46" y="12" width="228" height="176" rx="14" fill="var(--papier)"/>
             <circle cx="110" cy="56" r="20" fill="var(--surligneur)"/>
@@ -841,13 +877,13 @@ details p{margin-top:10px;color:var(--encre-douce)}
           <text x="78" y="104" font-size="17">Claude demande l'accès</text>
           <text x="122" y="150" font-size="22" style="fill:#fff">Autoriser</text>
         </svg>
-      </li>
-      <!-- 3 -->
-      <li class="etape">
-        <div class="numero"><svg viewBox="0 0 84 84" fill="none" stroke="var(--encre)" stroke-width="2.4" filter="url(#stylo)" aria-hidden="true"><path d="M43 7c21 0 35 15 34 35S61 78 40 77 7 61 7 40 23 6 47 8"/></svg>3</div>
-        <div class="corps">
-          <span class="qui">Vous et <b>Claude</b>, dans une conversation</span>
-          <h3>Décrivez votre projet, avec vos mots</h3>
+        </div>
+      </details>
+      <p class="groupe-etapes main">Ensuite, vous parlez à Claude</p>
+      <details class="etape-d" name="etapes">
+        <summary><span class="num main">3</span><span class="resume"><b>Décrivez votre projet, avec vos mots</b><span>Avec vos mots, dans une conversation.</span></span><span class="duree">à chaque projet</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="detail">
+<div class="corps">
           <p class="attention"><b>Avant d'écrire :</b> dans une nouvelle conversation, ouvrez le menu des outils, sous la zone où vous tapez, et activez <b>vavi</b>. Sans ça, Claude ne voit pas vavi.</p>
           <p>Collez ce premier message, puis complétez-le avec vos mots :</p>
           <div class="copie"><code id="premier-message">__PREMIER_MESSAGE__…</code><button type="button" data-copier="premier-message" data-texte="__PREMIER_MESSAGE__">Copier</button></div>
@@ -857,7 +893,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
           <p><b>Pour ne plus avoir à écrire « Avec vavi »</b>, collez une fois cette phrase dans Claude.ai : icône de votre compte, <kbd>Réglages</kbd>, puis le champ <kbd>Préférences personnelles</kbd>. Claude la lit dans chaque conversation.</p>
           <div class="copie"><code id="preference">__PREFERENCE__</code><button type="button" data-copier="preference">Copier</button></div>
         </div>
-        <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <g filter="url(#stylo)">
             <rect x="120" y="14" width="180" height="52" rx="12" fill="var(--surligne-fond)"/>
             <rect x="20" y="82" width="200" height="56" rx="12" fill="var(--carte)"/>
@@ -871,18 +907,16 @@ details p{margin-top:10px;color:var(--encre-douce)}
           <text x="36" y="160" font-size="17" style="fill:var(--encre-douce)">Qui prépare les commandes ?</text>
           <text x="214" y="152" font-size="13">accueil.tsx</text>
         </svg>
-      </li>
-
-      <!-- 4 -->
-      <li class="etape">
-        <div class="numero"><svg viewBox="0 0 84 84" fill="none" stroke="var(--encre)" stroke-width="2.4" filter="url(#stylo)" aria-hidden="true"><path d="M41 6c22 0 37 15 36 37S60 79 39 77 6 60 8 39 24 7 46 7"/></svg>4</div>
-        <div class="corps">
-          <span class="qui">Vous · autant de fois que nécessaire</span>
-          <h3>Regardez l'aperçu, demandez des changements</h3>
-          <p>Claude vous donne un lien d'aperçu privé. Ouvrez-le sur votre ordinateur et sur votre téléphone. Quelque chose ne va pas ? Dites-le à Claude, en une phrase : il lit ce qui existe avant de le modifier.</p>
+        </div>
+      </details>
+      <details class="etape-d" name="etapes">
+        <summary><span class="num main">4</span><span class="resume"><b>Regardez l'aperçu, demandez des changements</b><span>Il s'affiche à côté de la conversation. Demandez les changements.</span></span><span class="duree">autant que vous voulez</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="detail">
+<div class="corps">
+          <p>L'aperçu s'ouvre dans Claude, à côté de la conversation, et Claude vous donne aussi son lien privé. Regardez-le sur votre ordinateur et sur votre téléphone. Quelque chose ne va pas ? Dites-le à Claude, en une phrase : il lit ce qui existe avant de le modifier.</p>
           <p class="exemple">« Mets les gâteaux du week-end en premier, et le bouton Commander en plus grand. »</p>
         </div>
-        <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <g filter="url(#stylo)">
             <rect x="14" y="20" width="210" height="140" rx="10" fill="var(--carte)"/>
             <path d="M14 42h210M2 172h234l-12-12H14z"/>
@@ -896,18 +930,17 @@ details p{margin-top:10px;color:var(--encre-douce)}
           <text x="30" y="36" font-size="13">aperçu privé</text>
           <text x="40" y="196" font-size="19" style="fill:var(--vert)">pareil sur téléphone →</text>
         </svg>
-      </li>
-
-      <!-- 5 -->
-      <li class="etape">
-        <div class="numero"><svg viewBox="0 0 84 84" fill="none" stroke="var(--encre)" stroke-width="2.4" filter="url(#stylo)" aria-hidden="true"><path d="M43 6c22 1 35 16 34 37S59 79 40 77 6 60 8 39 24 6 47 8"/></svg>5</div>
-        <div class="corps">
-          <span class="qui">Vous, dans la <b>console vavi</b> · pour vendre</span>
-          <h3>Ouvrez votre compte de paiement</h3>
+        </div>
+      </details>
+      <p class="groupe-etapes main">Puis, dans votre console vavi</p>
+      <details class="etape-d" name="etapes">
+        <summary><span class="num main">5</span><span class="resume"><b>Ouvrez votre compte de paiement</b><span>Seulement si votre site vend.</span></span><span class="duree">une fois</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="detail">
+<div class="corps">
           <p>Votre site vend ou prend des acomptes ? Cliquez sur <b>Ouvrir mon compte Stripe</b>. vavi crée le compte et vous emmène sur le formulaire sécurisé de Stripe : pièce d'identité, RIB, numéro d'entreprise. Vous ne le faites qu'une fois, et l'argent des ventes arrive sur votre compte.</p>
           <p class="astuce">Un site vitrine sans paiement saute cette étape.</p>
         </div>
-        <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <g filter="url(#stylo)">
             <rect x="14" y="20" width="150" height="160" rx="12" fill="var(--papier)"/>
             <rect x="30" y="120" width="118" height="36" rx="10" fill="var(--vert)"/>
@@ -924,18 +957,16 @@ details p{margin-top:10px;color:var(--encre-douce)}
           <text x="216" y="114" font-size="14">pièce d'identité</text>
           <text x="216" y="146" font-size="14">RIB</text>
         </svg>
-      </li>
-
-      <!-- 6 -->
-      <li class="etape">
-        <div class="numero"><svg viewBox="0 0 84 84" fill="none" stroke="var(--encre)" stroke-width="2.4" filter="url(#stylo)" aria-hidden="true"><path d="M42 7c21-1 36 15 35 35S60 78 40 78 6 61 7 40 22 6 46 8"/></svg>6</div>
-        <div class="corps">
-          <span class="qui">Vous, dans la <b>console vavi</b></span>
-          <h3>Publiez, d'un bouton</h3>
+        </div>
+      </details>
+      <details class="etape-d" name="etapes">
+        <summary><span class="num main">6</span><span class="resume"><b>Publiez, d'un bouton</b><span>Un clic dans la console.</span></span><span class="duree">quand ça vous plaît</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="detail">
+<div class="corps">
           <p>Quand l'aperçu vous plaît, ouvrez votre console vavi et cliquez sur <b>Publier</b>. Votre site est en ligne, avec son adresse sécurisée. C'est toujours vous qui publiez : Claude ne met rien en ligne à votre place.</p>
           <p class="astuce">vavi ne publie qu'une version qui se construit sans erreur.</p>
         </div>
-        <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <g filter="url(#stylo)">
             <rect x="14" y="14" width="292" height="172" rx="14" fill="var(--papier)"/>
             <path d="M14 46h292"/>
@@ -950,18 +981,16 @@ details p{margin-top:10px;color:var(--encre-douce)}
           <text x="84" y="146" font-size="15" style="fill:var(--vert)">prêt</text>
           <text x="206" y="121" font-size="23" font-weight="700" style="fill:#fff">Publier</text>
         </svg>
-      </li>
-
-      <!-- 7 -->
-      <li class="etape">
-        <div class="numero"><svg viewBox="0 0 84 84" fill="none" stroke="var(--encre)" stroke-width="2.4" filter="url(#stylo)" aria-hidden="true"><path d="M44 6c21 1 34 17 33 37S59 79 39 77 6 59 8 39 26 6 48 8"/></svg>7</div>
-        <div class="corps">
-          <span class="qui">Vous, dans la <b>console vavi</b> · au quotidien</span>
-          <h3>Gérez votre activité</h3>
+        </div>
+      </details>
+      <details class="etape-d" name="etapes">
+        <summary><span class="num main">7</span><span class="resume"><b>Gérez votre activité</b><span>Commandes, clients, visites, textes et couleurs.</span></span><span class="duree">au quotidien</span><span class="plus" aria-hidden="true"></span></summary>
+        <div class="detail">
+<div class="corps">
           <p>Dans la console, vous retrouvez vos commandes, vos clients, vos factures, vos visites et toutes les données de votre site. Vous changez vous-même les couleurs, les polices et le référencement de vos pages. Une modification ne vous plaît pas ? Revenez à la version d'avant en un clic.</p>
           <p class="astuce">Pour faire évoluer le site, revenez simplement parler à Claude.</p>
         </div>
-        <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="croquis dessin" viewBox="0 0 320 200" fill="none" stroke="var(--encre)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <g filter="url(#stylo)">
             <rect x="14" y="14" width="292" height="172" rx="14" fill="var(--papier)"/>
             <path d="M92 14v172"/>
@@ -983,14 +1012,18 @@ details p{margin-top:10px;color:var(--encre-douce)}
           <text x="246" y="56" font-size="13">payée</text>
           <text x="244" y="100" font-size="13">à faire</text>
         </svg>
-      </li>
-    </ol>
+        </div>
+      </details>
+    </div>
 
-    <div class="bloque" aria-label="Si vous êtes bloqué">
+    <details class="bloque-d">
+      <summary>Vous êtes bloqué ?</summary>
+<div class="bloque" aria-label="Si vous êtes bloqué">
       <div><span class="main" style="font-size:1.3rem;color:var(--marge)">Bloqué ?</span><b>Claude ne me laisse pas ajouter vavi</b><p>Sur l'offre gratuite de Claude, un seul connecteur personnalisé est permis : retirez d'abord l'autre, ou passez à une offre payante. Le bouton ne s'ouvre pas ? La <a href="__CONSOLE__/commencer">page Commencer</a> donne l'adresse à copier.</p></div>
       <div><span class="main" style="font-size:1.3rem;color:var(--marge)">Bloqué ?</span><b>Je n'ai pas reçu le courriel de connexion</b><p>Regardez dans les indésirables. Le lien reste valable quelques minutes : au besoin, cliquez de nouveau sur Se connecter.</p></div>
       <div><span class="main" style="font-size:1.3rem;color:var(--marge)">Bloqué ?</span><b>Claude ne parle pas de vavi</b><p>vavi n'est pas activé dans cette conversation. Ouvrez le menu des outils sous la zone de texte et cochez vavi.</p></div>
     </div>
+    </details>
   </div>
 </section>
 
