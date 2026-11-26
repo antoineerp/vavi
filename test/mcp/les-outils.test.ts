@@ -376,6 +376,9 @@ describe('Claude essaie l’app comme un visiteur (Antoine, 26/11)', () => {
     expect(r.result.structuredContent).toMatchObject({ passed: false, played: '1 of 2 steps passed', stopped_at: 2, simulated: [expect.stringContaining('would be sent')] });
     expect(r.result.content.filter((x) => x.type === 'image')).toHaveLength(1);
     expect(vus).toEqual([{ empreinte: expect.stringMatching(/^[0-9a-f]{64}$/), etapes: [{ action: 'open', path: '/' }, { action: 'click', target: 'Envoyer' }] }]);
+    // Un rôle que l'app ne déclare pas : refusé avant tout navigateur, ses rôles dits.
+    expect(await refus('try_journey', { project: w.project, steps: [{ action: 'open', path: '/' }], as_role: 'gerant' })).toMatchObject({ code: 'app_json_refuse', fait: expect.stringContaining('no roles') });
+    expect(vus).toHaveLength(1);
     // Une étape mal formée est refusée par le schéma, avant tout navigateur.
     const a = await appelerUnOutil(c, 'try_journey', { project: w.project, steps: [{ action: 'open', path: 'contact' }] });
     expect(a.connu && 'invalide' in a).toBe(true);
