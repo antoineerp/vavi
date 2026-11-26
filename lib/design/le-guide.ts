@@ -20,7 +20,7 @@ const VITRINE = [
   'Alternate at least two compositions on a page (a full-width photo carrying the title, text beside a photo, a mosaic of photos of different sizes, a carousel, cards that each show their own photo). Never three sections in a row with the same grid, never a row of identical icon cards.',
   'Use at least four real photos of the subject, found with `search_images` (the subject in one to three concrete English words: a place, a material, a gesture, an object), shown with `<Photo nom="…" />`; the photo of the first screen has `prioritaire`.',
   'Follow the direction of app.json: its `intention` line by line, its register, its signature on the first screen, its colours (`bg-ancre text-sur-ancre` for dark bands, `text-seconde-texte` for the second hue) and the visual language below.',
-  'The brand links to the home page; the menu lists the other pages. A one-page site links its menu to the sections of the page (`#id`), never to pages that do not exist.',
+  'The brand links to the home page and is shown with `<Marque />` from `@/briques/chrome` (the logo the owner uploads, else the name); the menu lists the other pages. A one-page site links its menu to the sections of the page (`#id`), never to pages that do not exist.',
 ] as const;
 
 const PAR_NATURE: Readonly<Partial<Record<Manifeste['nature'], readonly string[]>>> = {

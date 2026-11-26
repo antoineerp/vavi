@@ -57,6 +57,8 @@ export const APP = { ...manifeste, tables: [...manifeste.tables, ...TABLES_DE_LA
     /** L'idée qu'on reconnaît dès le premier écran ; l'ouverture de la vitrine la porte (`briques/vitrine.tsx`). */
     readonly signatureVisuelle?: 'photo' | 'bande-inversee' | 'maillage' | 'typographie';
     readonly mouvement?: 'vivant' | 'discret' | 'immobile';
+    /** Le logo que le propriétaire a déposé dans la console ; `<Marque />` le montre. */
+    readonly logo?: string;
   };
   readonly tables: readonly TableDeLApp[];
   readonly organisations: 'une' | 'plusieurs' | 'clients';

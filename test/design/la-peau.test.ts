@@ -3,7 +3,7 @@
  * quelle que soit la direction. Les exemples de design : chaque capture du catalogue est livrée avec vavi.
  */
 import { describe, expect, it } from 'vitest';
-import { contraste, jetonsDeLaPeau } from '@/lib/design/la-peau';
+import { contraste, iconeDeLOnglet, jetonsDeLaPeau } from '@/lib/design/la-peau';
 import { unManifeste } from '../aides/un-manifeste';
 
 const hex = (n: number) => `#${(n & 0xffffff).toString(16).padStart(6, '0')}`;
@@ -43,3 +43,11 @@ const BOUTIQUE = { nature: 'boutique', fonctions: { panier: true },
     champs: [{ nom: 'nom', libelle: 'Nom', type: 'texte', obligatoire: true }, { nom: 'prix', libelle: 'Prix', type: 'montant', obligatoire: true }],
     vente: { prix: 'prix', libelle: 'nom' } }],
   vente: { pays: 'FR', devise: 'EUR', livraison: { pays: ['FR'], prix: 5 } } };
+
+describe('l’icône de l’onglet', () => {
+  it('l’initiale sur l’accent, sauf quand le propriétaire a déposé un logo', () => {
+    const d = unManifeste({ nature: 'site' }).direction;
+    expect(iconeDeLOnglet('Atelier', d)).toMatch(/^data:image\/svg\+xml,/);
+    expect(iconeDeLOnglet('Atelier', { ...d, logo: 'https://www.vavi.dev/photos/p/l.png' })).toBe('https://www.vavi.dev/photos/p/l.png');
+  });
+});

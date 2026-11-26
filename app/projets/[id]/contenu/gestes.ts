@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import { laConsole } from '@/app/_partage/la-console';
 import { construireLApercu as batir, estUnRefus } from '@/lib/mcp/les-gestes';
 import { leContexteReel } from '@/lib/mcp/le-contexte-reel';
-import { changerLApparence, changerLeReferencement, changerLeSite, changerUneImage, CHEMIN_DU_REFERENCEMENT, lApparenceDuFormulaire, leReferencementStocke, lesRedirectionsTapees, type Apparence, type Changement } from '@/lib/contenus/le-contenu';
+import { changerLApparence, changerLeLogo, changerLeReferencement, changerLeSite, changerUneImage, CHEMIN_DU_REFERENCEMENT, lApparenceDuFormulaire, leReferencementStocke, lesRedirectionsTapees, type Apparence, type Changement } from '@/lib/contenus/le-contenu';
 import { CHEMIN_DES_IMAGES, lireLesImages } from '@/lib/images/la-banque';
 import { banqueDeLaPlateforme } from '@/lib/images/la-banque';
 import { TAILLE_MAX_D_UNE_PHOTO, laCleDeLaPhoto, leFichierDeLaPhoto, leFormatDUnePhoto, sansLesMetadonnees } from '@/lib/images/la-photo-fournie';
@@ -136,6 +136,21 @@ export async function deposerLImageDePartage(id: string, f: FormData) {
   const r = await changerLeReferencement(g.d, id, ref.pages, { image: g.source, ia: ref.ia });
   if (r.change) console.log(`[contenu] ${id.slice(0, 8)} image de partage déposée, ${g.ko} Ko (version ${r.version}, aperçu ${r.apercu})`);
   retour(id, r, 'partage', 'referencement');
+}
+
+/** « Gérer le contenu » : le logo déposé (gardé comme une photo fournie), montré par la marque et en icône d'onglet. */
+export async function deposerLeLogo(id: string, f: FormData) {
+  if (!ID.test(id)) redirect('/projets');
+  const g = await garderLaPhotoEnvoyee(id, f, 'gerer');
+  const r = await changerLeLogo(g.d, id, g.source);
+  if (r.change) console.log(`[contenu] ${id.slice(0, 8)} logo déposé, ${g.ko} Ko (version ${r.version}, aperçu ${r.apercu})`);
+  retour(id, r, 'logo', 'gerer');
+}
+
+export async function retirerLeLogo(id: string) {
+  if (!ID.test(id)) redirect('/projets');
+  const r = await changerLeLogo(await lesDependances(id), id, null);
+  retour(id, r, 'logo', 'gerer');
 }
 
 /** « Revenir à la photo de la banque » : la photo fournie n'est plus montrée ; l'aperçu est rebâti. */

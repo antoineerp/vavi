@@ -92,6 +92,19 @@ export function avecLApparence(appJson: string, a: Apparence): { readonly ok: tr
   return r.ok ? { ok: true, texte: `${JSON.stringify(suivant, null, 2)}\n` } : { ok: false, detail: r.erreurs.join(' ; ') };
 }
 
+/** PURE — app.json avec ce logo (une adresse https, celle d'une photo gardée par vavi) ou sans (`null`), relu par le manifeste. */
+export function avecLeLogo(appJson: string, logo: string | null): { readonly ok: true; readonly texte: string } | { readonly ok: false; readonly detail: string } {
+  let json: Record<string, unknown>;
+  try { json = JSON.parse(appJson) as Record<string, unknown>; } catch { return { ok: false, detail: 'app.json is not valid JSON' }; }
+  const { logo: _ancien, ...direction } = (json.direction && typeof json.direction === 'object' ? json.direction : {}) as Record<string, unknown>;
+  const suivant = { ...json, direction: { ...direction, ...(logo ? { logo } : {}) } };
+  const r = lireLeManifeste(suivant);
+  return r.ok ? { ok: true, texte: `${JSON.stringify(suivant, null, 2)}\n` } : { ok: false, detail: r.erreurs.join(' ; ') };
+}
+
+export const changerLeLogo = (d: DependancesDeLaReecriture, id: string, logo: string | null): Promise<Changement> =>
+  ecrire(d, id, 'app.json', (avant) => (avant === undefined ? { ok: false, detail: 'no app.json' } : avecLeLogo(avant, logo)), logo ? 'logo déposé dans la console' : 'logo retiré dans la console');
+
 /**
  * PURE — le référencement relu : des adresses de page, un titre de 70 caractères au plus, une description de 200 ; le vide
  * retiré. `image` : l'image de partage, une adresse https (une photo de l'app ou de la banque) ou un fichier du site (`/…`) ; `ia` : le choix des
