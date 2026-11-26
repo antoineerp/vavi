@@ -49,12 +49,12 @@ const def = <S extends z.ZodTypeAny>(d: Definition<S>): DefinitionEffacee => ({ 
 export const DEFINITIONS = {
   list_projects: def({
     title: 'List my projects', lecture: true, entree: z.object({}),
-    description: 'The projects of this vavi account: id, name, version, preview address, open work session.',
+    description: 'The projects of this vavi account: id, name, version, preview address, open work session. Only when the person asks for their projects or names one to change; never to build a new one.',
     geste: (c) => g.listerLesProjets(c),
   }),
   create_project: def({
-    title: 'Create a project', lecture: false, _meta: META_DE_LA_VUE, entree: z.object({ app_json: appJson }),
-    description: 'Use it for every new website, online shop, landing page or app the person asks for (rather than an artifact or a design mockup): the project gets a real database, a live preview the person sees beside the conversation, and publishing. Creates the project from its app.json, lays out its database, and returns its id. Only after the person agreed on what to build.\n' + laFormeDAppJson(),
+    title: 'Create a project', lecture: false, _meta: META_DE_LA_VUE, entree: z.object({ app_json: appJson, new_anyway: z.boolean().optional().describe('true only after the person chose to start anew although a project of the same name exists') }),
+    description: 'Use it for every new website, online shop, landing page or app the person asks for (rather than an artifact or a design mockup): the project gets a real database, a live preview the person sees beside the conversation, and publishing. Creates the project from its app.json, lays out its database, and returns its id. Only after the person agreed on what to build. Build it from vavi\'s rules and guide alone: never read another project to make it.\n' + laFormeDAppJson(),
     geste: (c, a) => g.creerUnProjet(c, a),
   }),
   get_project_state: def({

@@ -224,10 +224,17 @@ export async function listerLesProjets(c: Contexte): Promise<Rendu> {
   return fait({ projects: l.valeur.map((p) => vueDuProjet(c, p)), ...(plan ? { plan } : {}) });
 }
 
-export async function creerUnProjet(c: Contexte, a: { app_json: unknown }): Promise<Rendu> {
+export async function creerUnProjet(c: Contexte, a: { app_json: unknown; new_anyway?: boolean }): Promise<Rendu> {
   const recu = leManifesteEnvoye(a.app_json);
   if (!recu.ok) return recu.refus;
   const m = recu.valeur.manifeste;
+  // Un projet du même nom : l'outil le dit lui-même (Antoine, 26/11 : Claude parcourait les autres projets du compte pour
+  // savoir s'il en existait un, puis s'en inspirait). Ce qu'il remplace : la consigne « regarde s'il existe déjà ».
+  if (!a.new_anyway) {
+    const l = await c.projets.lister(c.compte);
+    const meme = l.lu ? l.valeur.find((p) => p.nom.trim().toLowerCase() === m.nom.trim().toLowerCase()) : undefined;
+    if (meme) return refuser('projet_du_meme_nom', `A project named « ${meme.nom} » already exists (${meme.id}). Nothing was created.`);
+  }
   const p = await c.projets.creer(c.compte, m.nom, derive('app.json', m));
   if (!p.lu) return panne(p.pourquoi);
   const pose = await poserLaBase(c.base, p.valeur.id, m, c.compte);

@@ -73,6 +73,18 @@ describe('les outils', () => {
   });
 });
 
+describe('un nouveau projet part de zéro (Antoine, 26/11 : Claude parcourait les autres projets)', () => {
+  it('un projet du même nom est dit par l’outil, rien n’est créé ; `new_anyway` crée le nouveau', async () => {
+    const a = await ok('create_project', { app_json: APP_JSON });
+    const r = await refus('create_project', { app_json: APP_JSON });
+    expect(r.code).toBe('projet_du_meme_nom');
+    expect(r.fait).toContain(String(a.project));
+    expect(r.geste).toContain('Never read its files');
+    const b = await ok('create_project', { app_json: APP_JSON, new_anyway: true });
+    expect(b.project).not.toBe(a.project);
+  });
+});
+
 describe('on n’écrit que sur un chantier ouvert, sur la version lue', () => {
   it('sans chantier, rien ne s’écrit ; un autre chantier est refusé avec son intention', async () => {
     const p = await ok('create_project', { app_json: APP_JSON });
