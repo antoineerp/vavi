@@ -170,3 +170,22 @@ export async function preRendre(navigateur: UnNavigateur, dist: ReadonlyMap<stri
     routes: [...new Set(routes)], ...(o.app.editeur ? { editeur: o.app.editeur } : {}), ...(lesChoixDesIa(dist) ? { ia: lesChoixDesIa(dist) } : {}) }, null, 2)}\n`, 'utf8'));
   return { fichiers, gardees: gardees.map((g) => g.adresse), ecartees };
 }
+
+/** Le navigateur du serveur démarre-t-il, avec son bac à sable, et ouvre-t-il une page ? Lu par `/api/sante?navigateur=oui`
+ * (26/11 : les captures et la mesure de l'accueil n'avaient jamais été vues sur le serveur). Rien n'est chargé. */
+export async function essayerLeNavigateur(env: Readonly<Record<string, string | undefined>> = process.env):
+  Promise<{ readonly pret: true; readonly ms: number } | { readonly pret: false; readonly raison: string }> {
+  const t = Date.now();
+  const o = await ouvrirLeNavigateur([], env);
+  if ('raison' in o) return { pret: false, raison: o.raison };
+  try {
+    const page = await o.navigateur.newPage({ reducedMotion: 'reduce', locale: 'fr' });
+    await page.content();
+    await page.close();
+    return { pret: true, ms: Date.now() - t };
+  } catch (e) {
+    return { pret: false, raison: `Chromium started but could not open a page: ${String((e as Error)?.message ?? e).replace(/\s+/g, ' ').slice(0, 300)}` };
+  } finally {
+    await o.navigateur.close().catch(() => undefined);
+  }
+}
