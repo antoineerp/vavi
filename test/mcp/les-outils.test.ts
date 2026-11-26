@@ -3,6 +3,7 @@
  * SQL, prouvées sur un PostgreSQL réel dans test/projets/). Chaque garde-fou du cahier tenu par un outil est essayé des
  * deux côtés : le geste qu'il refuse, et le geste permis qui passe (l'instrument discrimine).
  */
+import { CleDeLaBanqueRefusee } from '@/lib/images/la-banque';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -428,5 +429,13 @@ describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {
     const f = await ok('read_files', { project, paths: ['src/images.json'] });
     expect(JSON.stringify(f.files)).toContain('images.unsplash.com/p?w=640');
     expect((await refus('apply_changes', { project, work_session, why: 'écrire les photos', changes: [{ path: 'src/images.json', content: '{}' }] })).code).toBe('fichier_du_cadre');
+  });
+  it('une clé de la banque refusée (401) dit de ne pas réessayer (incident du 26/11 : deux 401, « réessayez »)', async () => {
+    const { project, work_session } = await unChantier();
+    (c as { banque?: unknown }).banque = { chercher: async () => { throw new CleDeLaBanqueRefusee(401); }, signaler: async () => undefined };
+    const r = await refus('search_images', { project, work_session, images: [{ name: 'salle', subject: 'cafe interior', alt: 'La salle' }] });
+    expect(r.code).toBe('plateforme_en_panne');
+    expect(String(r.geste)).toMatch(/Do not call `search_images` again/);
+    expect(String(r.geste)).not.toMatch(/Try again/);
   });
 });

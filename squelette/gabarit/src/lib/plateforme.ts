@@ -9,7 +9,7 @@ import { libellesPour } from './libelles';
 import type { Resultat } from './resultat';
 
 declare global {
-  interface Window { __PROJECT_ID__?: string; __CONSTRUCTOR_API_URL__?: string; __PROJECT_TOKEN__?: string; __VAVI_CONSOLE__?: string }
+  interface Window { __PROJECT_ID__?: string; __VAVI_API_URL__?: string; __PROJECT_TOKEN__?: string; __VAVI_CONSOLE__?: string }
 }
 
 /** Le projet que la plateforme sert ici ; vide hors de la plateforme (développement local). */
@@ -37,10 +37,10 @@ export async function recevoirDeLaPlateforme(chemin: string, corps: unknown): Pr
 
 async function envoyer(chemin: string, corps: unknown): Promise<Resultat<Response>> {
   const L = libellesPour(langueCourante());
-  const base = typeof window === 'undefined' ? '' : window.__CONSTRUCTOR_API_URL__ ?? '';
+  const base = typeof window === 'undefined' ? '' : window.__VAVI_API_URL__ ?? '';
   const formulaire = typeof FormData !== 'undefined' && corps instanceof FormData;
   const entetes: Record<string, string> = formulaire ? {} : { 'Content-Type': 'application/json' };
-  if (typeof window !== 'undefined' && window.__PROJECT_TOKEN__) entetes['X-Constructor-Project-Token'] = window.__PROJECT_TOKEN__;
+  if (typeof window !== 'undefined' && window.__PROJECT_TOKEN__) entetes['X-Vavi-Project-Token'] = window.__PROJECT_TOKEN__;
   try {
     const jeton = await jetonValable();
     if (jeton) entetes.Authorization = `Bearer ${jeton}`;

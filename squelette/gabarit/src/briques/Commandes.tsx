@@ -58,7 +58,7 @@ function UneCommande({ c }: { readonly c: LigneDeCommande }) {
   const langue = langueCourante();
   const a = c.vente_adresse ?? {};
   const adresse = [a.line1, a.line2, [a.postal_code, a.city].filter(Boolean).join(' '), a.country].filter(Boolean).join(', ');
-  const base = typeof window === 'undefined' ? '' : window.__CONSTRUCTOR_API_URL__ ?? '';
+  const base = typeof window === 'undefined' ? '' : window.__VAVI_API_URL__ ?? '';
   return (
     <li className="space-y-3 rounded-lg border border-bordure bg-surface p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
