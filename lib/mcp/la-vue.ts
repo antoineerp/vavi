@@ -110,7 +110,7 @@ main{padding:12px 14px;display:grid;gap:10px}
   function ecrire(html){if(ecrite===html)return;ecrite=html;document.open();document.write(html);document.close();
     window.removeEventListener('message',recevoir);window.addEventListener('message',recevoir);
     envoyer('ui/notifications/size-changed',{width:document.body?document.body.scrollWidth:640,height:720},true);}
-  function mode(m){return envoyer('ui/request-display-mode',{mode:m}).then(function(r){console.log('[vavi] mode accordé',r&&r.mode);},function(x){console.log('[vavi] mode refusé',x&&x.message);});}
+  function mode(m){return envoyer('ui/request-display-mode',{mode:m}).then(function(r){modeCourant=(r&&r.mode)||modeCourant;console.log('[vavi] mode accordé',r&&r.mode);},function(x){console.log('[vavi] mode refusé',x&&x.message);});}
   var STYLE=':host{all:initial}.barre{position:fixed;left:0;right:0;bottom:0;z-index:2147483647;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px;'
     +'font:13px/1.3 system-ui,-apple-system,sans-serif;background:#fff;color:#1c1c1c;border-top:1px solid #e3e3e3;box-shadow:0 -2px 10px rgba(0,0,0,.06)}'
     +'button{font:inherit;padding:6px 11px;border-radius:8px;border:1px solid #d6d6d6;background:#fff;color:inherit;cursor:pointer}'
@@ -161,17 +161,24 @@ main{padding:12px 14px;display:grid;gap:10px}
     minuteur=setTimeout(function(){minuteur=null;relire();},5000);}
   function relire(){if(!projet)return;outil('vavi_fiche_du_projet',{project:projet,geste:JETON,known:(derniere&&derniere.preview_fingerprint)||undefined})
     .then(function(f){montrer(f);},function(){if(derniere)suivre(derniere);});}
-  function charger(id){projet=id;debutDuSuivi=Date.now();outil('vavi_fiche_du_projet',{project:id,geste:JETON}).then(function(f){montrer(f);})
+  // LE PANNEAU S'OUVRE DE LUI-MÊME (Antoine, 26/11 : « comme Claude Design, qui s'ouvre automatiquement à droite ») : le
+  // modèle ne choisit pas où la vue s'affiche, la vue le demande à l'hôte, une fois, dès qu'elle a un projet. L'hôte peut
+  // refuser (un geste de la personne exigé) : la vue reste alors dans la conversation, ses boutons « à côté » et « en grand ».
+  var modeCourant=null,dejaDemande=false;
+  function ouvrirLePanneau(){if(dejaDemande||modeCourant==='fullscreen')return;
+    var voulu=modes.indexOf('fullscreen')>=0?'fullscreen':modes.indexOf('pip')>=0?'pip':null;if(!voulu)return;dejaDemande=true;mode(voulu);}
+  function charger(id){projet=id;debutDuSuivi=Date.now();outil('vavi_fiche_du_projet',{project:id,geste:JETON}).then(function(f){montrer(f);ouvrirLePanneau();})
     .catch(function(x){var v=document.getElementById('vue');if(v)v.textContent=T.erreur+' '+x.message;taille();});}
   function recevoir(e){var m=e.data;if(!m||m.jsonrpc!=='2.0')return;
     if(m.id!=null&&attendus[m.id]){var a=attendus[m.id];delete attendus[m.id];if(m.error)a.non(new Error(m.error.message));else a.ok(m.result);return;}
     if(m.method==='ui/notifications/tool-input'){var a2=(m.params&&m.params.arguments)||{};if(a2.project){entree=a2.project;if(!projet)charger(a2.project);}}
     if(m.method==='ui/notifications/tool-result'){var s=(m.params&&m.params.structuredContent)||{};var id=s.project||s.id||entree;if(id)charger(id);}
+    if(m.method==='ui/notifications/host-context-changed'&&m.params&&m.params.displayMode)modeCourant=m.params.displayMode;
     if(m.method==='ui/resource-teardown'&&m.id!=null)window.parent.postMessage({jsonrpc:'2.0',id:m.id,result:{}},'*');
   }
   window.addEventListener('message',recevoir);
   envoyer('ui/initialize',{protocolVersion:'2026-01-26',appInfo:{name:'vavi',version:'1'},clientInfo:{name:'vavi',version:'1'},appCapabilities:{availableDisplayModes:['inline','fullscreen','pip']}})
-    .then(function(r){modes=(r&&r.hostContext&&r.hostContext.availableDisplayModes)||[];console.log('[vavi] modes de l’hôte',JSON.stringify(modes));envoyer('ui/notifications/initialized',{},true);taille();}).catch(function(){taille();});
+    .then(function(r){modes=(r&&r.hostContext&&r.hostContext.availableDisplayModes)||[];modeCourant=(r&&r.hostContext&&r.hostContext.displayMode)||null;if(projet&&derniere)ouvrirLePanneau();console.log('[vavi] modes de l’hôte',JSON.stringify(modes));envoyer('ui/notifications/initialized',{},true);taille();}).catch(function(){taille();});
 })();
 </script></body></html>`;
 }
