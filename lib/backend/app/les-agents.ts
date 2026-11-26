@@ -1,62 +1,60 @@
-// Repris de constructor-v13@5bb786e : generateur-v2/app/les-agents.ts
 /**
- * Les agents d'une app : un modèle qui lit, va chercher et calcule avant de conclure, puis PROPOSE des lignes qu'une
- * personne valide. Ils s'écrivent dans app.json ; la plateforme les fait tourner par son moteur d'agents, avec les seuls
- * outils que la déclaration ouvre : lire les tables nommées pour le compte qui le lance (la sécurité des lignes décide),
- * chercher sur le web et lire une page publique, calculer, et enregistrer une proposition, marquée « ia », avec son
- * explication et sa confiance. Il n'écrit jamais un fait, n'envoie rien, ne supprime rien : une transition du cycle,
- * faite par une personne, fait d'une proposition un fait. Une page le lance (`<Agent nom>`), ou une automatisation
- * (étape `agent`).
+ * Les agents d'une app (Antoine, 26/11, « Quatre briques, Claude écrit l'agent ») : ce qui travaille sans personne
+ * devant l'écran, à une heure, à l'arrivée d'une ligne, ou au bouton d'une personne. app.json DÉCLARE seulement quand
+ * il se réveille et ce qu'il peut dépenser ; ce qu'il fait, Claude l'écrit lui-même en code, dans
+ * `src/agents/<nom>.ts`. La plateforme fournit les briques (le réveil, l'IA sur la clé du propriétaire, la base sous
+ * ses règles d'accès, le journal et le plafond) et rien d'autre : aucune sorte d'agent n'est fixée d'avance.
+ *
+ * Ce qu'il remplace : l'agent de constructor-v13 (generateur-v2/app/les-agents.ts : mission, tables lues, table à
+ * propositions), qu'un moteur fixe exécutait et que vavi ne servait pas (`<Agent>` appelait une route absente).
  */
 import { z } from 'zod';
 import { Identifiant } from './identifiant';
-import type { Automatisation } from './les-automatisations';
+import { CADENCES } from './les-automatisations';
+
+export const IA_PAR_JOUR = { defaut: 30, max: 500 } as const;
+
+export const Reveil = z.union([
+  z.object({ type: z.literal('horaire'), cadence: z.enum(CADENCES),
+    heure: z.number().int().min(0).max(23).optional().describe('l’heure, à Paris ; absente : minuit (ou chaque heure pour `horaire`)'),
+    jour: z.number().int().min(0).max(6).optional().describe('pour une cadence hebdomadaire : le jour, dimanche valant zéro ; absent : lundi') })
+    .describe('à heure fixe'),
+  z.object({ type: z.literal('evenement'), table: Identifiant.describe('une ligne y est créée : l’agent la reçoit') })
+    .describe('à l’arrivée d’une ligne'),
+  z.object({ type: z.literal('bouton'), par: z.array(Identifiant).min(1).describe('les rôles qui le lancent depuis une page (`<Agent nom>`)') })
+    .describe('quand une personne le lance'),
+]);
+export type Reveil = z.infer<typeof Reveil>;
 
 export const Agent = z.object({
-  nom: Identifiant,
+  nom: Identifiant.describe('son code est `src/agents/<nom>.ts`'),
   libelle: z.string().min(1).describe('son nom à l’écran'),
-  mission: z.string().min(20).max(2000)
-    .describe('ce qu’il cherche et ce qu’il propose, écrit d’après la demande ; il ne décide rien : l’équipe valide chaque proposition, sauf quand la table la fait avancer seule (`sansRelecture`)'),
-  lit: z.array(Identifiant).default([]).describe('les tables qu’il lit, avec les droits du compte qui le lance'),
-  web: z.boolean().default(false)
-    .describe('il cherche sur le web et lit les pages publiques qu’il trouve ou dont il tient l’adresse ; chaque valeur qu’il en tire cite sa page'),
-  propose: Identifiant.describe('la table où il enregistre ses propositions (`propositions` sur la table)'),
-  par: z.array(Identifiant).min(1).describe('les rôles de l’équipe qui le lancent à la main ; chacun écrit la table où il propose. Ce qu’il fait pour une personne servie, une automatisation le lance (étape `agent`)'),
-}).describe('un agent : il lit, va chercher et calcule, puis propose des lignes qu’une personne valide');
+  dit: z.string().min(10).max(300).describe('ce qu’il fait, en une phrase que le propriétaire lit dans la console'),
+  reveil: Reveil,
+  ia_par_jour: z.number().int().min(0).max(IA_PAR_JOUR.max).default(IA_PAR_JOUR.defaut)
+    .describe('le plafond de ses appels à l’IA par jour, sur la clé du propriétaire'),
+}).describe('un agent : app.json dit quand il se réveille ; son code, `src/agents/<nom>.ts`, dit ce qu’il fait');
 export type Agent = z.infer<typeof Agent>;
 
-interface TableLue {
-  readonly nom: string; readonly propositions: boolean; readonly ecriture: readonly string[]; readonly contenu?: boolean;
-  readonly champs: ReadonlyArray<{ readonly type: string; readonly table?: string }>;
-}
+/** Le chemin du code d'un agent. */
+export const cheminDeLAgent = (nom: string): string => `src/agents/${nom}.ts`;
 
-/** Les agents nomment des tables, des rôles et une table à propositions qui existent ; une étape `agent` en nomme un. */
+/** Un agent nomme une table et des rôles qui existent ; une étape `agent` d'automatisation en nomme un. */
 export function lireLesAgents(m: {
-  readonly agents: readonly Agent[]; readonly tables: readonly TableLue[]; readonly roles: readonly { readonly nom: string }[];
-  readonly automatisations: readonly Automatisation[];
+  readonly agents: readonly Agent[]; readonly tables: readonly { readonly nom: string }[]; readonly roles: readonly { readonly nom: string }[];
+  readonly automatisations: readonly { readonly nom: string; readonly etapes: readonly { readonly type: string; readonly agent?: string }[] }[];
 }, ctx: z.RefinementCtx): void {
   const dire = (message: string) => ctx.addIssue({ code: 'custom', message });
   const noms = m.agents.map((a) => a.nom);
   for (const a of m.agents) {
     const ici = `l’agent ${a.nom}`;
     if (noms.indexOf(a.nom) !== noms.lastIndexOf(a.nom)) dire(`${ici} est déclaré deux fois`);
-    for (const t of a.lit.filter((x) => !m.tables.some((y) => y.nom === x))) dire(`${ici} : la table ${t} n’est pas déclarée`);
-    const cible = m.tables.find((x) => x.nom === a.propose);
-    if (!cible) dire(`${ici} : la table ${a.propose} n’est pas déclarée`);
-    else if (!cible.propositions) dire(`${ici} propose dans ${a.propose} : déclarez \`propositions: true\` sur cette table`);
-    // Ce que l'agent tire d'une liste fixée (des exigences, un barème), il le désigne : la couverture se compte en base,
-    // et une ligne de la liste qu'aucune proposition ne désigne se voit. Un texte libre ne désigne rien.
-    for (const l of a.lit.map((x) => m.tables.find((y) => y.nom === x)).filter((x) => x?.contenu && x.nom !== a.propose)) {
-      if (cible && !cible.champs.some((c) => c.type === 'reference' && c.table === l!.nom)) {
-        dire(`${ici} lit ${l!.nom}, une liste fixée : chaque ligne qu’il propose dans ${cible.nom} désigne la sienne par un champ \`reference\` vers ${l!.nom}`);
-      }
-    }
-    for (const r of a.par) {
-      if (!m.roles.some((x) => x.nom === r)) dire(`${ici} : le rôle ${r} n’est pas déclaré`);
-      else if (cible && !cible.ecriture.includes(r)) dire(`${ici} : le rôle ${r} le lance mais n’écrit pas ${cible.nom}, où il propose ; ajoutez-le à son \`ecriture\``);
-    }
+    const r = a.reveil;
+    if (r.type === 'evenement' && !m.tables.some((t) => t.nom === r.table)) dire(`${ici} se réveille sur la table ${r.table}, qui n’est pas déclarée`);
+    if (r.type === 'bouton') for (const x of r.par.filter((y) => !m.roles.some((z) => z.nom === y))) dire(`${ici} : le rôle ${x} n’est pas déclaré`);
+    if (r.type === 'horaire' && r.jour !== undefined && r.cadence !== 'hebdomadaire') dire(`${ici} : \`jour\` ne vaut que pour une cadence hebdomadaire`);
   }
   for (const au of m.automatisations) for (const e of au.etapes) {
-    if (e.type === 'agent' && !noms.includes(e.agent)) dire(`l’automatisation ${au.nom} : l’agent ${e.agent} n’est pas déclaré dans \`agents\``);
+    if (e.type === 'agent' && e.agent && !noms.includes(e.agent)) dire(`l’automatisation ${au.nom} : l’agent ${e.agent} n’est pas déclaré dans \`agents\``);
   }
 }

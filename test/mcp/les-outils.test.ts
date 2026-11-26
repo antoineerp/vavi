@@ -73,6 +73,18 @@ describe('les outils', () => {
   });
 });
 
+describe('un nouveau projet part de zéro (Antoine, 26/11 : Claude parcourait les autres projets)', () => {
+  it('un projet du même nom est dit par l’outil, rien n’est créé ; `new_anyway` crée le nouveau', async () => {
+    const a = await ok('create_project', { app_json: APP_JSON });
+    const r = await refus('create_project', { app_json: APP_JSON });
+    expect(r.code).toBe('projet_du_meme_nom');
+    expect(r.fait).toContain(String(a.project));
+    expect(r.geste).toContain('Never read its files');
+    const b = await ok('create_project', { app_json: APP_JSON, new_anyway: true });
+    expect(b.project).not.toBe(a.project);
+  });
+});
+
 describe('on n’écrit que sur un chantier ouvert, sur la version lue', () => {
   it('sans chantier, rien ne s’écrit ; un autre chantier est refusé avec son intention', async () => {
     const p = await ok('create_project', { app_json: APP_JSON });
@@ -417,7 +429,7 @@ describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {
     const r = await servirLeMcp({ jsonrpc: '2.0', id: 10, method: 'tools/call', params: { name: 'get_design_guide', arguments: { project } } },
       { outils: c, langue: 'fr', gabaritPackageJson: GABARIT, noteDuChantier: async () => null }) as { result: { content: { type: string; text?: string }[]; structuredContent: Record<string, unknown> } };
     expect(r.result.content.map((x) => x.type)).toEqual(['text']);
-    expect(Object.keys(r.result.structuredContent).sort()).toEqual(['guide', 'ok', 'rules'].filter((k) => k in r.result.structuredContent).sort());
+    expect(Object.keys(r.result.structuredContent).sort()).toEqual(['guide', 'ok', 'rules', 'visual_language', 'your_direction'].filter((k) => k in r.result.structuredContent).sort());
     expect(JSON.stringify(r.result.structuredContent)).not.toMatch(/exemples? de design|examples? of successful|\.jpg/i);
   });
   it('search_images pose la photo du sujet dans src/images.json, que Claude n’écrit pas ; sans banque, il le dit', async () => {
@@ -429,6 +441,47 @@ describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {
     const f = await ok('read_files', { project, paths: ['src/images.json'] });
     expect(JSON.stringify(f.files)).toContain('images.unsplash.com/p?w=640');
     expect((await refus('apply_changes', { project, work_session, why: 'écrire les photos', changes: [{ path: 'src/images.json', content: '{}' }] })).code).toBe('fichier_du_cadre');
+  });
+  it('26/11 — import_images reprend les images d’un site par la porte de sortie, sous la déclaration de la personne', async () => {
+    const { project, work_session } = await unChantier();
+    const u32 = (v: number) => [(v >>> 24) & 255, (v >> 16) & 255, (v >> 8) & 255, v & 255];
+    const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 73, 72, 68, 82, ...u32(900), ...u32(600), 8, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 73, 69, 78, 68, 0, 0, 0, 0]);
+    const appels: string[] = [];
+    Object.assign(c, { resolveur: async (h: string) => (h === 'interne.fr' ? ['10.0.0.4'] : ['93.184.216.34']),
+      sortie: (async (u: string) => { appels.push(u); return new Response(png, { status: 200 }); }) as typeof fetch });
+    const r = await ok('import_images', { project, work_session, rights: 'Antoine : « ce sont mes photos »', images: [
+      { name: 'atelier', url: 'https://monsite.fr/a.png', alt: 'L’atelier' }, { name: 'cache', url: 'https://interne.fr/b.png', alt: 'Interne' }] });
+    expect((r.images as string[])[0]).toBe('atelier: set (900×600 px, metadata removed).');
+    expect((r.images as string[])[1]).toMatch(/not taken \(refused by vavi's gate/);
+    expect(appels).toEqual(['https://monsite.fr/a.png']);
+    const f = await ok('read_files', { project, paths: ['src/images.json'] });
+    const images = JSON.parse((f.files as { content: string }[])[0]!.content) as Record<string, { reprise: { droits: string; depuis: string } }>;
+    expect(images.atelier!.reprise).toMatchObject({ droits: 'Antoine : « ce sont mes photos »', depuis: 'https://monsite.fr/a.png' });
+    expect(images.cache).toBeUndefined();
+    expect((c.magasin as ReturnType<typeof unMagasinEnMemoire>).ecrits.some((k) => k.startsWith(`photos/${project}/`))).toBe(true);
+    // Sans les mots de la personne sur ses droits, l'outil ne part pas.
+    await expect(appel('import_images', { project, work_session, rights: 'oui', images: [{ name: 'a', url: 'https://monsite.fr/a.png', alt: 'aaa' }] })).rejects.toThrow(/import_images/);
+  });
+  it('26/11 — try_agent fait tourner l’agent du build vert sur une copie, et rend son résultat, son journal, son erreur avec sa ligne', async () => {
+    const app = { ...APP_JSON,
+      agents: [{ nom: 'tri', libelle: 'Tri', dit: 'Classe les demandes chaque matin.', reveil: { type: 'horaire', cadence: 'quotidien', heure: 7 } }] };
+    const p = await ok('create_project', { app_json: app });
+    const project = String(p.project);
+    const ch = await ok('ouvrir_chantier', { project, intention: 'le tri' });
+    expect((await refus('try_agent', { project, name: 'autre' })).code).toBe('app_json_refuse');
+    expect((await refus('try_agent', { project, name: 'tri' })).fait).toContain('src/agents/tri.ts does not exist');
+    await ok('apply_changes', { project, work_session: ch.work_session, why: 'le tri', build: false, changes: [{ path: 'src/agents/tri.ts', content: 'export default async () => "ok";\n' }] });
+    expect((await refus('try_agent', { project, name: 'tri' })).code).toBe('build_perime');
+    await ok('build_preview', { project });
+    const vus: unknown[] = [];
+    (c as { essayerUnAgent?: unknown }).essayerUnAgent = async (_p: string, _e: string, _m: unknown, nom: string, entree: string) => {
+      vus.push([nom, entree]);
+      return { ok: false, etape: 'agent', erreur: 'base.lire clients: app.json declares no such table', pile: 'at src/agents/tri.ts:3:9', journal: ['début'], ia: 1, operations: 2, duree: 40 };
+    };
+    const r = await ok('try_agent', { project, name: 'tri', input: 'urgent' });
+    expect(vus).toEqual([['tri', 'urgent']]);
+    expect(r).toMatchObject({ passed: false, error: 'base.lire clients: app.json declares no such table', at: 'at src/agents/tri.ts:3:9', log: ['début'], ai_calls: 1 });
+    expect(String(r.ran)).toMatch(/temporary copy/);
   });
   it('26/11 — les notes durables : écrites par write_notes, relues à l’état et au chantier, jamais écrasées sans avoir été lues', async () => {
     const { project } = await unChantier();
@@ -460,5 +513,22 @@ describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {
     expect(r.code).toBe('plateforme_en_panne');
     expect(String(r.geste)).toMatch(/Do not call `search_images` again/);
     expect(String(r.geste)).not.toMatch(/Try again/);
+  });
+});
+
+describe('la forme d’app.json, dite avant le premier envoi (essai Yokono du 26/11 : trois refus d’affilée)', () => {
+  it('create_project la donne : l’exemple complet, chaque police et chaque type de champ permis', async () => {
+    const { POLICES_PROPOSEES } = await import('@/lib/backend/fige/polices');
+    const { TypeDeChamp } = await import('@/lib/backend/app/manifeste');
+    const { EXEMPLE_D_APP_JSON_TEXTE } = await import('@/lib/backend/app/l-exemple-d-app-json');
+    const d = lesOutils().find((o) => o.name === 'create_project')!.description;
+    expect(d).toContain(EXEMPLE_D_APP_JSON_TEXTE);
+    for (const p of POLICES_PROPOSEES) expect(d).toContain(p);
+    // Une police retirée par Antoine (11/11) n'est plus proposée à Claude (26/11 : elle l'était encore).
+    expect(d).not.toContain('Space Grotesk');
+    for (const t of TypeDeChamp.options) expect(d).toContain(t);
+    expect(d).toContain('tenuePar');
+    expect(d).toContain('`tous` (anyone, with or without an account');
+    expect(lesOutils().find((o) => o.name === 'configure_backend')!.description).toContain('create_project');
   });
 });

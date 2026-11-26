@@ -34,6 +34,10 @@ export function ecouterLEdition(): void {
   if (typeof window === 'undefined' || window.parent === window) return;
   const origine = origineDeLaPlateforme();
   if (origine === null) return;
+  // Écrite dans un autre cadre que la console (la fiche de vavi dans Claude, 26/11) : rien à dire à la console, qui n'est
+  // pas là ; chaque message partait vers une origine absente et le navigateur le notait en erreur.
+  const parent = window.location.ancestorOrigins?.[0];
+  if (parent !== undefined && parent !== origine) return;
   let actif = false;
   let survole: HTMLElement | null = null;
   const style = document.createElement('style');

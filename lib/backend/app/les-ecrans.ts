@@ -46,7 +46,7 @@ interface TableLue {
 interface AppLue {
   readonly nature: string; readonly ecrans: readonly Ecran[]; readonly demandes: readonly Demande[]; readonly tables: readonly TableLue[];
   readonly roles: readonly { readonly nom: string }[]; readonly indicateurs: readonly { readonly nom: string }[];
-  readonly agents: readonly { readonly nom: string; readonly lit: readonly string[]; readonly propose: string }[];
+  readonly agents: readonly { readonly nom: string; readonly reveil: unknown }[];
   readonly automatisations: readonly { readonly nom: string }[];
   readonly parcours?: Parcours;
 }
@@ -59,11 +59,11 @@ function tablesNommees(x: unknown): string[] {
 }
 
 /**
- * Les tables qui servent une demande : celles qu'un écran montre, qu'un agent lit ou propose, qu'une automatisation
+ * Les tables qui servent une demande : celles qu'un écran montre, dont la ligne réveille un agent, qu'une automatisation
  * nomme, puis celles qu'elles désignent ou dont elles font partie. PUR.
  */
 export function lesTablesQuiServent(m: AppLue): Set<string> {
-  const vues = new Set([...m.ecrans.flatMap((e) => e.montre), ...m.agents.flatMap((a) => [...a.lit, a.propose]), ...tablesNommees(m.automatisations)]);
+  const vues = new Set([...m.ecrans.flatMap((e) => e.montre), ...tablesNommees(m.agents.map((a) => a.reveil)), ...tablesNommees(m.automatisations)]);
   for (let ajoutee = true; ajoutee;) {
     ajoutee = false;
     for (const t of m.tables.filter((x) => vues.has(x.nom))) {
@@ -147,4 +147,41 @@ export function ceQueTuAsDemande(m: {
   const qui = p ? (p.pour === 'visiteur' ? 'un visiteur, sans compte,' : `« ${m.roles?.find((r) => r.nom === p.pour)?.libelle ?? p.pour} »`) : '';
   return [...(p ? [`D’abord, ${qui} vient ${p.fait.replace(/\.$/, '')} et obtient ${p.obtient.replace(/\.$/, '')}${p.ecran ? `, sur ${ou(p.ecran)}` : ''}`] : []),
     ...m.demandes.map((d) => `« ${d.passage.length > 140 ? `${d.passage.slice(0, 140)}…` : d.passage} » : ${d.tenuePar.map(ou).join(', ')}`)];
+}
+
+/**
+ * LES DEMANDES RÉPARÉES (Antoine, 26/11 : « fais page hello » refusé, Claude avait écrit `tenuePar: ["Accueil"]`) : un
+ * `tenuePar` qui nomme un écran par son titre est lu comme cet écran ; un `tenuePar` qui ne nomme rien de déclaré est
+ * retiré, et une demande qui ne garde rien est retirée : elle ne tenait rien. Chaque ajustement est dit. Ce qu'il
+ * remplace : le refus de tout app.json pour un nom de `demandes`, qui ne décide rien de la base. PURE.
+ */
+export function lesDemandesReparees(json: unknown): { readonly valeur: unknown; readonly repare: readonly string[] } {
+  const brut = json as Record<string, unknown> | null;
+  if (!brut || typeof brut !== 'object' || !Array.isArray(brut.demandes)) return { valeur: json, repare: [] };
+  const noms = (k: string) => (Array.isArray(brut[k]) ? (brut[k] as unknown[]) : []).flatMap((x) => (x && typeof x === 'object' && typeof (x as { nom?: unknown }).nom === 'string' ? [x as { nom: string; titre?: unknown }] : []));
+  const ecrans = noms('ecrans');
+  const tenants = new Set([...ecrans, ...noms('agents'), ...noms('automatisations')].map((x) => x.nom));
+  const parTitre = new Map(ecrans.filter((e) => typeof e.titre === 'string').map((e) => [String(e.titre).trim().toLowerCase(), e.nom]));
+  const repare: string[] = [];
+  const demandes = brut.demandes.flatMap((d) => {
+    if (!d || typeof d !== 'object') return [d];
+    const x = d as { passage?: unknown; tenuePar?: unknown };
+    const cite = `« ${String(x.passage ?? '').slice(0, 80)} »`;
+    // Rien de nommé (INCIDENT 26/11, la scierie : `tenuePar: []` sur un site) : la demande ne tient rien, elle part.
+    if (!Array.isArray(x.tenuePar) || x.tenuePar.length === 0) {
+      repare.push(`la demande ${cite} ne nomme ni écran, ni agent, ni automatisation qui la tienne : retirée de \`demandes\``);
+      return [];
+    }
+    const tenue = (x.tenuePar as unknown[]).flatMap((t) => {
+      if (typeof t !== 'string') return [];
+      if (tenants.has(t)) return [t];
+      const lu = parTitre.get(t.trim().toLowerCase()) ?? (tenants.has(t.trim().toLowerCase()) ? t.trim().toLowerCase() : undefined);
+      repare.push(lu ? `la demande ${cite} : « ${t} » lu comme l’écran ${lu}` : `la demande ${cite} : « ${t} » ne nomme aucun écran, agent ni automatisation déclaré : retiré`);
+      return lu ? [lu] : [];
+    });
+    if (tenue.length) return [{ ...x, tenuePar: [...new Set(tenue)] }];
+    repare.push(`la demande ${cite} n’est tenue par rien de déclaré : retirée de \`demandes\``);
+    return [];
+  });
+  return repare.length ? { valeur: { ...brut, demandes }, repare } : { valeur: json, repare: [] };
 }

@@ -24,10 +24,12 @@ import { lireUneValeurLue, ValeurLue } from './les-valeurs-lues';
 import { lireLeNumero, Numero } from './les-numeros';
 import { lireLaVitrine, Vitrine } from './la-vitrine-de-l-app';
 import { Agent, lireLesAgents } from './les-agents';
-import { Demande, Ecran, lireLesEcrans, Parcours } from './les-ecrans';
+import { Demande, Ecran, lesDemandesReparees, lireLesEcrans, Parcours } from './les-ecrans';
 import { Analyse, estAnalysee, lireLAnalyse } from './l-analyse';
 import { lireLaRemise } from './la-remise';
 import { lireLesEnvois } from './l-envoi-sans-compte';
+import { INSCRITS, lesAccesTraduits, TOUS } from './les-acces';
+import { lesFormesReparees } from './les-formes-reparees';
 
 export { CHIFFRES, Identifiant, Indicateur };
 
@@ -124,6 +126,9 @@ export const Table = z.object({
   parent: Identifiant.optional(),
   lecture: z.array(Identifiant),
   ecriture: z.array(Identifiant).describe('les rôles qui créent et modifient ses lignes ; `visiteur` : une personne sans compte y envoie une ligne (une demande, avec son fichier), que la plateforme garde au nom du propriétaire, et la page lui montre aussitôt ce que la base en a calculé'),
+  creation: z.array(Identifiant).optional().describe('tirée d’`acces.creer` : les rôles qui créent ; absente (un app.json d’avant), ceux d’`ecriture`'),
+  modification: z.array(Identifiant).optional().describe('tirée d’`acces.modifier`'),
+  suppression: z.array(Identifiant).optional().describe('tirée d’`acces.supprimer`'),
   lectureEntiere: z.array(Identifiant).optional().describe('table `personnelle` : les rôles de `lecture` qui voient TOUTES les lignes de l’organisation, pas seulement les leurs et celles des personnes qu’ils encadrent (une comptabilité, une direction) ; un rôle qui fait une transition sur les lignes des autres sans les encadrer y figure'),
   identite: z.array(Identifiant).optional().describe('les champs qui, ensemble, identifient une ligne'),
   cycle: z.object({
@@ -215,8 +220,38 @@ export const Boutique = z.object({
 export const TABLES_DE_LA_PLATEFORME = ['membres', 'membres_invitations', 'membres_espaces', 'membres_choix', 'commande', 'coffre_documents', 'coffre_dossiers'] as const;
 
 const Couleur = z.string().regex(/^#[0-9a-f]{6}$/i);
+/**
+ * LA DIRECTION ARTISTIQUE RÉDIGÉE (Antoine, 26/11 : « on a perdu beaucoup de qualité design ») : Claude la rédige pour CETTE
+ * demande, en directeur artistique, comme le faisaient `llm-design-intelligence.ts` et `art-direction.ts` de constructor-v13
+ * (12/05, 948a77316) et sa direction d'octobre (`generateur/outils/la-direction-artistique.ts`). Chaque champ ajouté est
+ * facultatif : un app.json d'avant se lit tel quel. Le registre et le mouvement sont CHOISIS par Claude ; aucun mot-clé
+ * côté vavi ne les décide (ce qu'ils remplacent : les listes de mots de `detectArtDirection`). Le guide de chaque registre
+ * est dans `lib/design/le-langage.ts`.
+ */
+export const REGISTRES = ['classique', 'editorial', 'narratif', 'catalogue', 'brut', 'outil'] as const;
+export const MOUVEMENTS = ['vivant', 'discret', 'immobile'] as const;
+export const SIGNATURES = ['photo', 'bande-inversee', 'maillage', 'typographie'] as const;
+const Phrase = z.string().min(1).max(600);
+export const Intention = z.object({
+  signature: Phrase.optional().describe('the visual idea that makes THIS site and no other, in one sentence'),
+  premierEcran: Phrase.optional().describe('what the home page shows before any scroll, and how'),
+  composition: Phrase.optional().describe('how pages are organised and follow each other: grid, rhythm, density, the break that avoids monotony'),
+  typographie: Phrase.optional().describe('the character of the headlines and the text, and what they say of the subject'),
+  matiere: Phrase.optional().describe('surfaces, textures, photos (real subjects, framing, treatment)'),
+  voix: Phrase.optional().describe('the voice of the texts: register, sentence length, what is never said'),
+  pourquoiDesCouleurs: Phrase.optional().describe('why THESE colours for THIS subject, in one sentence'),
+}).describe('the art direction written for this request: each line says what holds for THIS site and not another');
+
 export const Direction = z.object({
-  couleurs: z.object({ fond: Couleur, texte: Couleur, accent: Couleur, surface: Couleur, bordure: Couleur }),
+  couleurs: z.object({ fond: Couleur, texte: Couleur, accent: Couleur, surface: Couleur, bordure: Couleur,
+    second: Couleur.optional().describe('a second hue, accomplice of the accent: the end of a gradient headline, a second mark'),
+    ancre: Couleur.optional().describe('the deep colour of dark bands (footer, inverted band), carrying light text; taken from the subject') }),
+  registre: z.enum(REGISTRES).optional().describe('the register of the public pages, chosen from what the request carries: classique (premium editorial), editorial (typography first), narratif (immersive, full-height, the scroll tells), catalogue (products photo first), brut (very large type, strong contrast), outil (the screen is the product)'),
+  mouvement: z.enum(MOUVEMENTS).default('vivant').describe('how much the app moves: vivant (reveal on scroll, hover, depth), discret (short and sober), immobile (nothing moves)'),
+  signatureVisuelle: z.enum(SIGNATURES).optional().describe('what one recognises from the first screen: photo (full-frame photo under a veil), bande-inversee (a full-width band in inverted contrast), maillage (two soft colour blurs behind the opening), typographie (a monumental headline)'),
+  verre: z.boolean().default(true).describe('true: frosted glass is allowed for the header and floating cards (`verre`); false: opaque surfaces'),
+  degrade: z.boolean().default(true).describe('true: one or two words of a headline may go from the accent to the second hue (`texte-degrade`); false: flat colours'),
+  intention: Intention.optional(),
   polices: z.object({ titres: z.enum(NOMS_DES_POLICES), texte: z.enum(NOMS_DES_POLICES) }),
   rayon: z.enum(['net', 'doux', 'rond']).describe('l’arrondi des boutons, des champs et des cartes'),
   travail: z.enum(['affirme', 'sobre']).default('affirme').describe('l’allure des écrans derrière un compte : `affirme`, une colonne de menu sombre et de grands titres ; `sobre`, une colonne de menu claire, l’écran ouvert à la teinte de l’accent, des titres de taille courante — celle d’une app jointe ou reprise qui a une colonne claire'),
@@ -224,7 +259,7 @@ export const Direction = z.object({
 }).superRefine((d, ctx) => {
   if (d.couleursDemandees) return;
   for (const [nom, hex] of Object.entries(d.couleurs)) {
-    if (estViolette(hex)) ctx.addIssue({ code: 'custom', path: ['couleurs', nom], message: `${hex} est violet, mauve ou indigo : ces teintes ne se posent que si la demande les nomme` });
+    if (hex && estViolette(hex)) ctx.addIssue({ code: 'custom', path: ['couleurs', nom], message: `${hex} est violet, mauve ou indigo : ces teintes ne se posent que si la demande les nomme` });
   }
 }).describe('la direction artistique, choisie pour le sujet de la demande : le contraste de lecture est construit à partir d’elle');
 
@@ -304,6 +339,7 @@ export const Manifeste = z.object({
     for (const r of t.lectureEntiere!.filter((x) => !t.lecture.includes(x))) ctx.addIssue({ code: 'custom', message: `la table ${t.nom} : ${r} est dans \`lectureEntiere\` sans être dans \`lecture\`` });
     for (const r of t.lectureEntiere!.filter((x) => m.organisations === 'une' && m.roles.some((r) => r.nom === x && (r.obtenu === 'inscription' || r.obtenu === 'paiement')))) ctx.addIssue({ code: 'custom', message: `la table ${t.nom} : ${r} s’obtient par inscription ou paiement, il n’est le collègue de personne et ne lit pas les lignes des autres` });
   }
+  for (const r of m.roles.filter((x) => [TOUS, INSCRITS, VISITEUR].includes(x.nom))) ctx.addIssue({ code: 'custom', message: `le rôle ${r.nom} : ce nom dit déjà qui fait un geste dans \`acces\` ; nommez ce rôle autrement` });
   for (const t of m.tables) {
     for (const r of [...t.lecture, ...t.ecriture]) {
       if (r !== 'visiteur' && !roles.has(r)) ctx.addIssue({ code: 'custom', message: `${t.nom} : le rôle ${r} n'est pas déclaré` });
@@ -402,7 +438,7 @@ export const COLONNES_DES_PROPOSITIONS: Readonly<Record<string, string>> = {
  * réparations : retirer un champ ici retirerait sa colonne sous le code qui l'écrit. `null` : sa forme ne se lit pas.
  */
 export function relireUnManifesteLivre(json: unknown): Manifeste | null {
-  const forme = Manifeste.innerType().safeParse(json);
+  const forme = Manifeste.innerType().safeParse(lesAccesTraduits(json).valeur);
   return forme.success ? forme.data : null;
 }
 
@@ -456,11 +492,24 @@ export function lesLecturesReparees(json: unknown): { readonly valeur: unknown; 
 
 /** Lit app.json au cadrage, ses liens et ses cycles réparés et dits. Rend le manifeste, ou la liste exacte de ce qui ne tient pas. */
 export function lireLeManifeste(json: unknown): { ok: true; manifeste: Manifeste; repare: readonly string[] } | { ok: false; erreurs: string[]; repare: readonly string[] } {
-  const liens = lesLiensRepares(json);
+  const acces = lesAccesTraduits(json);
+  const demandes = lesDemandesReparees(acces.valeur);
+  const liens = lesLiensRepares(demandes.valeur);
   const cycles = lesCyclesRepares(liens.valeur);
   const envois = lesEnvoisRepares(cycles.valeur);
-  const ventes = lesLecturesReparees(envois.valeur), repare = [...liens.repare, ...cycles.repare, ...envois.repare, ...ventes.repare];
+  const ventes = lesLecturesReparees(envois.valeur), repare = [...acces.repare, ...demandes.repare, ...liens.repare, ...cycles.repare, ...envois.repare, ...ventes.repare];
   const r = Manifeste.safeParse(ventes.valeur);
   if (r.success) return { ok: true, manifeste: avecSesEtatsOuverts(r.data), repare };
   return { ok: false, erreurs: r.error.issues.map((i) => (i.path.length ? `${i.path.join('.')} : ${i.message}` : i.message)), repare };
+}
+
+/**
+ * Ce que Claude envoie (`create_project`, `configure_backend`) : ses formes spontanées relues d'abord
+ * (`les-formes-reparees.ts`), puis lu comme tout app.json. La console, elle, garde ses refus (une police inconnue
+ * choisie par la personne n'est pas remplacée). PURE.
+ */
+export function lireCeQueClaudeEnvoie(json: unknown): ReturnType<typeof lireLeManifeste> {
+  const formes = lesFormesReparees(json);
+  const r = lireLeManifeste(formes.valeur);
+  return { ...r, repare: [...formes.repare, ...r.repare] };
 }

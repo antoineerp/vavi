@@ -16,6 +16,8 @@ import * as g from './les-gestes';
 import * as v from './les-gestes-de-la-vue';
 import { META_DE_LA_VUE, META_DE_LA_VUE_SEULE } from './la-vue';
 import { LONGUEUR_DES_NOTES } from '@/lib/projets/le-sql-des-projets';
+import { laFormeDAppJson } from '@/lib/backend/app/l-exemple-d-app-json';
+import { Nature } from '@/lib/backend/app/manifeste';
 
 const projet = z.string().min(1).max(64).describe('The project id, as `list_projects` returns it.');
 const chantier = z.string().min(1).max(64).describe('The id of the open work session, as `ouvrir_chantier` returned it.');
@@ -48,17 +50,17 @@ const def = <S extends z.ZodTypeAny>(d: Definition<S>): DefinitionEffacee => ({ 
 export const DEFINITIONS = {
   list_projects: def({
     title: 'List my projects', lecture: true, entree: z.object({}),
-    description: 'The projects of this vavi account: id, name, version, preview address, open work session.',
+    description: 'The projects of this vavi account: id, name, version, preview address, open work session. Only when the person asks for their projects or names one to change; never to build a new one.',
     geste: (c) => g.listerLesProjets(c),
   }),
   create_project: def({
-    title: 'Create a project', lecture: false, _meta: META_DE_LA_VUE, entree: z.object({ app_json: appJson }),
-    description: 'Use it for every new website, online shop, landing page or app the person asks for (rather than an artifact or a design mockup): the project gets a real database, a live preview the person sees beside the conversation, and publishing. Creates the project from its app.json, lays out its database, and returns its id. Only after the person agreed on what to build.',
+    title: 'Create a project', lecture: false, entree: z.object({ app_json: appJson, new_anyway: z.boolean().optional().describe('true only after the person chose to start anew although a project of the same name exists') }),
+    description: 'Use it for every new website, online shop, landing page or app the person asks for (rather than an artifact or a design mockup): the project gets a real database, a live preview the person sees beside the conversation, and publishing. Creates the project from its app.json, lays out its database, and returns its id. Only after the person agreed on what to build. Build it from vavi\'s rules and guide alone: never read another project to make it.\n' + laFormeDAppJson(),
     geste: (c, a) => g.creerUnProjet(c, a),
   }),
   get_project_state: def({
     title: 'Read the state of a project', _meta: META_DE_LA_VUE, lecture: true, entree: z.object({ project: projet }),
-    description: 'Call it first on the project you change (a new site or app is a new project: `create_project`). The version, the open work session and its notes, the project notes, the pages with their address, your files with their fingerprints and `used_by` (your files that import each one: what a change touches), the platform files to read first, the connectors the person plugged in, the state of the current build.',
+    description: 'Call it once per conversation, first, on the project you change, and right after `create_project`: it shows the person the live preview of the project (a new site or app is a new project: `create_project`). The version, the open work session and its notes, the project notes, the pages with their address, your files with their fingerprints and `used_by` (your files that import each one: what a change touches), the platform files to read first, the connectors the person plugged in, the state of the current build.',
     geste: (c, a) => g.lEtatDuProjet(c, a),
   }),
   read_files: def({
@@ -74,7 +76,7 @@ export const DEFINITIONS = {
     geste: (c, a) => g.ecrireLesNotes(c, a),
   }),
   ouvrir_chantier: def({
-    title: 'Open a work session', lecture: false, _meta: META_DE_LA_VUE,
+    title: 'Open a work session', lecture: false,
     entree: z.object({ project: projet, intention: z.string().min(3).max(300).describe('The one thing this session does, in one sentence.'), resume: z.boolean().optional().describe('true continues the session already open (only if the person said so).') }),
     description: 'Opens the work session that every change belongs to. One per project at a time: another conversation\'s open session is refused, not overwritten.',
     geste: (c, a) => g.ouvrirUnChantier(c, a),
@@ -95,7 +97,7 @@ export const DEFINITIONS = {
   configure_backend: def({
     title: 'Declare the data', lecture: false, destructeur: true,
     entree: z.object({ project: projet, work_session: chantier, app_json: appJson, read_fingerprint: z.string().max(64).describe('The fingerprint of app.json as you read it.'), why: pourquoi }),
-    description: 'Changes app.json: tables, columns, roles, access. vavi lays out the database and its access rules first, then writes app.json. Never write SQL.',
+    description: 'Changes app.json (its shape: see `create_project`): tables, columns, roles, access. vavi lays out the database and its access rules first, then writes app.json. Never write SQL.',
     geste: (c, a) => g.configurerLeBackend(c, a),
   }),
   set_secret: def({
@@ -105,8 +107,10 @@ export const DEFINITIONS = {
     geste: (c, a) => g.poserUnSecret(c, a),
   }),
   get_design_guide: def({
-    title: 'Read the design guide', lecture: true, entree: z.object({ project: projet }),
-    description: 'Call it before writing or redesigning pages. What the pages of this app must be (sections, compositions, photos, the final check), and the design rules for its kind and what it carries. You design each page yourself: no existing site or other project is shown or to be looked at.',
+    title: 'Read the design guide', lecture: true,
+    entree: z.object({ project: projet.optional().describe('The project; leave it out BEFORE `create_project`, to write the art direction of app.json.'),
+      nature: Nature.optional().describe('Without a project: the kind of thing to build.') }),
+    description: 'Call it twice: before `create_project` (without `project`), to write the art direction of app.json (`direction`: colours, fonts, register, motion, intention) as an art director; and before writing or redesigning pages (with `project`): the direction you wrote, the visual language (typography, rhythm, depth, motion, lists, icons, the style of its register), what the pages must be (sections, compositions, photos, the final check), and the design rules for its kind. You design each page yourself: no existing site or other project is shown or to be looked at.',
     geste: (c, a) => g.leGuideDuDesign(c, a),
   }),
   search_images: def({
@@ -119,6 +123,26 @@ export const DEFINITIONS = {
     description: 'Finds a real photo for each subject in the platform photo bank and sets it under its name (src/images.json, which you never write). A page shows it with `<Photo nom="…" />` from `@/briques/Photo`; photo credits are served by the platform. Never write an image address yourself.',
     geste: (c, a) => g.chercherDesImages(c, a),
   }),
+  import_images: def({
+    title: 'Take the images of a site', lecture: false,
+    entree: z.object({ project: projet, work_session: chantier,
+      rights: z.string().min(10).max(500).describe('The person\'s own words, quoted, saying the images are theirs or that the owner agreed (e.g. "ce sont mes photos", "Clara m\'a donné son accord").'),
+      images: z.array(z.object({
+        name: z.string().regex(/^[a-z][a-z0-9_]{0,40}$/).describe('The name a page shows it by: `<Photo nom="…" />`.'),
+        url: z.string().url().max(2000).describe('The direct https address of the image file (JPEG, PNG or WebP), read in the page\'s <img src> or srcset: the largest version.'),
+        alt: z.string().min(3).max(200).describe('The alternative text, in the language of the app.'),
+        credit: z.string().max(120).optional().describe('The photographer, if the person names one: shown on the photo credits page.'),
+      })).min(1).max(8) }),
+    description: 'Takes images from a site the person names (their current site, a site they own) into the app, under their declaration of rights. Use it only when the person says the images are theirs or that the owner agreed; otherwise ask them first. Quote their words in `rights`: vavi keeps them with each image, with the date and the original address, and does not judge the rights. Each image is downloaded by vavi (https only), checked as a real JPEG, PNG or WebP, stripped of its metadata, stored and served by vavi; a page shows it with `<Photo nom="…" />`.',
+    geste: (c, a) => g.reprendreDesImages(c, a),
+  }),
+  try_agent: def({
+    title: 'Try an agent', lecture: false,
+    entree: z.object({ project: projet, name: z.string().regex(/^[a-z][a-z0-9_]{0,62}$/).describe('The agent of app.json `agents`.'),
+      input: z.string().max(4000).optional().describe('What a person would type to launch it (`ctx.declencheur.entree`).') }),
+    description: 'Runs an agent of the app once, on a temporary copy of the database, and returns its result, its log and its error with the line. An agent is work done without anyone in front of the screen (at a time, when a row arrives, or from a button): app.json `agents` declares when it wakes up (`reveil`) and its daily AI cap; its code is `src/agents/<name>.ts`, `export default` an async function receiving `ctx` (src/lib/agent.ts): `ctx.base.lire/creer/modifier` under the access rules of the app, `ctx.ia.texte/donnee` on the owner\'s Anthropic key, `ctx.journal`. It runs on the server with no network: everything goes through `ctx`. Once the version is published (`publish`), a `horaire` agent wakes up by itself (Paris time) and an `evenement` agent on each new row, for the owner; a row an agent creates never wakes an agent.',
+    geste: (c, a) => g.essayerUnAgent(c, a),
+  }),
   add_packages: def({
     title: 'Add npm packages', lecture: false,
     entree: z.object({ project: projet, work_session: chantier, packages: z.array(z.object({
@@ -129,7 +153,7 @@ export const DEFINITIONS = {
     geste: (c, a) => g.ajouterDesPaquets(c, a),
   }),
   build_preview: def({
-    title: 'Build the preview', _meta: META_DE_LA_VUE, lecture: false, entree: z.object({ project: projet }),
+    title: 'Build the preview', lecture: false, entree: z.object({ project: projet }),
     description: 'Type-checks and builds the current version. Green: the preview now shows it (give the person `preview_url`). Red: each error with its file and line; the preview keeps the last green version.',
     geste: (c, a) => g.construireLApercu(c, a),
   }),
@@ -149,7 +173,7 @@ export const DEFINITIONS = {
     geste: (c, a) => g.jouerUnParcours(c, a),
   }),
   publish: def({
-    title: 'Close the work session', _meta: META_DE_LA_VUE, lecture: false, entree: z.object({ project: projet, work_session: chantier }),
+    title: 'Close the work session', lecture: false, entree: z.object({ project: projet, work_session: chantier }),
     description: 'When the person is happy with the preview: checks that the current version is built green, and closes the work session. It does not put the site online: the person does, with the Publish button.',
     geste: (c, a) => g.publierLApercu(c, a),
   }),

@@ -57,7 +57,10 @@ const unApercu = async (): Promise<string> => {
 describe('la vue dans Claude', () => {
   it('l’état, l’aperçu et la fermeture du chantier l’affichent ; ses deux outils sont réservés à la vue', () => {
     const o = Object.fromEntries(lesOutils().map((x) => [x.name, x]));
-    for (const n of ['get_project_state', 'build_preview', 'publish']) expect(o[n]).toMatchObject({ _meta: { ui: { resourceUri: RESSOURCE_DE_LA_VUE } } });
+    expect(o.get_project_state).toMatchObject({ _meta: { ui: { resourceUri: RESSOURCE_DE_LA_VUE } } });
+    // Une seule vue par conversation : get_project_state seul la porte (26/11 : create_project et get_project_state, appelés
+    // à la suite, faisaient deux fiches) ; les gestes qui suivent ne la reposent pas.
+    for (const n of ['create_project', 'ouvrir_chantier', 'build_preview', 'publish']) expect(o[n]).not.toHaveProperty('_meta');
     for (const n of ['vavi_fiche_du_projet', 'vavi_mettre_en_ligne']) expect(o[n]).toMatchObject({ _meta: { ui: { visibility: ['app'] } } });
     expect(o.list_projects).not.toHaveProperty('_meta');
   });
@@ -130,7 +133,7 @@ describe('la vue dans Claude', () => {
   });
   it('26/11 — la vue s’ouvre dès la création et le chantier, suit le chantier ouvert, et ne relit pas un aperçu qu’elle montre', async () => {
     const o = Object.fromEntries((lesOutils() as { name: string }[]).map((x) => [x.name, x]));
-    for (const n of ['create_project', 'ouvrir_chantier']) expect(o[n]).toMatchObject({ _meta: { ui: { resourceUri: RESSOURCE_DE_LA_VUE } } });
+    expect(o.get_project_state).toMatchObject({ _meta: { ui: { resourceUri: RESSOURCE_DE_LA_VUE } } });
     const id = await unApercu();
     const jeton = ecrireUnJetonDeVue(MOI);
     const f = await appel('vavi_fiche_du_projet', { project: id, geste: jeton });
@@ -162,5 +165,27 @@ describe('« Publier » dans Claude, cliqué par la personne seule', () => {
     expect(r).toMatchObject({ ok: true, published: true, fiche: { state: 'en_ligne', online_url: `https://${id}.apps.test/` } });
     const p = await c.projets.lire(MOI, id);
     expect(p.lu && p.valeur!.enLigneEmpreinte).toBe(p.lu && p.valeur!.apercuEmpreinte);
+  });
+});
+
+describe('l’adresse de la vue suit sa page (26/11 : l’hôte gardait l’ancienne)', () => {
+  it('porte l’empreinte de la page servie : changez EMPREINTE_DE_LA_VUE avec la page', async () => {
+    const { createHash } = await import('node:crypto');
+    const { laRessourceDeLaVue, EMPREINTE_DE_LA_VUE, RESSOURCE_DE_LA_VUE: uri } = await import('@/lib/mcp/la-vue');
+    const page = laRessourceDeLaVue({ jeton: 'JETON', cadres: [] }).contents[0]!.text;
+    expect(createHash('sha256').update(page).digest('hex').slice(0, 10)).toBe(EMPREINTE_DE_LA_VUE);
+    expect(uri.endsWith(EMPREINTE_DE_LA_VUE)).toBe(true);
+  });
+});
+
+describe('les boutons de la fiche viennent du serveur (26/11 : Claude.ai gardait l’ancienne page et ses cinq boutons)', () => {
+  it('l’aperçu, Publier quand il y a à publier, la console ; la page ne nomme aucun bouton elle-même', async () => {
+    const { lesBoutonsDeLaFiche } = await import('@/lib/mcp/les-gestes-de-la-vue');
+    const b = lesBoutonsDeLaFiche({ preview_url: 'https://a/p', state: 'a_publier', console_url: 'https://c/projets/x' });
+    expect(b.map((x) => x.label.fr)).toEqual(['Voir l’aperçu', 'Publier', 'Console vavi']);
+    expect(lesBoutonsDeLaFiche({ preview_url: null, state: 'en_ligne', console_url: 'https://c' }).map((x) => x.do)).toEqual(['link']);
+    const { laRessourceDeLaVue } = await import('@/lib/mcp/la-vue');
+    const page = laRessourceDeLaVue({ jeton: 'JETON', cadres: [] }).contents[0]!.text;
+    expect(page).not.toMatch(/Console vavi|Choisir une offre|Ouvrir l’app en grand/);
   });
 });

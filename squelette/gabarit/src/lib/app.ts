@@ -52,13 +52,19 @@ export const APP = { ...manifeste, tables: [...manifeste.tables, ...TABLES_DE_LA
   readonly langues: { readonly principale: string; readonly autres: readonly string[] };
   readonly roles: readonly RoleDeLApp[];
   /** La direction : `travail` choisit l'allure des écrans derrière un compte (`briques/travail.tsx`). */
-  readonly direction: { readonly travail?: 'affirme' | 'sobre' };
+  readonly direction: {
+    readonly travail?: 'affirme' | 'sobre';
+    /** L'idée qu'on reconnaît dès le premier écran ; l'ouverture de la vitrine la porte (`briques/vitrine.tsx`). */
+    readonly signatureVisuelle?: 'photo' | 'bande-inversee' | 'maillage' | 'typographie';
+    readonly mouvement?: 'vivant' | 'discret' | 'immobile';
+  };
   readonly tables: readonly TableDeLApp[];
   readonly organisations: 'une' | 'plusieurs' | 'clients';
   readonly fonctions: Readonly<Record<'panier' | 'ia', boolean>>;
   readonly indicateurs: readonly IndicateurDeLApp[];
-  /** Les agents : ce qu'ils lisent, où ils proposent, et qui les lance. */
-  readonly agents: readonly { readonly nom: string; readonly libelle: string; readonly propose: string; readonly par: readonly string[] }[];
+  /** Les agents : quand ils se réveillent ; leur code est `src/agents/<nom>.ts`. */
+  readonly agents: readonly { readonly nom: string; readonly libelle: string; readonly dit: string;
+    readonly reveil: { readonly type: 'horaire' | 'evenement' } | { readonly type: 'bouton'; readonly par: readonly string[] } }[];
   readonly vente?: {
     readonly pays: string; readonly devise: string; readonly tva: 'assujettie' | 'franchise';
     readonly livraison: { readonly pays: readonly string[]; readonly prix: number; readonly offerteDes: number | null; readonly retrait: string | null };

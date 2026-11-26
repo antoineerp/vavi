@@ -14,7 +14,7 @@ import { lAdresseDeLApp } from '@/lib/publication/les-adresses-des-apps';
 import { derive } from '@/squelette/poser';
 import { lesFonctionsPasEncoreServies, ceQueClaudeEnFait } from '@/squelette/les-types-des-tables';
 import { estFige, CHEMINS_MONTRES, POSES_PAR_UN_OUTIL } from '@/squelette/registre';
-import { lireLeManifeste, type Manifeste } from '@/lib/backend/app/manifeste';
+import { lireCeQueClaudeEnvoie, type Manifeste } from '@/lib/backend/app/manifeste';
 import { EXEMPLE_D_APP_JSON_TEXTE } from '@/lib/backend/app/l-exemple-d-app-json';
 import { poserLaBase, type AppelDeLaBase } from '@/lib/relais/poser-la-base';
 import type { Projets, Projet } from '@/lib/projets/les-projets';
@@ -31,10 +31,16 @@ import { CHEMIN_DU_GABARIT, garderLeGabaritCourant, lArbreLu, laVersionFixee, le
 import { leGabaritCourant } from '@/squelette/registre';
 import { revenirA } from '@/lib/versions/revenir';
 import type { LecturesDeLaVue } from './les-gestes-de-la-vue';
-import { leGuideDeDesign, lesEcartsDeLAccueil, type MesureVue } from '@/lib/design/le-guide';
+import { leGuideAvantLeProjet, leGuideDeDesign, lesEcartsDeLAccueil, type MesureVue } from '@/lib/design/le-guide';
 import { lesLiensMorts } from '@/squelette/les-liens';
+import { lesEcartsDeDroit } from '@/squelette/les-droits-des-pages';
 import type { Etape as EtapeDuParcours, Parcours } from '@/lib/parcours/le-parcours';
 import { CHEMIN_DES_IMAGES, CleDeLaBanqueRefusee, poserLesImages, type Banque, type DemandeDImage } from '@/lib/images/la-banque';
+import { REPRISES_MAX, reprendreLesImages } from '@/lib/images/la-reprise';
+import { TAILLE_MAX_D_UNE_PHOTO } from '@/lib/images/la-photo-fournie';
+import { fetchSortantEnOctets, type Resolveur } from '@/lib/connecteurs/la-sortie';
+import { cheminDeLAgent } from '@/lib/backend/app/les-agents';
+import type { Course } from '@/lib/agents/le-moteur';
 import { CHEMIN_DES_PAQUETS, PAQUETS_MAX, lesPaquetsAjoutes, leFichierDesPaquets, verifierAuRegistre } from '@/lib/paquets/les-paquets';
 import { lIndex } from '@/squelette/l-index';
 
@@ -75,6 +81,11 @@ export interface Contexte {
   readonly banque?: Banque | null;
   /** L'appel au registre npm (`add_packages`) ; absent : `fetch`. Les essais passent un faux registre. */
   readonly registre?: typeof fetch;
+  /** La sortie vers le web (`import_images`) et son résolveur DNS ; absents : `fetch` et le DNS du serveur. Les essais les passent. */
+  readonly sortie?: typeof fetch;
+  /** Fait tourner un agent du build vert d'empreinte donnée sur une copie de la base (`lib/agents`) ; absent : la raison. */
+  readonly essayerUnAgent?: (projet: string, empreinte: string, manifeste: Manifeste, agent: string, entree: string) => Promise<Course | { readonly raison: string }>;
+  readonly resolveur?: Resolveur;
 }
 
 export type Rendu = { readonly ok: true; readonly [champ: string]: unknown } | Refus;
@@ -187,7 +198,7 @@ function leManifesteEnvoye(brut: unknown): Etape<Recu> {
   if (typeof brut === 'string') {
     try { json = JSON.parse(brut); } catch (e) { return bloque(refuser('app_json_refuse', `app.json is not valid JSON: ${(e as Error).message}.`, { fichier: 'app.json' })); }
   }
-  const r = lireLeManifeste(json);
+  const r = lireCeQueClaudeEnvoie(json);
   // La forme attendue, entière, avec le refus : Claude corrige d'après elle, sans lire un autre projet (essai du 25/11).
   if (!r.ok) return bloque(refuser('app_json_refuse', `app.json does not hold: ${r.erreurs.slice(0, 20).join(' | ')}`, { fichier: 'app.json',
     geste: `Fix app.json at the places given in \`fait\`, then send it whole again. A complete valid app.json, to follow for its shape (never read another project of the person for it): ${EXEMPLE_D_APP_JSON_TEXTE}` }));
@@ -213,10 +224,17 @@ export async function listerLesProjets(c: Contexte): Promise<Rendu> {
   return fait({ projects: l.valeur.map((p) => vueDuProjet(c, p)), ...(plan ? { plan } : {}) });
 }
 
-export async function creerUnProjet(c: Contexte, a: { app_json: unknown }): Promise<Rendu> {
+export async function creerUnProjet(c: Contexte, a: { app_json: unknown; new_anyway?: boolean }): Promise<Rendu> {
   const recu = leManifesteEnvoye(a.app_json);
   if (!recu.ok) return recu.refus;
   const m = recu.valeur.manifeste;
+  // Un projet du même nom : l'outil le dit lui-même (Antoine, 26/11 : Claude parcourait les autres projets du compte pour
+  // savoir s'il en existait un, puis s'en inspirait). Ce qu'il remplace : la consigne « regarde s'il existe déjà ».
+  if (!a.new_anyway) {
+    const l = await c.projets.lister(c.compte);
+    const meme = l.lu ? l.valeur.find((p) => p.nom.trim().toLowerCase() === m.nom.trim().toLowerCase()) : undefined;
+    if (meme) return refuser('projet_du_meme_nom', `A project named « ${meme.nom} » already exists (${meme.id}). Nothing was created.`);
+  }
   const p = await c.projets.creer(c.compte, m.nom, derive('app.json', m));
   if (!p.lu) return panne(p.pourquoi);
   const pose = await poserLaBase(c.base, p.valeur.id, m, c.compte);
@@ -224,7 +242,7 @@ export async function creerUnProjet(c: Contexte, a: { app_json: unknown }): Prom
   return fait({
     project: p.valeur.id, name: m.nom, version: 1, ...recu.valeur.dit,
     database: pose.posee ? 'laid out from app.json' : `not laid out: ${pose.motif}. Send app.json again with \`configure_backend\`.`,
-    next: `Open a work session with \`ouvrir_chantier\`, then read with \`read_files\` the platform files you build on: ${CHEMINS_MONTRES.join(', ')}.`,
+    next: `Call \`get_project_state\` now (it shows the person the live preview), then open a work session with \`ouvrir_chantier\`, then read with \`read_files\` the platform files you build on: ${CHEMINS_MONTRES.join(', ')}.`,
   });
 }
 
@@ -527,7 +545,9 @@ export async function configurerLeBackend(c: Contexte, a: { project: string; wor
  * mots seuls. INCIDENT 25/11 (essai « Thème astral ») : le guide joignait des captures (des sites de marque, un projet
  * généré par constructor), que Claude.ai montrait à la personne en vignettes ; Claude conçoit seul (Antoine, 25/11 15h30).
  */
-export async function leGuideDuDesign(c: Contexte, a: { project: string }): Promise<Rendu> {
+export async function leGuideDuDesign(c: Contexte, a: { project?: string; nature?: Manifeste['nature'] }): Promise<Rendu> {
+  // Avant le projet (26/11) : comment écrire la direction d'app.json, et le langage qu'elle servira.
+  if (!a.project) return fait(leGuideAvantLeProjet(a.nature));
   const p = await leProjet(c, a.project);
   if (!p.ok) return p.refus;
   const f = await lesFichiers(c, a.project);
@@ -536,7 +556,7 @@ export async function leGuideDuDesign(c: Contexte, a: { project: string }): Prom
   if (!arbre.lu) return refuser('app_json_refuse', `app.json does not hold: ${arbre.erreurs.join(' | ')}`, { fichier: 'app.json' });
   const g = leGuideDeDesign(arbre.manifeste);
   (c.guidesLus ?? GUIDES_LUS).add(cleDuGuide(c, a.project, p.valeur.chantier?.id));
-  return fait({ guide: g.guide, rules: g.regles.map((r) => r.texte) });
+  return fait({ ...(g.direction ? { your_direction: g.direction } : {}), guide: g.guide, visual_language: g.langage, rules: g.regles.map((r) => r.texte) });
 }
 
 /**
@@ -561,6 +581,39 @@ export async function chercherDesImages(c: Contexte, a: { project: string; work_
   if (!w.lu) return panne(w.pourquoi);
   if (!w.valeur.applique) return 'conflit' in w.valeur ? refuser('conflit', 'The photos changed while they were searched.', { fichiers: w.valeur.conflit }) : refuser('chantier_requis', 'The work session was closed.');
   return fait({ version: w.valeur.version, images: r.dits, next: 'Show each set photo with `<Photo nom="…" />` from `@/briques/Photo` (a name not set does not compile), then run `build_preview`.' });
+}
+
+/**
+ * Les images d'un site que la personne nomme, reprises sous SA déclaration de droits (Antoine, 26/11) : chacune lue par la
+ * porte de sortie (https, aucune adresse interne, chaque redirection revalidée), gardée au magasin, posée dans
+ * `src/images.json` avec la déclaration, la date et l'adresse d'origine, en une version.
+ */
+export async function reprendreDesImages(c: Contexte, a: { project: string; work_session: string; rights: string; images: readonly { name: string; url: string; alt: string; credit?: string }[] }): Promise<Rendu> {
+  const p = await leChantier(c, a.project, a.work_session);
+  if (!p.ok) return p.refus;
+  const magasin = c.magasin;
+  if (!magasin) return refuser('plateforme_en_panne', 'The storage of the photos is not configured on this vavi server.', { geste: 'Use `search_images`, or write the page without these photos for now.' });
+  const f = await lesFichiers(c, a.project);
+  if (!f.ok) return f.refus;
+  const actuel = f.valeur.get(CHEMIN_DES_IMAGES);
+  const r = await reprendreLesImages(actuel, a.images.slice(0, REPRISES_MAX).map((x) => ({ nom: x.name, url: x.url, alt: x.alt, credit: x.credit })),
+    { declaration: a.rights.trim(), le: new Date().toISOString() }, {
+      projet: a.project, adresse: c.adresse,
+      lire: async (url) => {
+        const s = await fetchSortantEnOctets(url, { hotesAutorises: [], toutHotePublic: true, tailleMaxOctets: TAILLE_MAX_D_UNE_PHOTO, transport: c.sortie, resolveur: c.resolveur })
+          .catch((e: unknown) => `the site did not answer: ${String((e as Error)?.message ?? e).slice(0, 120)}`);
+        if (typeof s === 'string') return s;
+        if ('raison' in s) return `refused by vavi's gate: ${s.detail}`;
+        return s.ok ? { octets: s.octets, coupe: s.coupe } : `the site answered ${s.statut}`;
+      },
+      garder: (cle, octets, format) => magasin.poser(cle, Buffer.from(octets), { type: format.type, cache: 'public, max-age=31536000, immutable' }),
+    });
+  if (r.texte === null) return fait({ images: r.dits, written: false, next: 'No image was taken: read the reasons, give the direct image addresses, or use `search_images`.' });
+  const w = await c.projets.appliquer(c.compte, a.project, { chantier: a.work_session, attendus: { [CHEMIN_DES_IMAGES]: actuel === undefined ? null : empreinteDuFichier(actuel) },
+    ecrits: new Map([[CHEMIN_DES_IMAGES, r.texte]]), supprimes: [], pourquoi: `images taken from ${[...new Set(a.images.map((x) => { try { return new URL(x.url).hostname; } catch { return '?'; } }))].join(', ')}, rights declared by the person: "${a.rights.trim().slice(0, 200)}"` });
+  if (!w.lu) return panne(w.pourquoi);
+  if (!w.valeur.applique) return 'conflit' in w.valeur ? refuser('conflit', 'The photos changed while they were taken.', { fichiers: w.valeur.conflit }) : refuser('chantier_requis', 'The work session was closed.');
+  return fait({ version: w.valeur.version, images: r.dits, next: 'Show each set image with `<Photo nom="…" />` from `@/briques/Photo`, then run `build_preview`. vavi keeps the person\'s declaration with each image; it does not judge the rights.' });
 }
 
 /**
@@ -684,7 +737,9 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   if (vues) console.log(`[build_preview] ${a.project} captures ${Date.now() - t1} ms (${vues.captures.length})`);
   // Les défauts objectifs de l'accueil rendu (image cassée, titre principal) et les liens écrits vers nulle part. Jamais un refus.
   const ecarts = vues?.mesure ? lesEcartsDeLAccueil(arbre.manifeste, vues.mesure) : [];
-  const liens = lesLiensMorts(new Map([...f.valeur].filter(([ch]) => !estFige(ch))));
+  const siens = new Map([...f.valeur].filter(([ch]) => !estFige(ch)));
+  const liens = lesLiensMorts(siens);
+  const droits = lesEcartsDeDroit(arbre.manifeste, siens);
   return fait({
     project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree, timings_ms: temps,
     preview_updated: designe.lu,
@@ -692,6 +747,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
       : `not taken: ${vues.manquees.join(' | ')}` } : {}),
     ...(vues?.mesure ? { home_checks: ecarts.length ? { to_fix: ecarts, measured: vues.mesure } : 'no broken image, one main title' } : {}),
     ...(liens.length ? { broken_links: { links: liens.slice(0, 20).map((l) => `${l.fichier}:${l.ligne} ${l.lien}`), next: 'Each of these links leads to no page of the app (or to no `id` for an anchor): point it to a page that exists, create the page, or remove the link.' } } : {}),
+    ...(droits.length ? { access_checks: { to_fix: droits.slice(0, 20), next: 'Each page here shows a table its audience cannot read, or saves into one it cannot write: change the `acces` of the table with `configure_backend`, or the `acces` of the page.' } } : {}),
     ...(vues?.captures.length ? { _images: vues.captures.map((x) => ({ data: x.jpeg.toString('base64'), mimeType: 'image/jpeg' })) } : {}),
     next: 'When the person’s request is done, call `publish` to close the work session.',
     checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the preview and check.',
@@ -742,6 +798,45 @@ export async function jouerUnParcours(c: Contexte, a: { project: string; steps: 
     not_checked: copie ? 'emails are not sent (a sign-up on the copy needs no confirmation, sign-in links are listed in `simulated`); payment is simulated (Stripe does not open, so what it grants is not checked); forms are simulated.'
       : 'nothing was written or sent: writes, forms, sign-up and payment are simulated or unavailable, so the rules of the database (required fields, duplicates) are not checked here; play it with `on_copy: true` (or `as_role`) to check them on a copy.',
   });
+}
+
+/**
+ * Claude essaie un agent (Antoine, 26/11) : son code, celui du build vert de la version courante, tourne sur une COPIE
+ * de la base (ses lignes d'exemple), pour le propriétaire ; l'IA est réelle, sur sa clé. Rend le résultat, le journal,
+ * l'erreur avec sa ligne : Claude corrige l'agent comme une page.
+ */
+export async function essayerUnAgent(c: Contexte, a: { project: string; name: string; input?: string }): Promise<Rendu> {
+  const p = await leProjet(c, a.project);
+  if (!p.ok) return p.refus;
+  const f = await lesFichiers(c, a.project);
+  if (!f.ok) return f.refus;
+  const arbre = await lArbreLu(f.valeur, c.magasin);
+  if (!arbre.lu) return refuser('app_json_refuse', `app.json does not hold: ${arbre.erreurs.join(' | ')}`, { fichier: 'app.json' });
+  const declares = arbre.manifeste.agents.map((x) => x.nom);
+  if (!declares.includes(a.name)) {
+    return refuser('app_json_refuse', `app.json declares no agent « ${a.name} »${declares.length ? ` (its agents: ${declares.join(', ')})` : ''}.`,
+      { fichier: 'app.json', geste: 'Declare it in app.json `agents` (nom, libelle, dit, reveil) with `configure_backend`, write its code in `src/agents/<name>.ts`, build, then try it.' });
+  }
+  if (!f.valeur.has(cheminDeLAgent(a.name))) {
+    return refuser('chemin_refuse', `${cheminDeLAgent(a.name)} does not exist.`, { fichier: cheminDeLAgent(a.name), geste: 'Write it: `import type { Agent } from \'@/lib/agent\'; const agent: Agent = async (ctx) => { … }; export default agent;` (read src/lib/agent.ts), then build.' });
+  }
+  const b = await c.projets.leBuild(c.compte, a.project, arbre.empreinte);
+  if (!b.lu) return panne(b.pourquoi);
+  if (!b.valeur) return refuser('build_perime', 'The current version has not been built: an agent runs the code of the green build.');
+  if (!b.valeur.vert) return refuser('build_rouge', 'The last build of the current version is red: fix it before trying the agent.');
+  if (!c.essayerUnAgent) return refuser('plateforme_en_panne', 'Agents cannot run on this vavi server yet.');
+  const r = await c.essayerUnAgent(a.project, arbre.empreinte, arbre.manifeste, a.name, a.input ?? '').catch((e: unknown) => ({ raison: String((e as Error)?.message ?? e).slice(0, 300) }));
+  if ('raison' in r) return refuser('plateforme_en_panne', `The agent could not run: ${r.raison}. This is not caused by your files.`);
+  console.log(`[try_agent] ${a.project} ${a.name} ${r.ok ? 'fini' : r.etape} en ${r.duree} ms, ${r.ia} appel(s) à l'IA`);
+  const commun = { log: r.journal, ai_calls: r.ia, requests: r.operations, duration_ms: r.duree,
+    ran: 'on a temporary copy of the database (its example rows, nothing of the real data), as the owner, deleted after the run; AI calls were real, on the owner\'s key, counted in the agent\'s daily cap' };
+  const reveil = arbre.manifeste.agents.find((x) => x.nom === a.name)!.reveil;
+  const quand = { wakes_up: reveil.type === 'bouton' ? 'from the button `<Agent nom>` of a page, for the roles of `reveil.par`'
+    : `${reveil.type === 'horaire' ? 'by itself at its time (Paris)' : `by itself on each new row of ${reveil.table} (never on a row an agent creates)`}, for the owner, once this version is published with \`publish\``};
+  if (r.ok) return fait({ project: a.project, agent: a.name, passed: true, result: r.resultat, ...quand, ...commun, next: 'Check the log and the result. Tell the person what the agent does and when it wakes up.' });
+  if (r.etape === 'bac_a_sable') return refuser('plateforme_en_panne', `${r.erreur}. This is not caused by your files.`);
+  return fait({ project: a.project, agent: a.name, passed: false, error: r.erreur, ...(r.pile ? { at: r.pile } : {}), ...commun,
+    next: r.etape === 'delai' ? 'Make the agent do less per run (fewer rows, fewer AI calls), build, and try again.' : `Fix ${cheminDeLAgent(a.name)} where the error says, build, and try again.` });
 }
 
 export async function publierLApercu(c: Contexte, a: { project: string; work_session: string }): Promise<Rendu> {

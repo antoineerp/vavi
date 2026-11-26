@@ -11,14 +11,15 @@
 import type { Manifeste } from '../backend/app/manifeste';
 import { ceQueLAppPorte } from './regles/porte';
 import { REGLES } from './regles/toutes';
+import { ECRIRE_LA_DIRECTION, leLangageDe } from './le-langage';
 
 /** Le guide de toute page publique, quelle que soit la nature (elle a une vitrine). */
 const VITRINE = [
   'A public page is never poor: it looks like a current professional site about THIS subject, from its first screen.',
-  'The home page carries at least six real sections, each one a real site on this subject would have: an opening with a large photo of the subject and one clear action; proof taken from what the person gave (facts, references, figures they stated; never invented); what is offered; how it works or the approach; work, products or places shown in photos; a contact or final call.',
+  'The home page carries at least six real sections, each one a real site on this subject would have: an opening with a large photo of the subject and one clear action; proof taken from what the person gave (facts, references, figures they stated; never invented); what is offered; how it works or the approach; work, products or places shown in photos; a contact or a last word of the subject (never the generic full-width call-to-action band).',
   'Alternate at least two compositions on a page (a full-width photo carrying the title, text beside a photo, a mosaic of photos of different sizes, a carousel, cards that each show their own photo). Never three sections in a row with the same grid, never a row of identical icon cards.',
   'Use at least four real photos of the subject, found with `search_images` (the subject in one to three concrete English words: a place, a material, a gesture, an object), shown with `<Photo nom="…" />`; the photo of the first screen has `prioritaire`.',
-  'Build a real typographic hierarchy (very large headlines, clear subheads, readable secondary text) and visible but calm motion (hover, reveal on scroll, depth) with framer-motion.',
+  'Follow the direction of app.json: its `intention` line by line, its register, its signature on the first screen, its colours (`bg-ancre text-sur-ancre` for dark bands, `text-seconde-texte` for the second hue) and the visual language below.',
   'The brand links to the home page; the menu lists the other pages. A one-page site links its menu to the sections of the page (`#id`), never to pages that do not exist.',
 ] as const;
 
@@ -50,7 +51,14 @@ export function lesEcartsDeLAccueil(m: Manifeste, v: MesureVue): readonly string
   return e;
 }
 
-export interface GuideDeDesign { readonly guide: readonly string[]; readonly regles: readonly { readonly id: string; readonly texte: string }[] }
+export interface GuideDeDesign {
+  readonly guide: readonly string[];
+  /** Le langage visuel (`le-langage.ts`) : typographie, rythme, profondeur, mouvement, et le style du registre choisi. */
+  readonly langage: readonly string[];
+  /** La direction rédigée d'app.json, rendue telle quelle : Claude la relit à chaque page. */
+  readonly direction?: Manifeste['direction']['intention'];
+  readonly regles: readonly { readonly id: string; readonly texte: string }[];
+}
 
 /** Le guide et les règles de l'app ; `reprise` : elle reprend une autre app, dont elle garde la mise en page. */
 export function leGuideDeDesign(m: Manifeste, o: { readonly reprise?: boolean } = {}): GuideDeDesign {
@@ -60,6 +68,22 @@ export function leGuideDeDesign(m: Manifeste, o: { readonly reprise?: boolean } 
     && (!r.seulement || r.seulement === (o.reprise ? 'reprise' : 'creation')));
   return {
     guide: [...(vitrine ? VITRINE : []), ...(PAR_NATURE[m.nature] ?? []), ...(vitrine ? [VERIFIER] : [])],
+    langage: vitrine ? leLangageDe(m.direction) : [],
+    ...(m.direction.intention ? { direction: m.direction.intention } : {}),
     regles: regles.map((r) => ({ id: r.id, texte: r.texte })),
+  };
+}
+
+/**
+ * LE GUIDE AVANT LE PROJET (26/11) : lu avant `create_project`, pour que la direction d'app.json soit écrite en le
+ * connaissant. Ce qu'il remplace : une direction choisie avant toute consigne (le guide ne se lisait qu'avec un projet).
+ * Sans nature : le guide de toutes. PUR.
+ */
+export function leGuideAvantLeProjet(nature?: Manifeste['nature']): { readonly direction: readonly string[]; readonly guide: readonly string[]; readonly langage: readonly string[] } {
+  const vitrine = nature !== 'jeu';
+  return {
+    direction: ECRIRE_LA_DIRECTION,
+    guide: [...(vitrine ? VITRINE : []), ...(nature ? PAR_NATURE[nature] ?? [] : Object.values(PAR_NATURE).flat()), ...(vitrine ? [VERIFIER] : [])],
+    langage: vitrine ? leLangageDe() : [],
   };
 }

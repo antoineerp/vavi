@@ -69,6 +69,26 @@ describe('les comptes d’app', () => {
     expect((await echangerUnCode(d, { app: 'app_a', code: code2 })).ok).toBe(false);
   });
 
+  it('le propriétaire confirme toujours son adresse, même sans validation : c’est elle qui lui donne ses rôles (incident 25/11)', async () => {
+    const { m } = enMemoire();
+    const envois: { a: string; texte: string }[] = [];
+    const d = { magasin: m, cle, courrier: async (x: { a: string; texte: string }) => { envois.push(x); return true; }, maintenant: () => 1_000_000 };
+    const autre = await sInscrire(d, { ...ctx('app_a'), email: 'zoe@x.fr', motDePasse: 'cheval-batterie', sansValidation: true, adresseDuProprietaire: 'Antoine@x.fr' });
+    expect(autre.ok && autre.valeur.session !== null).toBe(true);
+    const moi = await sInscrire(d, { ...ctx('app_a'), email: 'antoine@x.fr', motDePasse: 'cheval-batterie', sansValidation: true, adresseDuProprietaire: 'Antoine@x.fr' });
+    expect(moi).toEqual({ ok: true, valeur: { session: null, aConfirmer: true } });
+    expect(envois.at(-1)!.a).toBe('antoine@x.fr');
+    // Inscrit avant, sans confirmer : entrer renvoie le lien au lieu d'ouvrir une session sans rôle.
+    const avant = envois.length;
+    expect(await entrer(d, { app: 'app_a', email: 'antoine@x.fr', motDePasse: 'cheval-batterie', sansValidation: true, adresseDuProprietaire: 'antoine@x.fr', lien: ctx('app_a') }))
+      .toEqual({ ok: false, refus: 'courriel_non_confirme' });
+    expect(envois.length).toBe(avant + 1);
+    const ouvert = await echangerUnCode(d, { app: 'app_a', code: lePremierLien(envois) });
+    expect(ouvert.ok && ouvert.valeur.compte.confirme).toBe(true);
+    // Sans courrier, rien ne prouve l'adresse : l'app entre comme avant.
+    expect((await sInscrire({ ...d, courrier: null }, { ...ctx('app_b'), email: 'antoine@x.fr', motDePasse: 'cheval-batterie', sansValidation: true, adresseDuProprietaire: 'antoine@x.fr' })).ok).toBe(true);
+  });
+
   it('sans courrier, une app qui demande la validation refuse l’inscription en le disant', async () => {
     const { m } = enMemoire();
     expect(await sInscrire({ magasin: m, cle, courrier: null, maintenant: () => 0 }, { ...ctx('app_a'), email: 'a@x.fr', motDePasse: 'cheval-batterie', sansValidation: false }))

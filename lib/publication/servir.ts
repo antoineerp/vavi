@@ -51,10 +51,15 @@ export function poserLEnvironnement(html: string, env: EnvDeLApp): string {
   return tete ? html.replace(tete[0], `${tete[0]}${script}`) : `${script}${html}`;
 }
 
-/** Le chemin demandé, net, dans le dist ; `null` s'il sort du dist. PURE. */
+/** Le dossier du dist où le build pose le code des agents. */
+export const DOSSIER_DES_AGENTS = '_agents';
+
+/** Le chemin demandé, net, dans le dist ; `null` s'il sort du dist ou nomme le code des agents. PURE. */
 export function cheminDansLeDist(segments: readonly string[]): string | null {
   const parts = segments.flatMap((s) => s.split('/')).filter((s) => s !== '' && s !== '.');
   if (parts.some((s) => s === '..' || s.includes('\\') || s.includes('\0'))) return null;
+  // Le code des agents (`_agents/`) tourne sur le serveur ; il est dans le dist pour être celui du build vert, jamais servi.
+  if (parts[0] === DOSSIER_DES_AGENTS) return null;
   const chemin = parts.join('/');
   return chemin === '' || !/\.[a-z0-9]+$/i.test(parts[parts.length - 1] ?? '') ? 'index.html' : chemin;
 }
