@@ -55,3 +55,20 @@ export function ceQuiTrahitLaPage(m: Manifeste, releve: ReleveVu | null | undefi
   }
   return out;
 }
+
+/** Le seuil d'un dessin travaillé (règle `le-dessin` : soixante à cent cinquante formes). */
+export const FORMES_D_UN_DESSIN_TRAVAILLE = 60;
+
+/**
+ * LE DESSIN DE L'ACCUEIL (Antoine, 26/11 : « toujours un dessin à la main par site web », « beaucoup plus travaillés ») :
+ * absent, ou trop simple pour être une scène, il est dit à Claude avec ce qui le ferait. Qualité, jamais un refus ; sur
+ * un site ou une app à vitrine publique seulement, jamais une boutique (Antoine, 11/11 et 26/11). PUR.
+ */
+export function leDessinDeLaPage(m: Manifeste, releve: ReleveVu | null | undefined): string | undefined {
+  if (!releve || !aUneVitrine(m) || (m.nature !== 'site' && m.nature !== 'app')) return undefined;
+  const d = releve['dessin'];
+  if (!d) return undefined;
+  if (d.n === 0) return 'The home page has no hand-drawn illustration: add one `<Dessin>` of `@/briques/Dessin` where it explains what the site is for (rule `le-dessin`).';
+  if (d.n < FORMES_D_UN_DESSIN_TRAVAILLE) return `The drawing « ${d.exemple} » has ${d.n} shapes: too basic for a scene. Draw it as an illustrator would (rule \`le-dessin\`): three planes and a focal point, people with a posture and hands, objects with their details, shadows and materials with the ready hatchings (\`url(#dessin-hachures-foreground)\`), varied outlines; ${FORMES_D_UN_DESSIN_TRAVAILLE} shapes or more.`;
+  return undefined;
+}

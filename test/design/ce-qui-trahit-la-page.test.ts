@@ -1,6 +1,6 @@
 /** Le jugement du relevé de la page rendue (26/11) : seuils purs, dits avec leur remplaçant, jamais sur un écran de travail. */
 import { describe, expect, it } from 'vitest';
-import { ceQuiTrahitLaPage, FORMES_QUI_TRAHISSENT } from '@/lib/design/ce-qui-trahit-la-page';
+import { ceQuiTrahitLaPage, FORMES_QUI_TRAHISSENT, leDessinDeLaPage } from '@/lib/design/ce-qui-trahit-la-page';
 import { FORMES_RELEVEES } from '@/lib/seo/le-releve-de-la-page';
 import { unManifeste } from '../aides/un-manifeste';
 
@@ -27,5 +27,18 @@ describe('ce qui trahit la page rendue', () => {
     const tout = Object.fromEntries(FORMES_RELEVEES.map((id) => [id, { n: 9, exemple: 'x' }]));
     expect(ceQuiTrahitLaPage(unManifeste({ nature: 'site' }), tout)).toHaveLength(FORMES_RELEVEES.length);
     expect(ceQuiTrahitLaPage(privee, tout)).toEqual([]);
+  });
+  it('le dessin de l’accueil : absent ou trop simple, dit ; travaillé, rien ; jamais sur une boutique (Antoine, 11/11 et 26/11)', () => {
+    const site = unManifeste({ nature: 'site' });
+    expect(leDessinDeLaPage(site, { ...vide, dessin: { n: 0, exemple: '' } })).toMatch(/no hand-drawn illustration/);
+    expect(leDessinDeLaPage(site, { ...vide, dessin: { n: 22, exemple: 'Le geste' } })).toMatch(/« Le geste » has 22 shapes: too basic/);
+    expect(leDessinDeLaPage(site, { ...vide, dessin: { n: 90, exemple: 'Le geste' } })).toBeUndefined();
+    expect(leDessinDeLaPage(unManifeste({ nature: 'boutique', fonctions: { panier: true },
+      roles: [{ nom: 'gerant', libelle: 'Gérant', obtenu: 'proprietaire' }, { nom: 'client', libelle: 'Client', obtenu: 'inscription' }],
+      tables: [{ nom: 'article', libelle: 'Articles', appartenance: 'publique', lecture: ['visiteur', 'client', 'gerant'], ecriture: ['gerant'],
+        champs: [{ nom: 'nom', libelle: 'Nom', type: 'texte', obligatoire: true }, { nom: 'prix', libelle: 'Prix', type: 'montant', obligatoire: true }],
+        vente: { prix: 'prix', libelle: 'nom' } }],
+      vente: { pays: 'FR', devise: 'EUR', livraison: { pays: ['FR'], prix: 5 } } }), { ...vide, dessin: { n: 0, exemple: '' } })).toBeUndefined();
+    expect(leDessinDeLaPage(site, vide)).toBeUndefined();
   });
 });

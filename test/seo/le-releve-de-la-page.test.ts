@@ -35,6 +35,7 @@ const COMPOSEE = `<html><head>${STYLE}</head><body><header><nav><a href="/">Marq
 <section style="display:grid;grid-template-columns:1.1fr 1fr;gap:48px"><div><p style="font-size:12px;letter-spacing:.2em">ATELIER</p>
 <h1 style="font-size:72px">Le bois, <span class="grad">tourné</span> à la main</h1><a class="btn" href="/a" style="background:#c2410c;color:#fff">Voir les pièces</a></div>${photo(560, 520)}</section>
 <section><h2>Ce qui sort de l'atelier</h2><ul style="list-style:none;padding:0">${'<li style="display:flex;gap:24px;padding:24px 0">' + photo(200, 140) + '<p>Une pièce, son essence, son geste.</p></li>'}${'<li style="display:flex;gap:24px;padding:24px 0">' + photo(200, 140) + '<p>Une autre, plus petite.</p></li>'}</ul></section>
+<section><figure data-piece="dessin"><svg viewBox="0 0 800 520" role="img" aria-label="Une scène"><defs><pattern id="p"><line x1="0" y1="0" x2="0" y2="6"/></pattern></defs><g>${'<circle cx="10" cy="10" r="4"/>'.repeat(40)}${'<path d="M0 0 Q 10 10 20 0"/>'.repeat(24)}</g></svg></figure></section>
 <section style="background:#1c1917;color:#fafaf9"><h2>Une essence, une saison</h2><p>Le frêne de la vallée, coupé l'hiver.</p></section>
 <section style="display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center"><div><div class="n">1 200</div><p>bols tournés en 2025, chacun signé.</p></div>${photo(480, 360)}</section>
 <section style="display:grid;grid-template-columns:1.1fr 1fr;gap:48px;border-top:1px solid #e7e5e4"><div><h2>Passer à l'atelier</h2><p>Le samedi, sur rendez-vous.</p><a class="btn" href="/c" style="background:#c2410c;color:#fff">Prendre rendez-vous</a></div>${photo(480, 360)}</section>
@@ -55,10 +56,12 @@ describe.runIf(process.env.VAVI_NAVIGATEUR === 'oui')('le relevé de la page ren
     const vues = ceQuiTrahitLaPage(unManifeste({ nature: 'site' }), g).map((x) => x.what);
     expect(Object.fromEntries(Object.entries(g).map(([k, v]) => [k, v.n > 0]))).toEqual({
       'bande-d-appel': true, 'bandes-alternees': true, 'heros-centre': true, 'chiffres-nus': true, 'chiffres-geants': true,
-      'carrousel-d-ouverture': false, 'icones-en-pastille': true, emojis: true, halos: true, 'degrade-etendu': true, 'meme-carte-partout': true,
+      'carrousel-d-ouverture': false, 'icones-en-pastille': true, emojis: true, halos: true, 'degrade-etendu': true, 'meme-carte-partout': true, dessin: false,
     });
     expect(vues.length).toBe(10);
     const c = await relever(COMPOSEE);
-    expect(Object.entries(c).filter(([, v]) => v.n > 0)).toEqual([]);
+    expect(Object.entries(c).filter(([k, v]) => k !== 'dessin' && v.n > 0)).toEqual([]);
+    // Le dessin (26/11) : ses formes comptées, les trames de la brique à part.
+    expect(c.dessin).toEqual({ n: 64, exemple: 'Une scène' });
   }, 60_000);
 });
