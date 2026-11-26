@@ -46,7 +46,9 @@ const liste = (x: unknown): string[] => (Array.isArray(x) ? x : typeof x === 'st
 const unique = <T>(xs: readonly T[]): T[] => [...new Set(xs)];
 
 /** `acces` tel qu'envoyé, ses mots ramenés à ceux de vavi ; `null` : pas un objet. */
-function lAccesLu(brut: unknown, dire: (m: string) => void, table: string): Acces | null {
+const SYNONYMES_DU_PROPRIETAIRE = new Set(['owner', 'admin', 'administrateur', 'proprietaire', 'gerant']);
+
+function lAccesLu(brut: unknown, dire: (m: string) => void, table: string, roles: readonly string[] = [], proprio?: string): Acces | null {
   if (!objet(brut)) return null;
   const a: Record<(typeof GESTES)[number], string[]> = { lire: [], creer: [], modifier: [], supprimer: [] };
   let lignes: Lignes | undefined;
@@ -60,6 +62,7 @@ function lAccesLu(brut: unknown, dire: (m: string) => void, table: string): Acce
       if (SYNONYMES_DE_TOUS.has(bas)) { if (bas !== TOUS) dire(`${table} : « ${v} » lu comme \`${TOUS}\``); return TOUS; }
       if (SYNONYMES_DU_VISITEUR.has(bas)) { if (bas !== VISITEUR) dire(`${table} : « ${v} » lu comme \`${VISITEUR}\``); return VISITEUR; }
       if (SYNONYMES_D_INSCRITS.has(bas)) { if (bas !== INSCRITS) dire(`${table} : « ${v} » lu comme \`${INSCRITS}\``); return INSCRITS; }
+      if (proprio && !roles.includes(bas) && SYNONYMES_DU_PROPRIETAIRE.has(bas)) { dire(`${table} : « ${v} » lu comme le rôle du propriétaire, \`${proprio}\``); return proprio; }
       return bas;
     });
     if (typeof valeur === 'string') dire(`${table} : \`acces.${geste}\` est une liste : ["${valeur}"]`);
@@ -92,13 +95,15 @@ export function lesChampsDeLAcces(a: Acces, roles: readonly string[], parent: bo
 export function lesAccesTraduits(json: unknown): { readonly valeur: unknown; readonly repare: readonly string[] } {
   if (!objet(json) || !Array.isArray(json.tables)) return { valeur: json, repare: [] };
   const roles = (Array.isArray(json.roles) ? json.roles : []).map((r) => (objet(r) ? r.nom : r)).filter((n): n is string => typeof n === 'string');
+  const proprio = (Array.isArray(json.roles) ? json.roles : []).find((r) => objet(r) && r.obtenu === 'proprietaire') as Brut | undefined;
+  const proprioNom = typeof proprio?.nom === 'string' ? proprio.nom : undefined;
   const repare: string[] = [];
   const dire = (m: string) => { repare.push(m); };
   let change = false;
   const tables = json.tables.map((t) => {
     if (!objet(t) || !('acces' in t)) return t;
     const nom = String(t.nom ?? '?');
-    const a = lAccesLu(t.acces, dire, nom);
+    const a = lAccesLu(t.acces, dire, nom, roles, proprioNom);
     if (!a) return t;
     change = true;
     const anciens = ['appartenance', 'lecture', 'ecriture'].filter((k) => k in t && k !== 'appartenance' || (k === 'appartenance' && t.appartenance !== undefined && t.appartenance !== 'rattachee'));

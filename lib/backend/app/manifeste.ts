@@ -29,6 +29,7 @@ import { Analyse, estAnalysee, lireLAnalyse } from './l-analyse';
 import { lireLaRemise } from './la-remise';
 import { lireLesEnvois } from './l-envoi-sans-compte';
 import { INSCRITS, lesAccesTraduits, TOUS } from './les-acces';
+import { lesFormesReparees } from './les-formes-reparees';
 
 export { CHIFFRES, Identifiant, Indicateur };
 
@@ -470,4 +471,15 @@ export function lireLeManifeste(json: unknown): { ok: true; manifeste: Manifeste
   const r = Manifeste.safeParse(ventes.valeur);
   if (r.success) return { ok: true, manifeste: avecSesEtatsOuverts(r.data), repare };
   return { ok: false, erreurs: r.error.issues.map((i) => (i.path.length ? `${i.path.join('.')} : ${i.message}` : i.message)), repare };
+}
+
+/**
+ * Ce que Claude envoie (`create_project`, `configure_backend`) : ses formes spontanées relues d'abord
+ * (`les-formes-reparees.ts`), puis lu comme tout app.json. La console, elle, garde ses refus (une police inconnue
+ * choisie par la personne n'est pas remplacée). PURE.
+ */
+export function lireCeQueClaudeEnvoie(json: unknown): ReturnType<typeof lireLeManifeste> {
+  const formes = lesFormesReparees(json);
+  const r = lireLeManifeste(formes.valeur);
+  return { ...r, repare: [...formes.repare, ...r.repare] };
 }

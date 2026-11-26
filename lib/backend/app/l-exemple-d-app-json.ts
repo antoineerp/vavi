@@ -68,6 +68,6 @@ export function laFormeDAppJson(): string {
     `Allowed values. nature: ${v(Nature)}. Font (direction.polices.titres and .texte): ${NOMS_DES_POLICES.join(' | ')}.`,
     `Field type: ${v(TypeDeChamp)}. Role obtenu: ${v(Obtention)}. organisations: ${v(Organisations)}.`,
     `\`acces\` of a table says who does each gesture (lire, creer, modifier, supprimer): \`tous\` (anyone, with or without an account: a menu everyone reads, a booking anyone sends), \`inscrits\` (every role of the app), \`visiteur\` (only people without an account), or role names. \`lignes\` says which rows one sees: ${LIGNES.join(' | ')} (who manages the organisation always sees all). A table with a \`parent\` follows its parent row.`,
-    'Each of `demandes` is { passage: the words of the person, quoted; tenuePar: [names of the screens, agents or automations that do it] }; leave it [] when unsure.',
+    'Each of `demandes` is { passage: the words of the person, quoted; tenuePar: [at least one name of a declared screen, agent or automation that does it] }; for a site, or when unsure, write `"demandes": []`.',
   ].join('\n');
 }
