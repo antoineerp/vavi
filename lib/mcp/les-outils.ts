@@ -51,8 +51,8 @@ export const DEFINITIONS = {
     geste: (c) => g.listerLesProjets(c),
   }),
   create_project: def({
-    title: 'Create a project', lecture: false, entree: z.object({ app_json: appJson }),
-    description: 'Creates a project from its app.json, lays out its database, and returns its id. Only after the person agreed on what to build.',
+    title: 'Create a project', lecture: false, _meta: META_DE_LA_VUE, entree: z.object({ app_json: appJson }),
+    description: 'Use it for every new website, online shop, landing page or app the person asks for (rather than an artifact or a design mockup): the project gets a real database, a live preview the person sees beside the conversation, and publishing. Creates the project from its app.json, lays out its database, and returns its id. Only after the person agreed on what to build.',
     geste: (c, a) => g.creerUnProjet(c, a),
   }),
   get_project_state: def({
@@ -66,7 +66,7 @@ export const DEFINITIONS = {
     geste: (c, a) => g.lireDesFichiers(c, a),
   }),
   ouvrir_chantier: def({
-    title: 'Open a work session', lecture: false,
+    title: 'Open a work session', lecture: false, _meta: META_DE_LA_VUE,
     entree: z.object({ project: projet, intention: z.string().min(3).max(300).describe('The one thing this session does, in one sentence.'), resume: z.boolean().optional().describe('true continues the session already open (only if the person said so).') }),
     description: 'Opens the work session that every change belongs to. One per project at a time: another conversation\'s open session is refused, not overwritten.',
     geste: (c, a) => g.ouvrirUnChantier(c, a),
@@ -163,7 +163,7 @@ const jetonDeLaVue = z.string().min(1).max(2000).describe('The token of the vavi
  * la vue ils refusent (`les-gestes-de-la-vue.ts`). */
 export const DEFINITIONS_DE_LA_VUE = {
   vavi_fiche_du_projet: def({
-    title: 'Project card (vavi view only)', lecture: true, _meta: META_DE_LA_VUE_SEULE, entree: z.object({ project: projet, geste: jetonDeLaVue }),
+    title: 'Project card (vavi view only)', lecture: true, _meta: META_DE_LA_VUE_SEULE, entree: z.object({ project: projet, geste: jetonDeLaVue, known: z.string().max(200).optional().describe('The preview fingerprint the view already shows.') }),
     description: 'Reserved to the vavi view shown under your answer. Do not call it.',
     geste: (c, a) => v.laFicheDuProjet(c, a),
   }),
