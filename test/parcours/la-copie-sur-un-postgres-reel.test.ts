@@ -48,7 +48,7 @@ describe.runIf(POSTGRES_PRESENT)('la copie d’un parcours, sur un PostgreSQL r�
   it('pose la copie et le compte d’essai avec son rôle, puis efface tout, même quand le parcours échoue', async () => {
     let vu: { schema: string; compte: string; role: string; comptes: string } | null = null;
     const r = await avecUneCopie(base, lu(NOTES), MOI, 'salarie', async (c) => {
-      vu = { schema: c.schema, compte: c.compte, role: pg.admin(`select role from "${c.schema}".membres where compte_id = '${c.compte}';`),
+      vu = { schema: c.schema, compte: c.essai!.compte, role: pg.admin(`select role from "${c.schema}".membres where compte_id = '${c.essai!.compte}';`),
         comptes: pg.admin(`select count(*) from public.vavi_comptes_d_app where schema_de_l_app = '${c.schema}';`) };
       return 'joué';
     });
@@ -61,6 +61,21 @@ describe.runIf(POSTGRES_PRESENT)('la copie d’un parcours, sur un PostgreSQL r�
     let schemaDeLEchec = '';
     await expect(avecUneCopie(base, lu(NOTES), MOI, 'salarie', async (c) => { schemaDeLEchec = c.schema; throw new Error('le parcours a planté'); })).rejects.toThrow('planté');
     expect(existe(schemaDeLEchec)).toBe(false);
+  });
+
+  it('sans rôle : la copie est posée et marquée, sans compte d’essai, puis effacée', async () => {
+    let vu: { schema: string; marque: string; comptes: string; id: string } | null = null;
+    const r = await avecUneCopie(base, lu(NOTES), MOI, null, async (c) => {
+      expect(c.essai).toBeNull();
+      vu = { schema: c.schema, id: c.id, marque: pg.admin(`select obj_description('"${c.schema}"'::regnamespace, 'pg_namespace');`),
+        comptes: pg.admin(`select count(*) from public.vavi_comptes_d_app where schema_de_l_app = '${c.schema}';`) };
+      return 'joué';
+    });
+    expect(r).toEqual({ ok: true, valeur: 'joué' });
+    expect(vu!.marque.startsWith(`${MARQUE_DE_LA_COPIE} `)).toBe(true);
+    expect(vu!.comptes).toBe('0');
+    expect(schemaDuProjet(vu!.id)).toBe(vu!.schema);
+    expect(existe(vu!.schema)).toBe(false);
   });
 
   it('un rôle que l’app ne déclare pas : rien n’est posé', async () => {

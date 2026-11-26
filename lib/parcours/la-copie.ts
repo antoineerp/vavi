@@ -30,12 +30,19 @@ export function unIdDeCopie(): string {
 
 const lit = (s: string) => `'${s.replace(/'/g, "''")}'`;
 
+/** La marque d'une copie et sa date, que le ménage des copies oubliées lit. PUR ; refuse un schéma qui n'est pas une copie. */
+export function leSqlDeLaMarque(schema: string, quand: string): string {
+  if (!estUneCopie(schema)) throw new Error(`pas une copie de parcours : ${schema}`);
+  if (Number.isNaN(Date.parse(quand))) throw new Error('date de copie illisible');
+  return `COMMENT ON SCHEMA "${schema}" IS ${lit(`${MARQUE_DE_LA_COPIE} ${quand}`)};`;
+}
+
 /** Le compte d'essai, confirmé, et son rôle dans la copie. PUR ; refuse un schéma qui n'est pas une copie. */
 export function leSqlDuCompteDEssai(schema: string, compte: string, email: string, role: string, quand: string): string {
   if (!estUneCopie(schema)) throw new Error(`pas une copie de parcours : ${schema}`);
   if (!ROLE.test(role) || !/^[0-9a-f-]{36}$/.test(compte) || !/^[a-z0-9.-]+@[a-z0-9.-]+$/.test(email)) throw new Error('compte d’essai mal formé');
   return [
-    `COMMENT ON SCHEMA "${schema}" IS ${lit(`${MARQUE_DE_LA_COPIE} ${quand}`)};`,
+    leSqlDeLaMarque(schema, quand),
     `INSERT INTO public.vavi_comptes_d_app (id, schema_de_l_app, email, confirme_le) VALUES (${lit(compte)}, ${lit(schema)}, ${lit(email)}, now());`,
     `INSERT INTO "${schema}".membres (compte_id, email, role, organisation_id) VALUES (${lit(compte)}, ${lit(email)}, ${lit(role)}, NULL);`,
   ].join('\n');
@@ -63,15 +70,17 @@ BEGIN
   END LOOP;
 END $$;`;
 
-export interface Copie { readonly schema: string; readonly compte: string; readonly email: string }
+/** La copie : son identifiant (celui d'un projet qui n'existe pas), son schéma, et le compte d'essai quand un rôle est demandé. */
+export interface Copie { readonly id: string; readonly schema: string; readonly essai: { readonly compte: string; readonly email: string } | null }
 
 /**
- * Pose une copie, y joue `f` avec le compte d'essai, et l'efface quoi qu'il arrive. Rend ce que `f` rend, ou la raison
+ * Pose une copie, y joue `f` (avec le compte d'essai du rôle demandé ; `role` nul : sans compte, on s'y inscrit), et
+ * l'efface quoi qu'il arrive. Rend ce que `f` rend, ou la raison
  * pour laquelle la copie n'a pas pu être posée.
  */
-export async function avecUneCopie<T>(base: AppelDeLaBase, m: Manifeste, proprietaire: string, role: string, f: (c: Copie) => Promise<T>):
+export async function avecUneCopie<T>(base: AppelDeLaBase, m: Manifeste, proprietaire: string, role: string | null, f: (c: Copie) => Promise<T>):
   Promise<{ readonly ok: true; readonly valeur: T } | { readonly ok: false; readonly raison: string }> {
-  if (!m.roles.some((r) => r.nom === role)) return { ok: false, raison: `the app declares no role « ${role} »` };
+  if (role !== null && !m.roles.some((r) => r.nom === role)) return { ok: false, raison: `the app declares no role « ${role} »` };
   await base.rpc('exec_sql', { sql: SQL_DES_COPIES_OUBLIEES });
   const id = unIdDeCopie();
   const schema = schemaDuProjet(id)!;
@@ -79,11 +88,17 @@ export async function avecUneCopie<T>(base: AppelDeLaBase, m: Manifeste, proprie
     const pose = await poserLaBase(base, id, m, proprietaire);
     if (!pose.posee) return { ok: false, raison: `the copy of the database could not be laid out: ${pose.motif}` };
     if (pose.schema !== schema) return { ok: false, raison: `the copy got an unexpected schema (${pose.schema})` };
+    const quand = new Date().toISOString();
+    if (role === null) {
+      const r = await base.rpc('exec_sql', { sql: leSqlDeLaMarque(schema, quand) });
+      if (r.error) return { ok: false, raison: `the copy could not be marked: ${r.error.message}` };
+      return { ok: true, valeur: await f({ id, schema, essai: null }) };
+    }
     const compte = unIdDeCopie().replace(/-e/, '-4');
     const email = `parcours-${compte.slice(0, 8)}@essai.vavi.invalid`;
-    const r = await base.rpc('exec_sql', { sql: leSqlDuCompteDEssai(schema, compte, email, role, new Date().toISOString()) });
+    const r = await base.rpc('exec_sql', { sql: leSqlDuCompteDEssai(schema, compte, email, role, quand) });
     if (r.error) return { ok: false, raison: `the test account could not be created: ${r.error.message}` };
-    return { ok: true, valeur: await f({ schema, compte, email }) };
+    return { ok: true, valeur: await f({ id, schema, essai: { compte, email } }) };
   } finally {
     await base.rpc('exec_sql', { sql: leSqlDuMenage(schema) });
   }
