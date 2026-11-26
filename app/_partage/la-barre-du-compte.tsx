@@ -9,14 +9,15 @@ import Link from 'next/link';
 import { LogoVavi } from './le-logo';
 import { Icone } from './les-icones';
 import { seDeconnecter } from './se-deconnecter';
+import { estAdministrateur, VARIABLE_DES_ADMINISTRATEURS } from '@/lib/administration/le-tableau';
 
-export type Ici = 'projets' | 'compte' | 'commencer' | null;
+export type Ici = 'projets' | 'compte' | 'commencer' | 'admin' | null;
 export type EtatDuProjet = 'en_ligne' | 'a_publier' | 'apercu' | 'vide';
 export interface ProjetDuMenu { readonly id: string; readonly nom: string; readonly etat: EtatDuProjet; readonly claude: boolean }
 
 const MOTS = {
-  fr: { projets: 'Mes projets', compte: 'Mon compte', commencer: 'Brancher Claude', deconnexion: 'Se déconnecter', menu: 'Menu du compte', console: 'Console', vosProjets: 'Vos projets' },
-  en: { projets: 'My projects', compte: 'My account', commencer: 'Connect Claude', deconnexion: 'Sign out', menu: 'Account menu', console: 'Console', vosProjets: 'Your projects' },
+  fr: { projets: 'Mes projets', compte: 'Mon compte', commencer: 'Brancher Claude', deconnexion: 'Se déconnecter', admin: 'Administration', menu: 'Menu du compte', console: 'Console', vosProjets: 'Vos projets' },
+  en: { projets: 'My projects', compte: 'My account', commencer: 'Connect Claude', deconnexion: 'Sign out', admin: 'Administration', menu: 'Account menu', console: 'Console', vosProjets: 'Your projects' },
 } as const;
 
 export function BarreDuCompte({ langue, courriel, ici, projets, projetOuvert, children }: {
@@ -24,7 +25,9 @@ export function BarreDuCompte({ langue, courriel, ici, projets, projetOuvert, ch
   readonly projets?: readonly ProjetDuMenu[]; readonly projetOuvert?: string; readonly children?: ReactNode;
 }) {
   const m = MOTS[langue];
-  const lien = (vers: string, cle: Exclude<Ici, null>, icone: 'projets' | 'compte' | 'prise') => (
+  // Le lien n'est qu'un raccourci : la page d'administration revérifie le compte à chaque affichage.
+  const admin = estAdministrateur(process.env[VARIABLE_DES_ADMINISTRATEURS], { id: '', courriel, confirme: true });
+  const lien = (vers: string, cle: Exclude<Ici, null>, icone: 'projets' | 'compte' | 'prise' | 'courbe') => (
     <Link href={vers} className={ici === cle ? 'actif' : undefined} aria-current={ici === cle ? 'page' : undefined}><Icone nom={icone} />{m[cle]}</Link>
   );
   return (
@@ -34,6 +37,7 @@ export function BarreDuCompte({ langue, courriel, ici, projets, projetOuvert, ch
         {lien('/projets', 'projets', 'projets')}
         {lien('/abonnement', 'compte', 'compte')}
         {lien('/commencer', 'commencer', 'prise')}
+        {admin && lien('/admin', 'admin', 'courbe')}
       </nav>
       {children}
       {projets && projets.length > 0 && (

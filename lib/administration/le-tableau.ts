@@ -109,6 +109,38 @@ export const LES_SERVICES: readonly { readonly service: string; readonly secrets
   { service: 'Administration', secrets: [VARIABLE_DES_ADMINISTRATEURS] },
 ];
 
+/**
+ * PURE — les tableaux de bord de l'hébergement, tirés de la configuration du serveur : le projet Supabase (de son
+ * adresse), l'app Fly (`FLY_APP_NAME`, que Fly pose), Stripe (test ou réel selon la clé). Aucun secret n'en sort.
+ */
+export function lesTableauxDeBord(env: Readonly<Record<string, string | undefined>>): readonly { readonly service: string; readonly liens: readonly { readonly libelle: string; readonly url: string }[]; readonly detail?: string }[] {
+  const ref = /^https:\/\/([a-z0-9]{10,40})\.supabase\.co\/?$/.exec(env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? '')?.[1];
+  const fly = /^[a-z0-9-]{1,63}$/.exec(env.FLY_APP_NAME?.trim() ?? '')?.[0];
+  const cle = env.VAVI_STRIPE_SECRET_KEY?.trim() ?? '';
+  const stripe = cle ? `https://dashboard.stripe.com/${cle.startsWith('sk_test_') || cle.startsWith('rk_test_') ? 'test/' : ''}` : null;
+  return [
+    ...(ref ? [{ service: 'Supabase', detail: `projet ${ref}`, liens: [
+      { libelle: 'Tableau de bord', url: `https://supabase.com/dashboard/project/${ref}` },
+      { libelle: 'Comptes', url: `https://supabase.com/dashboard/project/${ref}/auth/users` },
+      { libelle: 'Éditeur SQL', url: `https://supabase.com/dashboard/project/${ref}/sql/new` },
+      { libelle: 'Tables', url: `https://supabase.com/dashboard/project/${ref}/editor` },
+      { libelle: 'Journaux', url: `https://supabase.com/dashboard/project/${ref}/logs/explorer` },
+    ] }] : []),
+    ...(fly ? [{ service: 'Fly.io', detail: `app ${fly}${env.FLY_REGION ? `, région ${env.FLY_REGION}` : ''}${env.FLY_IMAGE_REF ? `, image ${env.FLY_IMAGE_REF.split(':').pop()}` : ''}`, liens: [
+      { libelle: 'Tableau de bord', url: `https://fly.io/apps/${fly}` },
+      { libelle: 'Journaux', url: `https://fly.io/apps/${fly}/monitoring` },
+      { libelle: 'Secrets', url: `https://fly.io/apps/${fly}/secrets` },
+      { libelle: 'Certificats', url: `https://fly.io/apps/${fly}/certificates` },
+    ] }] : []),
+    ...(stripe ? [{ service: 'Stripe', detail: stripe.endsWith('test/') ? 'mode test' : 'mode réel', liens: [
+      { libelle: 'Paiements', url: `${stripe}payments` },
+      { libelle: 'Abonnements', url: `${stripe}subscriptions` },
+      { libelle: 'Clients', url: `${stripe}customers` },
+      { libelle: 'Comptes connectés', url: `${stripe}connect/accounts/overview` },
+    ] }] : []),
+  ];
+}
+
 /** PURE — chaque service et les secrets qui lui manquent. */
 export const lEtatDesServices = (env: Readonly<Record<string, string | undefined>>) =>
   LES_SERVICES.map((s) => ({ service: s.service, manquent: s.secrets.filter((n) => !n.split('|').some((u) => env[u]?.trim())).map((n) => n.split('|')[0]!) }));

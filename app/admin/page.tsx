@@ -1,7 +1,8 @@
 /** /admin — la page de l'administrateur de vavi : comptes, abonnements et revenus, projets, visites, ventes, services, journal ; et ses gestes. */
 import type { Metadata } from 'next';
 import { lAdministrateur } from '@/app/_partage/l-administration-reelle';
-import { leTableau, lEtatDesServices } from '@/lib/administration/le-tableau';
+import { leTableau, lesTableauxDeBord, lEtatDesServices } from '@/lib/administration/le-tableau';
+import { BarreDuCompte } from '@/app/_partage/la-barre-du-compte';
 import { enClair, lePremierSite } from '@/lib/administration/le-premier-site';
 import { OFFRES, OFFRES_PAYANTES, type EtatDeLAbonnement } from '@/lib/abonnements/les-offres';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
@@ -19,22 +20,33 @@ const lEtat = (e: EtatDeLAbonnement) => e.etat === 'aucun' ? 'essai'
 
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const q = await searchParams;
-  const { sur } = await lAdministrateur();
+  const { sur, courriel: moi } = await lAdministrateur();
   const maintenant = Date.now();
   const [brut, comptes, premier] = await Promise.all([sur.leTableauBrut(new Date(maintenant - JOURS * 24 * 3600 * 1000).toISOString()), sur.lesComptes(), sur.lePremierSiteBrut()]);
   const services = lEtatDesServices(process.env);
   if (!brut.lu || !comptes.lu) {
-    return <main className="console"><h1>Administration</h1><p role="alert">Je n’ai pas pu lire la base : {!brut.lu ? brut.pourquoi : !comptes.lu ? comptes.pourquoi : ''}</p></main>;
+    return <div className="coquille"><BarreDuCompte langue="fr" courriel={moi} ici="admin" /><main className="pilote"><div className="console"><h1>Administration</h1><p role="alert">Je n’ai pas pu lire la base : {!brut.lu ? brut.pourquoi : !comptes.lu ? comptes.pourquoi : ''}</p></div></main></div>;
   }
   const t = leTableau(brut.valeur, comptes.valeur, maintenant, schemaDuProjet);
   const courriel = new Map(t.comptes.map((c) => [c.id, c.courriel ?? c.id.slice(0, 8)]));
   const offerts = t.comptes.filter((c) => c.etat.etat === 'actif' && c.etat.offert);
   const choixDuCompte = t.comptes.map((c) => <option key={c.id} value={c.id}>{c.courriel ?? c.id}</option>);
+  const outils = lesTableauxDeBord(process.env);
   return (
-    <main className="console" style={{ maxWidth: 1200 }}>
+    <div className="coquille">
+    <BarreDuCompte langue="fr" courriel={moi} ici="admin" />
+    <main className="pilote"><div className="console">
       <div className="entete"><h1>Administration</h1><span className="attenue">relu le {new Date(maintenant).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })}</span></div>
       {q.fait && <div className="carte" role="status">Fait : {q.fait}</div>}
       {q.refus && <div className="carte" role="alert">Refusé : {q.refus}</div>}
+
+      <h2>Hébergement</h2>
+      {outils.length === 0 ? <p className="carte attenue">Les adresses de Supabase, Fly et Stripe ne se lisent pas dans la configuration du serveur.</p> : (
+        <div className="chiffres">{outils.map((o) => (
+          <div key={o.service} className="carte"><strong>{o.service}</strong>{o.detail && <span className="attenue">{o.detail}</span>}
+            <span>{o.liens.map((l, i) => <span key={l.url}>{i > 0 && ' · '}<a href={l.url} target="_blank" rel="noreferrer">{l.libelle}</a></span>)}</span></div>
+        ))}</div>
+      )}
 
       <h2>Abonnements et revenus</h2>
       <div className="chiffres">
@@ -123,6 +135,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         <p className="attenue">Tes derniers gestes : {t.gestes.length ? '' : 'aucun'}</p>
         {t.gestes.length > 0 && <ul className="liste">{t.gestes.map((g, i) => <li key={i}><span>{g.geste.replace(/_/g, ' ')}{g.cible ? ` · ${courriel.get(g.cible) ?? g.cible}` : ''}</span><span className="attenue">{new Date(g.le).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })}</span></li>)}</ul>}
       </div>
-    </main>
+    </div></main>
+    </div>
   );
 }

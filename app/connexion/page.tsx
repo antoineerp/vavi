@@ -19,7 +19,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
   const langue = await laLangue();
   const m = MOTS[langue];
   const { suite } = await searchParams;
-  const sure = suite && /^\/(projets(\/[0-9a-f-]{36}(\/[a-z-]+)?)?|abonnement|commencer)$/.test(suite) ? suite : '/projets';
+  const sure = suite && /^\/(projets(\/[0-9a-f-]{36}(\/[a-z-]+)?)?|abonnement|commencer|admin)$/.test(suite) ? suite : '/projets';
   return (
     <div className="accueil-console">
       <header className="barre"><Link href="/" className="marque" aria-label="vavi"><LogoVavi /> vavi</Link></header>
