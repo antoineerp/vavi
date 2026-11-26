@@ -68,6 +68,8 @@ export interface BoutonDeLaFiche { readonly do: 'link' | 'publish' | 'panel'; re
 
 export function lesBoutonsDeLaFiche(f: { readonly preview_url: string | null; readonly state: string; readonly console_url: string }): BoutonDeLaFiche[] {
   return [
+    // « Afficher à droite », en premier et en vert (Antoine, 26/11 17h02) : Claude.ai n'ouvre son panneau qu'après un clic.
+    { do: 'panel' as const, label: { fr: 'Afficher à droite', en: 'Show on the right' }, main: true },
     ...(f.preview_url ? [{ do: 'link' as const, label: { fr: 'Voir l’aperçu', en: 'See the preview' }, url: f.preview_url }] : []),
     ...(f.state === 'a_publier' ? [{ do: 'publish' as const, label: { fr: 'Publier', en: 'Publish' }, main: true }] : []),
     { do: 'link', label: { fr: 'Console vavi', en: 'vavi console' }, url: f.console_url },
