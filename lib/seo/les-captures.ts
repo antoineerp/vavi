@@ -11,6 +11,7 @@
  */
 import type { EnvDeLApp } from '@/lib/publication/servir';
 import { BASE_DU_PRE_RENDU, requetePermise, servir } from './le-pre-rendu';
+import { RELEVER_LA_PAGE, type ReleveDeLaPage } from './le-releve-de-la-page';
 
 export const ECRANS = { bureau: { width: 1280, height: 800 }, telephone: { width: 390, height: 844 } } as const;
 export type Ecran = keyof typeof ECRANS;
@@ -65,11 +66,12 @@ export const requeteDeLaCapture = (url: string, sorte: string, site: string, hot
 
 export async function capturer(navigateur: NavigateurAPhotographier, dist: ReadonlyMap<string, Buffer>, o: {
   readonly env: Omit<EnvDeLApp, 'base'>; readonly langue: string; readonly hotesDesImages: readonly string[];
-}): Promise<{ readonly captures: readonly Capture[]; readonly manquees: readonly string[]; readonly mesure?: MesureDeLAccueil }> {
+}): Promise<{ readonly captures: readonly Capture[]; readonly manquees: readonly string[]; readonly mesure?: MesureDeLAccueil; readonly releve?: ReleveDeLaPage }> {
   const { adresse: site, serveur } = await servir(dist, o.env);
   const captures: Capture[] = [];
   const manquees: string[] = [];
   let mesure: MesureDeLAccueil | undefined;
+  let releve: ReleveDeLaPage | undefined;
   try {
     for (const ecran of Object.keys(ECRANS) as Ecran[]) {
       const page = await navigateur.newPage({ viewport: ECRANS[ecran], locale: o.langue, reducedMotion: 'reduce' });
@@ -79,7 +81,11 @@ export async function capturer(navigateur: NavigateurAPhotographier, dist: Reado
         await page.goto(`${site}${BASE_DU_PRE_RENDU}`, { waitUntil: 'networkidle', timeout: 15_000 });
         await page.waitForFunction(() => !document.querySelector('[data-etat="patience"]'), null, { timeout: 4_000 }).catch(() => undefined);
         captures.push({ ecran, jpeg: await page.screenshot({ type: 'jpeg', quality: 60 }) });
-        if (ecran === 'bureau') mesure = await page.evaluate(MESURER_DANS_LA_PAGE).then((m) => m as MesureDeLAccueil, () => undefined);
+        if (ecran === 'bureau') {
+          mesure = await page.evaluate(MESURER_DANS_LA_PAGE).then((m) => m as MesureDeLAccueil, () => undefined);
+          // Les formes qui trahissent un site généré (26/11), sur l'écran où elles se voient : une rangée s'empile au téléphone.
+          releve = await page.evaluate(RELEVER_LA_PAGE).then((r) => r as ReleveDeLaPage, () => undefined);
+        }
       } catch (e) {
         manquees.push(`${ecran}: ${String((e as Error)?.message ?? e).split('\n')[0]!.slice(0, 160)}`);
       } finally {
@@ -90,5 +96,5 @@ export async function capturer(navigateur: NavigateurAPhotographier, dist: Reado
     await navigateur.close().catch(() => undefined);
     serveur.close();
   }
-  return { captures, manquees, ...(mesure ? { mesure } : {}) };
+  return { captures, manquees, ...(mesure ? { mesure } : {}), ...(releve ? { releve } : {}) };
 }
