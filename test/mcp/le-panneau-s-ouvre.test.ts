@@ -41,6 +41,10 @@ describe.runIf(process.env.VAVI_NAVIGATEUR === 'oui')('le panneau de vavi', () =
     const d = (await lesDemandes(['inline', 'fullscreen', 'pip'])).filter((m) => m.method === 'ui/request-display-mode');
     expect(d.map((m) => m.params?.mode)).toEqual(['fullscreen']);
   }, 30_000);
+  it('INCIDENT 26/11 — un hôte qui ne dit pas ses modes reçoit quand même la demande (la vue restait dans la conversation)', async () => {
+    const d = (await lesDemandes([])).filter((m) => m.method === 'ui/request-display-mode');
+    expect(d.map((m) => m.params?.mode)).toEqual(['fullscreen']);
+  }, 30_000);
   it('ne demande rien quand l’hôte n’offre que la conversation', async () => {
     expect((await lesDemandes(['inline'])).some((m) => m.method === 'ui/request-display-mode')).toBe(false);
   }, 30_000);

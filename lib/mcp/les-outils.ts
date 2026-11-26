@@ -74,7 +74,7 @@ export const DEFINITIONS = {
     geste: (c, a) => g.ecrireLesNotes(c, a),
   }),
   ouvrir_chantier: def({
-    title: 'Open a work session', lecture: false, _meta: META_DE_LA_VUE,
+    title: 'Open a work session', lecture: false,
     entree: z.object({ project: projet, intention: z.string().min(3).max(300).describe('The one thing this session does, in one sentence.'), resume: z.boolean().optional().describe('true continues the session already open (only if the person said so).') }),
     description: 'Opens the work session that every change belongs to. One per project at a time: another conversation\'s open session is refused, not overwritten.',
     geste: (c, a) => g.ouvrirUnChantier(c, a),
@@ -142,7 +142,7 @@ export const DEFINITIONS = {
     geste: (c, a) => g.ajouterDesPaquets(c, a),
   }),
   build_preview: def({
-    title: 'Build the preview', _meta: META_DE_LA_VUE, lecture: false, entree: z.object({ project: projet }),
+    title: 'Build the preview', lecture: false, entree: z.object({ project: projet }),
     description: 'Type-checks and builds the current version. Green: the preview now shows it (give the person `preview_url`). Red: each error with its file and line; the preview keeps the last green version.',
     geste: (c, a) => g.construireLApercu(c, a),
   }),
@@ -162,7 +162,7 @@ export const DEFINITIONS = {
     geste: (c, a) => g.jouerUnParcours(c, a),
   }),
   publish: def({
-    title: 'Close the work session', _meta: META_DE_LA_VUE, lecture: false, entree: z.object({ project: projet, work_session: chantier }),
+    title: 'Close the work session', lecture: false, entree: z.object({ project: projet, work_session: chantier }),
     description: 'When the person is happy with the preview: checks that the current version is built green, and closes the work session. It does not put the site online: the person does, with the Publish button.',
     geste: (c, a) => g.publierLApercu(c, a),
   }),
