@@ -18,7 +18,7 @@
  * la page qu'il a lue à une adresse (26/11 : une vue corrigée et déployée restait l'ancienne chez Antoine) ; une page
  * changée prend une adresse neuve, que l'hôte lit. `test/mcp/la-vue.test.ts` exige l'empreinte de la page servie.
  */
-export const EMPREINTE_DE_LA_VUE = '08613f79ac';
+export const EMPREINTE_DE_LA_VUE = '8e161e0422';
 export const RESSOURCE_DE_LA_VUE = `ui://vavi/projet/${EMPREINTE_DE_LA_VUE}`;
 export const TYPE_DE_LA_VUE = 'text/html;profile=mcp-app';
 
@@ -90,14 +90,12 @@ main{padding:12px 14px;display:grid;gap:10px}
   var JETON=${enScript(jeton)};
   var fr=(navigator.language||'').toLowerCase().indexOf('fr')===0;
   var T=fr?{attente:'Chargement de l’aperçu…',enLigne:'En ligne',aPublier:'Changements à publier',rien:'Pas encore d’aperçu',grand:'Voir l’aperçu',
-    site:'Voir le site en ligne',publier:'Publier',publierQ:'Confirmer : mettre en ligne cet aperçu',publie:'C’est en ligne.',console:'Console vavi',
-    offre:'Choisir une offre',
-    cote:'Garder l’app à côté',enGrand:'Ouvrir l’app en grand',erreur:'Cela n’a pas marché :',sansApercu:'Demandez à Claude de construire l’aperçu.',
+    publier:'Publier',publierQ:'Confirmer : mettre en ligne cet aperçu',publie:'C’est en ligne.',console:'Console vavi',
+    erreur:'Cela n’a pas marché :',sansApercu:'Demandez à Claude de construire l’aperçu.',
     construit:'Claude construit :',prepare:'Claude prépare le premier aperçu, il s’affichera ici.',version:'Version'}
   :{attente:'Loading the preview…',enLigne:'Online',aPublier:'Changes to publish',rien:'No preview yet',grand:'See the preview',
-    site:'See the live site',publier:'Publish',publierQ:'Confirm: put this preview online',publie:'It is online.',console:'vavi console',
-    offre:'Choose a plan',
-    cote:'Keep the app alongside',enGrand:'Open the app large',erreur:'That did not work:',sansApercu:'Ask Claude to build the preview.',
+    publier:'Publish',publierQ:'Confirm: put this preview online',publie:'It is online.',console:'vavi console',
+    erreur:'That did not work:',sansApercu:'Ask Claude to build the preview.',
     construit:'Claude is building:',prepare:'Claude is preparing the first preview; it will show here.',version:'Version'};
   document.getElementById('attente').textContent=T.attente;
   var n=0,attendus={};
@@ -135,15 +133,13 @@ main{padding:12px 14px;display:grid;gap:10px}
     else if(f.building)b.appendChild(el('span',{class:'mot',role:'status',texte:T.construit+' '+(f.work_session||'')}));
     if(!f.app_html&&!f.app_html_unchanged&&!f.building)b.appendChild(el('span',{class:'doux',texte:f.preview_url?T.attente:T.sansApercu}));
     if(f.preview_url)b.appendChild(el('button',{texte:T.grand,onclick:function(){lien(f.preview_url);}}));
-    if(f.app_html&&(modes.indexOf('pip')>=0||!modes.length))b.appendChild(el('button',{texte:T.cote,onclick:function(){mode('pip');}}));
-    if(f.app_html&&(modes.indexOf('fullscreen')>=0||!modes.length))b.appendChild(el('button',{texte:T.enGrand,onclick:function(){mode('fullscreen');}}));
+    // TROIS BOUTONS (Antoine, 26/11 16h28) : l'aperçu, Publier, la console ; le reste (en grand, offre, site en ligne) passe
+    // par l'icône ⤢ de l'hôte ou par la console.
     // Deux clics, dans la vue : le cadre de l'hôte peut interdire window.confirm (bac à sable sans « allow-modals »).
     if(f.state==='a_publier')b.appendChild(el('button',{class:'principal',texte:T.publier,onclick:function(e){var x=e.target;
       if(!x.dataset.sur){x.dataset.sur='1';x.textContent=T.publierQ;return;}
       x.disabled=true;outil('vavi_mettre_en_ligne',{project:f.id,geste:JETON})
         .then(function(r){montrer(r.fiche,T.publie);}).catch(function(y){montrer(f,T.erreur+' '+y.message);});}}));
-    if(f.online_url)b.appendChild(el('button',{texte:T.site,onclick:function(){lien(f.online_url);}}));
-    if(f.plan_url&&f.state==='a_publier'&&f.can_publish===false)b.appendChild(el('button',{texte:T.offre,onclick:function(){lien(f.plan_url);}}));
     b.appendChild(el('button',{texte:T.console,onclick:function(){lien(f.console_url);}}));
     // Ce que l'hôte a répondu à la demande du panneau, lisible sans la console du navigateur (26/11).
     if(panneauRefuse)b.appendChild(el('span',{class:'doux',texte:'Claude: '+panneauRefuse}));
