@@ -21,7 +21,8 @@ export const FORMES_RELEVEES = [
   'icones-en-pastille', 'emojis', 'halos', 'degrade-etendu', 'meme-carte-partout',
 ] as const;
 export type FormeRelevee = (typeof FORMES_RELEVEES)[number];
-export type ReleveDeLaPage = Readonly<Record<FormeRelevee, { readonly n: number; readonly exemple: string }>>;
+/** `dessin` (26/11) : le dessin le plus travaillé de l'accueil, `n` ses formes (0 : aucun dessin), `exemple` son titre. */
+export type ReleveDeLaPage = Readonly<Record<FormeRelevee | 'dessin', { readonly n: number; readonly exemple: string }>>;
 
 export const RELEVER_LA_PAGE = `(() => {
   const vw = window.innerWidth, vh = window.innerHeight;
@@ -186,6 +187,13 @@ export const RELEVER_LA_PAGE = `(() => {
       if (b.width < 160 || b.height < 100 || !st.boxShadow || st.boxShadow === 'none' || px(st.borderTopLeftRadius) < 16) continue;
       const k = st.borderTopLeftRadius + '|' + st.boxShadow; const l = groupes.get(k) || []; l.push(el); groupes.set(k, l); }
     for (const l of groupes.values()) if (l.length >= 6) garder('meme-carte-partout', l.length, texteDe(titreDe(l[0]) || l[0])); }
+
+  // ── LE DESSIN (26/11) : combien de formes porte le plus travaillé des dessins de l'accueil (les trames de la brique à part).
+  releve['dessin'] = { n: 0, exemple: '' };
+  for (const d of document.querySelectorAll('[data-piece="dessin"] svg')) {
+    const n = [...d.querySelectorAll('path, rect, circle, ellipse, polygon, polyline, line')].filter((e) => !e.closest('defs')).length;
+    if (n > releve['dessin'].n) releve['dessin'] = { n, exemple: court(d.getAttribute('aria-label')) };
+  }
 
   return releve;
 })()`;

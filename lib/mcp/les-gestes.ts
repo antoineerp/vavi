@@ -32,7 +32,7 @@ import { leGabaritCourant } from '@/squelette/registre';
 import { revenirA } from '@/lib/versions/revenir';
 import type { LecturesDeLaVue } from './les-gestes-de-la-vue';
 import { leGuideAvantLeProjet, leGuideDeDesign, lesEcartsDeLAccueil, type MesureVue } from '@/lib/design/le-guide';
-import { ceQuiTrahitLaPage, type ReleveVu } from '@/lib/design/ce-qui-trahit-la-page';
+import { ceQuiTrahitLaPage, leDessinDeLaPage, type ReleveVu } from '@/lib/design/ce-qui-trahit-la-page';
 import { lesLiensMorts } from '@/squelette/les-liens';
 import { lesEcartsDeDroit } from '@/squelette/les-droits-des-pages';
 import type { Etape as EtapeDuParcours, Parcours } from '@/lib/parcours/le-parcours';
@@ -741,7 +741,9 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   if (vues) console.log(`[build_preview] ${a.project} captures ${Date.now() - t1} ms (${vues.captures.length})`);
   // Les défauts objectifs de l'accueil rendu (image cassée, titre principal) et les liens écrits vers nulle part. Jamais un refus.
   const ecarts = vues?.mesure ? lesEcartsDeLAccueil(arbre.manifeste, vues.mesure) : [];
-  const trahit = vues && 'releve' in vues && vues.releve ? ceQuiTrahitLaPage(arbre.manifeste, vues.releve) : [];
+  const releve = vues && 'releve' in vues ? vues.releve : undefined;
+  const trahit = ceQuiTrahitLaPage(arbre.manifeste, releve);
+  const dessin = leDessinDeLaPage(arbre.manifeste, releve);
   const siens = new Map([...f.valeur].filter(([ch]) => !estFige(ch)));
   const liens = lesLiensMorts(siens);
   const droits = lesEcartsDeDroit(arbre.manifeste, siens);
@@ -751,7 +753,8 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
     ...(vues ? { screens: vues.captures.length ? `the home page on ${vues.captures.map((x) => x.ecran === 'bureau' ? 'a desktop screen (1280×800)' : 'a phone (390×844)').join(' and ')}, as images below: look at them and fix what is visibly wrong (empty or broken section, unreadable text, overflowing menu) before showing the person`
       : `not taken: ${vues.manquees.join(' | ')}` } : {}),
     ...(vues?.mesure ? { home_checks: ecarts.length ? { to_fix: ecarts, measured: vues.mesure } : 'no broken image, one main title' } : {}),
-    ...(trahit.length ? { design_checks: { looks_generated: trahit, next: 'These are the shapes every AI site builder produces, measured on the rendered home page. Change each one as `instead` says, unless the person asked for it. Never a refusal.' } } : {}),
+    ...(trahit.length || dessin ? { design_checks: { ...(trahit.length ? { looks_generated: trahit } : {}), ...(dessin ? { drawing: dessin } : {}),
+      next: 'Measured on the rendered home page: these are the shapes every AI site builder produces, and the drawing. Change each one as said, unless the person asked for it. Never a refusal.' } } : {}),
     ...(liens.length ? { broken_links: { links: liens.slice(0, 20).map((l) => `${l.fichier}:${l.ligne} ${l.lien}`), next: 'Each of these links leads to no page of the app (or to no `id` for an anchor): point it to a page that exists, create the page, or remove the link.' } } : {}),
     ...(droits.length ? { access_checks: { to_fix: droits.slice(0, 20), next: 'Each page here shows a table its audience cannot read, or saves into one it cannot write: change the `acces` of the table with `configure_backend`, or the `acces` of the page.' } } : {}),
     ...(vues?.captures.length ? { _images: vues.captures.map((x) => ({ data: x.jpeg.toString('base64'), mimeType: 'image/jpeg' })) } : {}),
