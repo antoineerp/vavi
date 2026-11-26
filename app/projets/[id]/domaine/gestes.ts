@@ -10,6 +10,7 @@ import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 import { laCibleDns, lePlanDns } from '@/lib/domaines/le-domaine';
 import { ajouterLeCertificat, flyDeLEnvironnement, lEtatChezFly, retirerLeCertificat } from '@/lib/domaines/les-certificats';
 import { demanderLeDomaine, direActif, leDomaineDuProjet, retirerLeDomaine } from '@/lib/domaines/les-domaines';
+import { renommerLeSite } from '@/lib/domaines/les-noms';
 
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const retour = (id: string, q: Record<string, string>): never => redirect(`/projets/${id}/domaine?${new URLSearchParams(q)}`);
@@ -64,4 +65,15 @@ export async function retirer(id: string) {
   if (d.lu && d.valeur) await retirerLeCertificat(fly, d.valeur.hote);
   const r = await retirerLeDomaine(c.base, id);
   retour(id, r.lu ? { fait: 'retire' } : { erreur: 'panne' });
+}
+
+/** La personne change le nom lisible de son site (`<nom>.<domaine des apps>`, `lib/domaines/les-noms`). */
+export async function renommer(id: string, formulaire: FormData) {
+  if (!ID.test(id)) redirect('/projets');
+  const c = await laConsole(`/projets/${id}/domaine`);
+  const p = await c.projets.lire(c.compte, id);
+  if (!p.lu || !p.valeur) return retour(id, { erreur: 'panne' });
+  const r = await renommerLeSite(c.base, id, String(formulaire.get('nom') ?? '').slice(0, 60));
+  if (!r.lu) return retour(id, { erreur: 'panne' });
+  return retour(id, r.valeur === 'fait' ? { fait: 'renomme' } : { erreur: `nom_${r.valeur}` });
 }

@@ -87,6 +87,8 @@ export interface Contexte {
   /** Fait tourner un agent du build vert d'empreinte donnée sur une copie de la base (`lib/agents`) ; absent : la raison. */
   readonly essayerUnAgent?: (projet: string, empreinte: string, manifeste: Manifeste, agent: string, entree: string) => Promise<Course | { readonly raison: string }>;
   readonly resolveur?: Resolveur;
+  /** Le nom lisible du site (`lib/domaines/les-noms`), posé s'il manque, tiré du nom du projet ; absent ou en panne : `null`. */
+  readonly nommerLeSite?: (projet: string, nomDuProjet: string) => Promise<string | null>;
 }
 
 export type Rendu = { readonly ok: true; readonly [champ: string]: unknown } | Refus;
@@ -240,6 +242,7 @@ export async function creerUnProjet(c: Contexte, a: { app_json: unknown; new_any
   if (!p.lu) return panne(p.pourquoi);
   const pose = await poserLaBase(c.base, p.valeur.id, m, c.compte);
   if (pose.posee) await c.projets.marquerLaBase(c.compte, p.valeur.id, m.nom);
+  await c.nommerLeSite?.(p.valeur.id, m.nom).catch(() => null);
   return fait({
     project: p.valeur.id, name: m.nom, version: 1, ...recu.valeur.dit,
     database: pose.posee ? 'laid out from app.json' : `not laid out: ${pose.motif}. Send app.json again with \`configure_backend\`.`,

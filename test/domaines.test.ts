@@ -10,7 +10,7 @@ import { laCibleDns, lEtatDuCertificat, lePlanDns } from '@/lib/domaines/le-doma
 import { ajouterLeCertificat, flyDeLEnvironnement, lEtatChezFly } from '@/lib/domaines/les-certificats';
 import { laCarte, laCarteDesDomaines } from '@/lib/domaines/les-domaines';
 import { laDecision } from '@/lib/publication/les-adresses-des-apps';
-import { laMigrationDesDomaines, SQL_DES_DOMAINES } from '@/lib/domaines/le-sql-des-domaines';
+import { laMigrationDesDomaines, laMigrationDesNoms, SQL_DES_DOMAINES } from '@/lib/domaines/le-sql-des-domaines';
 
 const P = '0f1e2d3c-4b5a-4968-8776-655443322110';
 const O = { cible: 'vavi.fly.dev', interdits: ['vavi.dev', 'vavi.app'] };
@@ -97,6 +97,8 @@ describe.runIf(POSTGRES_PRESENT)('la table des domaines, sur un PostgreSQL réel
     pg.admin(laMigrationDesProjets());
     pg.admin(laMigrationDesDomaines());
     pg.admin(laMigrationDesDomaines()); // rejouée sans dommage
+    pg.admin(laMigrationDesNoms());
+    pg.admin(laMigrationDesNoms());
     pg.service(`insert into public.vavi_projets (id, proprietaire, nom) values ('${P}', '${MOI}', 'Un'), ('${Q}', '${MOI}', 'Deux');`);
   }, 60_000);
   afterAll(() => pg?.arreter());
@@ -111,8 +113,16 @@ describe.runIf(POSTGRES_PRESENT)('la table des domaines, sur un PostgreSQL réel
   it('ni un compte ni le navigateur ne lisent la table', () => {
     for (const qui of [MOI, null]) expect(pg.comme(qui, 'select * from public.vavi_domaines;').ok).toBe(false);
   });
-  it('un projet effacé emporte son domaine', () => {
+  it('un nom n’est qu’à un site, un site n’a qu’un nom, un nom mal formé est refusé, et seule la plateforme les lit', () => {
+    expect(pg.service(`insert into public.vavi_noms_des_sites (nom, projet) values ('salon', '${P}');`).ok).toBe(true);
+    expect(pg.service(`insert into public.vavi_noms_des_sites (nom, projet) values ('salon', '${Q}');`).ok).toBe(false);
+    expect(pg.service(`insert into public.vavi_noms_des_sites (nom, projet) values ('autre', '${P}');`).ok).toBe(false);
+    for (const n of ['Salon', 'apercu-x', 'a--b', 'ab-']) expect(pg.service(`insert into public.vavi_noms_des_sites (nom, projet) values ('${n}', '${Q}');`).ok).toBe(false);
+    for (const qui of [MOI, null]) expect(pg.comme(qui, 'select * from public.vavi_noms_des_sites;').ok).toBe(false);
+  });
+  it('un projet effacé emporte son domaine et son nom', () => {
     pg.service(`delete from public.vavi_projets where id = '${P}';`);
     expect(pg.service('select count(*) from public.vavi_domaines;').sortie.trim()).toBe('0');
+    expect(pg.service('select count(*) from public.vavi_noms_des_sites;').sortie.trim()).toBe('0');
   });
 });

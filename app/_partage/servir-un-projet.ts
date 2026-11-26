@@ -47,9 +47,10 @@ export async function servirUnProjet(requete: Request, brut: string, chemin: rea
   }
   // À son hôte (vague 0), l'app est servie à la racine ; sans domaine des apps, sous `/p/` ou `/s/` de la console.
   const hote = requete.headers.get('host');
-  const ici = lAppDeLHote(hote, leDomaineDesApps(process.env));
+  const lesDomaines = await laCarteDesDomainesReelle();
+  const ici = lAppDeLHote(hote, leDomaineDesApps(process.env), lesDomaines.parNom);
   // Ou à son domaine à soi, branché (`lib/domaines`) : le site en ligne seul.
-  const sonDomaine = lequel === 'en_ligne' && (await laCarteDesDomainesReelle()).parHote.get((hote ?? '').toLowerCase().split(':')[0]!) === id;
+  const sonDomaine = lequel === 'en_ligne' && lesDomaines.parHote.get((hote ?? '').toLowerCase().split(':')[0]!) === id;
   const asonHote = (ici?.projet === id && ici.lequel === lequel) || sonDomaine;
   const base = asonHote ? '/' : `/${lequel === 'apercu' ? 'p' : 's'}/${id}/`;
   const racinePublique = asonHote ? `https://${hote!.toLowerCase().split(':')[0]}` : `${adresseDeLaPlateforme()}${base.replace(/\/$/, '')}`;
