@@ -77,6 +77,10 @@ export interface Projets {
   /** Les réglages du projet ; illisibles tant que leur migration (20261125110000) n'est pas posée. */
   reglages(compte: string, projet: string): Promise<Issue<Reglages>>;
   regler(compte: string, projet: string, r: Partial<Reglages>): Promise<Issue<true>>;
+  /** Les notes durables du projet ; `null` : aucune. Illisibles tant que leur migration (20261126100000) n'est pas posée. */
+  notes(compte: string, projet: string): Promise<Issue<string | null>>;
+  /** Écrit les notes si elles sont encore celles lues (`avant`) ; sinon rien d'écrit, les actuelles rendues. */
+  ecrireLesNotes(compte: string, projet: string, notes: string | null, avant: string | null): Promise<Issue<{ readonly ecrites: true } | { readonly ecrites: false; readonly actuelles: string | null }>>;
 }
 
 /** Les réglages d'un projet que la personne pose dans la console. `null` : rien de posé (le courriel du compte sert). */
@@ -187,6 +191,23 @@ export function projetsSurSupabase(base: SupabaseClient): Projets {
       const maj = { ...('courrielDesMessages' in x ? { courriel_des_messages: x.courrielDesMessages } : {}), ...('verificationGoogle' in x ? { verification_google: x.verificationGoogle } : {}),
         ...('inscriptionSansValidation' in x ? { inscription_sans_validation: x.inscriptionSansValidation } : {}) };
       return ok(await base.from('vavi_projets').update(maj).eq('id', id));
+    },
+    async notes(compte, id) {
+      const refus = await aLui(compte, id);
+      if (refus) return pasLu(refus);
+      const r = await base.from('vavi_projets').select('*').eq('id', id).maybeSingle<{ notes?: string | null }>();
+      if (r.error) return pasLu(r.error.message);
+      if (r.data && !('notes' in r.data)) return pasLu('the project notes are not set up on this vavi server yet (migration 20261126100000)');
+      return lu(r.data?.notes ?? null);
+    },
+    async ecrireLesNotes(compte, id, notes, avant) {
+      const refus = await aLui(compte, id);
+      if (refus) return pasLu(refus);
+      const r = await base.rpc('vavi_ecrire_les_notes', { p_projet: id, p_notes: notes, p_avant: avant });
+      if (r.error) return pasLu(/vavi_ecrire_les_notes|notes/.test(r.error.message) ? 'the project notes are not set up on this vavi server yet (migration 20261126100000)' : r.error.message);
+      if (r.data === true) return lu({ ecrites: true as const });
+      const x = await base.from('vavi_projets').select('notes').eq('id', id).maybeSingle<{ notes: string | null }>();
+      return x.error ? pasLu(x.error.message) : lu({ ecrites: false as const, actuelles: x.data?.notes ?? null });
     },
     async fermerChantier(compte, id, chantier, issue) {
       const refus = await aLui(compte, id);

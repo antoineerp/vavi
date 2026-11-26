@@ -20,6 +20,7 @@ export const ERREURS: Record<string, { fr: string; en: string }> = {
   rien_a_publier: { fr: 'il n’y a pas encore d’aperçu.', en: 'there is no preview yet.' },
   build_rouge: { fr: 'l’aperçu n’est pas un build réussi.', en: 'the preview is not a successful build.' },
   conflit: { fr: 'le projet a changé pendant le retour ; réessayez.', en: 'the project changed meanwhile; try again.' },
+  notes_changees: { fr: 'Claude a changé les notes pendant que vous les corrigiez ; voici les siennes, refaites votre correction.', en: 'Claude changed the notes while you edited them; here they are now, redo your edit.' },
   stripe_non_relie: { fr: 'vavi n’est pas encore relié à Stripe.', en: 'vavi is not connected to Stripe yet.' },
   stripe_refuse: { fr: 'Stripe a refusé d’ouvrir le compte ; réessayez, ou écrivez-nous.', en: 'Stripe refused to open the account; try again, or write to us.' },
   panne: { fr: 'vavi n’a pas répondu ; réessayez.', en: 'vavi did not answer; try again.' },

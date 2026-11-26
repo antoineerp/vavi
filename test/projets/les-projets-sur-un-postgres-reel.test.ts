@@ -9,7 +9,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CHEMIN_DE_LA_MIGRATION_DES_PROJETS, CHEMIN_DE_LA_MIGRATION_DE_LA_MISE_EN_LIGNE, CHEMIN_DE_LA_MIGRATION_DES_REGLAGES, laMigrationDesProjets, laMigrationDeLaMiseEnLigne, laMigrationDesReglages } from '@/lib/projets/le-sql-des-projets';
+import { CHEMIN_DE_LA_MIGRATION_DES_PROJETS, CHEMIN_DE_LA_MIGRATION_DE_LA_MISE_EN_LIGNE, CHEMIN_DE_LA_MIGRATION_DES_REGLAGES, CHEMIN_DE_LA_MIGRATION_DES_NOTES, laMigrationDesProjets, laMigrationDeLaMiseEnLigne, laMigrationDesReglages, laMigrationDesNotes } from '@/lib/projets/le-sql-des-projets';
 import { empreinteDuFichier } from '@/lib/projets/les-empreintes';
 import { demarrer, POSTGRES_PRESENT, type UnPostgres } from '../aides/un-postgres';
 
@@ -23,6 +23,7 @@ describe('la migration des projets', () => {
     expect(readFileSync(join(__dirname, '../..', CHEMIN_DE_LA_MIGRATION_DES_PROJETS), 'utf8')).toBe(laMigrationDesProjets());
     expect(readFileSync(join(__dirname, '../..', CHEMIN_DE_LA_MIGRATION_DE_LA_MISE_EN_LIGNE), 'utf8')).toBe(laMigrationDeLaMiseEnLigne());
     expect(readFileSync(join(__dirname, '../..', CHEMIN_DE_LA_MIGRATION_DES_REGLAGES), 'utf8')).toBe(laMigrationDesReglages());
+    expect(readFileSync(join(__dirname, '../..', CHEMIN_DE_LA_MIGRATION_DES_NOTES), 'utf8')).toBe(laMigrationDesNotes());
   });
 });
 
@@ -38,6 +39,8 @@ describe.runIf(POSTGRES_PRESENT)('les projets, sur un PostgreSQL réel', () => {
     pg.admin(laMigrationDeLaMiseEnLigne()); // rejouée sans dommage
     pg.admin(laMigrationDesReglages());
     pg.admin(laMigrationDesReglages()); // rejouée sans dommage
+    pg.admin(laMigrationDesNotes());
+    pg.admin(laMigrationDesNotes()); // rejouée sans dommage
     pg.service(`insert into public.vavi_projets (id, proprietaire, nom) values ('${P}', '${MOI}', 'Le mien');`);
     pg.service(`insert into public.vavi_secrets (projet, nom, valeur) values ('${P}', 'CLE_STRIPE', 'chiffree');`);
   }, 60_000);
@@ -93,5 +96,15 @@ describe.runIf(POSTGRES_PRESENT)('les projets, sur un PostgreSQL réel', () => {
     expect(pg.service(`update public.vavi_projets set courriel_des_messages = 'pas-une-adresse' where id = '${P}';`).ok).toBe(false);
     expect(pg.service(`update public.vavi_projets set verification_google = 'x;<script>' where id = '${P}';`).ok).toBe(false);
     expect(pg.service(`update public.vavi_projets set courriel_des_messages = null where id = '${P}';`).ok).toBe(true);
+  });
+
+  it('26/11 — les notes durables ne s’écrivent que sur celles lues ; le navigateur ne les écrit pas', () => {
+    const ecrire = (notes: string | null, avant: string | null) => pg.service(`select public.vavi_ecrire_les_notes('${P}', ${notes === null ? 'null' : `'${notes}'`}, ${avant === null ? 'null' : `'${avant}'`});`).sortie;
+    expect(ecrire('- ton chaleureux', null)).toBe('t');
+    expect(ecrire('- ton formel', null)).toBe('f');
+    expect(ecrire('- ton chaleureux\n- pas de violet', '- ton chaleureux')).toBe('t');
+    expect(pg.service(`select notes from public.vavi_projets where id = '${P}';`).sortie).toContain('pas de violet');
+    expect(pg.comme(MOI, `select public.vavi_ecrire_les_notes('${P}', 'x', null);`).ok).toBe(false);
+    expect(pg.service(`update public.vavi_projets set notes = repeat('a', 4001) where id = '${P}';`).ok).toBe(false);
   });
 });
