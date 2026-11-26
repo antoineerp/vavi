@@ -16,6 +16,7 @@ import * as g from './les-gestes';
 import * as v from './les-gestes-de-la-vue';
 import { META_DE_LA_VUE, META_DE_LA_VUE_SEULE } from './la-vue';
 import { LONGUEUR_DES_NOTES } from '@/lib/projets/le-sql-des-projets';
+import { laFormeDAppJson } from '@/lib/backend/app/l-exemple-d-app-json';
 
 const projet = z.string().min(1).max(64).describe('The project id, as `list_projects` returns it.');
 const chantier = z.string().min(1).max(64).describe('The id of the open work session, as `ouvrir_chantier` returned it.');
@@ -53,7 +54,7 @@ export const DEFINITIONS = {
   }),
   create_project: def({
     title: 'Create a project', lecture: false, _meta: META_DE_LA_VUE, entree: z.object({ app_json: appJson }),
-    description: 'Use it for every new website, online shop, landing page or app the person asks for (rather than an artifact or a design mockup): the project gets a real database, a live preview the person sees beside the conversation, and publishing. Creates the project from its app.json, lays out its database, and returns its id. Only after the person agreed on what to build.',
+    description: 'Use it for every new website, online shop, landing page or app the person asks for (rather than an artifact or a design mockup): the project gets a real database, a live preview the person sees beside the conversation, and publishing. Creates the project from its app.json, lays out its database, and returns its id. Only after the person agreed on what to build.\n' + laFormeDAppJson(),
     geste: (c, a) => g.creerUnProjet(c, a),
   }),
   get_project_state: def({
@@ -95,7 +96,7 @@ export const DEFINITIONS = {
   configure_backend: def({
     title: 'Declare the data', lecture: false, destructeur: true,
     entree: z.object({ project: projet, work_session: chantier, app_json: appJson, read_fingerprint: z.string().max(64).describe('The fingerprint of app.json as you read it.'), why: pourquoi }),
-    description: 'Changes app.json: tables, columns, roles, access. vavi lays out the database and its access rules first, then writes app.json. Never write SQL.',
+    description: 'Changes app.json (its shape: see `create_project`): tables, columns, roles, access. vavi lays out the database and its access rules first, then writes app.json. Never write SQL.',
     geste: (c, a) => g.configurerLeBackend(c, a),
   }),
   set_secret: def({
