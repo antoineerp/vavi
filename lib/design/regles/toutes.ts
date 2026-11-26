@@ -145,7 +145,7 @@ export const REGLES: readonly Regle[] = [
     texte: 'Un formulaire qu’un visiteur envoie sans compte part par `useEnvoiDuFormulaire` de `@/lib/formulaire`, sa `formKey` écrite en toutes lettres à l’appel. Dites « envoyé » sur sa réponse seulement ; un refus montre sa `raison` et son `geste`. Chaque message arrive par e-mail chez le propriétaire de l’app (l’adresse de son compte vavi, ou celle qu’il choisit dans la console) et reste lisible dans l’écran Messages de sa console : dites-le-lui ainsi, sans autre boîte.',
     tenuePar: { fige: 'src/lib/formulaire.ts' } }),
   regle({ id: 'envoi-sans-compte', sujet: 'formulaires',
-    texte: 'Ce qu’un visiteur envoie sans compte (`visiteur` dans l’`ecriture` de la table) part par `envoyerSansCompte(table, ligne, { colonne: fichier })` de `@/lib/envoi`, d’une page publique ; ce que la base a calculé s’y montre au retour, un chiffre vide en « — ». Un refus montre sa `raison` et son `geste`. Ce qui se vend s’achète sans compte (`<AjouterAuPanier table id>`).',
+    texte: 'Ce qu’un visiteur envoie sans compte (`tous` ou `visiteur` dans le `creer` de son `acces`) part par `envoyerSansCompte(table, ligne, { colonne: fichier })` de `@/lib/envoi`, d’une page publique ; ce que la base a calculé s’y montre au retour, un chiffre vide en « — ». Un refus montre sa `raison` et son `geste`. Ce qui se vend s’achète sans compte (`<AjouterAuPanier table id>`).',
     porte: 'sansCompte', tenuePar: { fige: 'src/lib/envoi.ts' } }),
 
   // ── Textes

@@ -28,6 +28,7 @@ import { Demande, Ecran, lireLesEcrans, Parcours } from './les-ecrans';
 import { Analyse, estAnalysee, lireLAnalyse } from './l-analyse';
 import { lireLaRemise } from './la-remise';
 import { lireLesEnvois } from './l-envoi-sans-compte';
+import { INSCRITS, lesAccesTraduits, TOUS } from './les-acces';
 
 export { CHIFFRES, Identifiant, Indicateur };
 
@@ -124,6 +125,9 @@ export const Table = z.object({
   parent: Identifiant.optional(),
   lecture: z.array(Identifiant),
   ecriture: z.array(Identifiant).describe('les rôles qui créent et modifient ses lignes ; `visiteur` : une personne sans compte y envoie une ligne (une demande, avec son fichier), que la plateforme garde au nom du propriétaire, et la page lui montre aussitôt ce que la base en a calculé'),
+  creation: z.array(Identifiant).optional().describe('tirée d’`acces.creer` : les rôles qui créent ; absente (un app.json d’avant), ceux d’`ecriture`'),
+  modification: z.array(Identifiant).optional().describe('tirée d’`acces.modifier`'),
+  suppression: z.array(Identifiant).optional().describe('tirée d’`acces.supprimer`'),
   lectureEntiere: z.array(Identifiant).optional().describe('table `personnelle` : les rôles de `lecture` qui voient TOUTES les lignes de l’organisation, pas seulement les leurs et celles des personnes qu’ils encadrent (une comptabilité, une direction) ; un rôle qui fait une transition sur les lignes des autres sans les encadrer y figure'),
   identite: z.array(Identifiant).optional().describe('les champs qui, ensemble, identifient une ligne'),
   cycle: z.object({
@@ -304,6 +308,7 @@ export const Manifeste = z.object({
     for (const r of t.lectureEntiere!.filter((x) => !t.lecture.includes(x))) ctx.addIssue({ code: 'custom', message: `la table ${t.nom} : ${r} est dans \`lectureEntiere\` sans être dans \`lecture\`` });
     for (const r of t.lectureEntiere!.filter((x) => m.organisations === 'une' && m.roles.some((r) => r.nom === x && (r.obtenu === 'inscription' || r.obtenu === 'paiement')))) ctx.addIssue({ code: 'custom', message: `la table ${t.nom} : ${r} s’obtient par inscription ou paiement, il n’est le collègue de personne et ne lit pas les lignes des autres` });
   }
+  for (const r of m.roles.filter((x) => [TOUS, INSCRITS, VISITEUR].includes(x.nom))) ctx.addIssue({ code: 'custom', message: `le rôle ${r.nom} : ce nom dit déjà qui fait un geste dans \`acces\` ; nommez ce rôle autrement` });
   for (const t of m.tables) {
     for (const r of [...t.lecture, ...t.ecriture]) {
       if (r !== 'visiteur' && !roles.has(r)) ctx.addIssue({ code: 'custom', message: `${t.nom} : le rôle ${r} n'est pas déclaré` });
@@ -402,7 +407,7 @@ export const COLONNES_DES_PROPOSITIONS: Readonly<Record<string, string>> = {
  * réparations : retirer un champ ici retirerait sa colonne sous le code qui l'écrit. `null` : sa forme ne se lit pas.
  */
 export function relireUnManifesteLivre(json: unknown): Manifeste | null {
-  const forme = Manifeste.innerType().safeParse(json);
+  const forme = Manifeste.innerType().safeParse(lesAccesTraduits(json).valeur);
   return forme.success ? forme.data : null;
 }
 
@@ -456,10 +461,11 @@ export function lesLecturesReparees(json: unknown): { readonly valeur: unknown; 
 
 /** Lit app.json au cadrage, ses liens et ses cycles réparés et dits. Rend le manifeste, ou la liste exacte de ce qui ne tient pas. */
 export function lireLeManifeste(json: unknown): { ok: true; manifeste: Manifeste; repare: readonly string[] } | { ok: false; erreurs: string[]; repare: readonly string[] } {
-  const liens = lesLiensRepares(json);
+  const acces = lesAccesTraduits(json);
+  const liens = lesLiensRepares(acces.valeur);
   const cycles = lesCyclesRepares(liens.valeur);
   const envois = lesEnvoisRepares(cycles.valeur);
-  const ventes = lesLecturesReparees(envois.valeur), repare = [...liens.repare, ...cycles.repare, ...envois.repare, ...ventes.repare];
+  const ventes = lesLecturesReparees(envois.valeur), repare = [...acces.repare, ...liens.repare, ...cycles.repare, ...envois.repare, ...ventes.repare];
   const r = Manifeste.safeParse(ventes.valeur);
   if (r.success) return { ok: true, manifeste: avecSesEtatsOuverts(r.data), repare };
   return { ok: false, erreurs: r.error.issues.map((i) => (i.path.length ? `${i.path.join('.')} : ${i.message}` : i.message)), repare };

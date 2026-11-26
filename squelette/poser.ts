@@ -3,7 +3,8 @@
  * Étape « poser » : les fichiers figés d'une app, depuis app.json. Les autres fichiers de l'arbre, ceux de l'agent,
  * ne sont jamais touchés : poser rend seulement ce qui appartient au cadre.
  */
-import type { Manifeste } from '@/lib/backend/app/manifeste';
+import { rolesQuiGerent, type Manifeste } from '@/lib/backend/app/manifeste';
+import { lesTablesEnAppJson } from '@/lib/backend/app/les-acces';
 import { CHEMINS_DERIVES, fichiersFiges, leGabaritCourant, POSES_PAR_UN_OUTIL, type Gabarit } from './registre';
 import { iconeDeLOnglet, poserLesJetons } from '@/lib/design/la-peau';
 import { typesDesTables } from './les-types-des-tables';
@@ -22,7 +23,7 @@ const echapperHtml = (t: string): string => t.replace(/&/g, '&amp;').replace(/</
 /** Le contenu d'un fichier dérivé d'app.json. */
 export function derive(chemin: string, m: Manifeste, g: Gabarit = leGabaritCourant()): string {
   switch (chemin) {
-    case 'app.json': return `${JSON.stringify(m, null, 2)}\n`;
+    case 'app.json': return `${JSON.stringify({ ...m, tables: lesTablesEnAppJson(m.tables, m.roles.map((r) => r.nom), rolesQuiGerent(m)) }, null, 2)}\n`;
     case 'src/donnees/types.ts': return typesDesTables(m);
     case 'src/styles/tokens.css': return poserLesJetons(lireDu(g, chemin), m.direction);
     case 'index.html': return lireDu(g, chemin).replace('__LANGUE__', m.langues.principale)

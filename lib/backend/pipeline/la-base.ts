@@ -36,6 +36,7 @@ import { champNomme, colonneVers, liensDUnExemple, nommeLeMeme } from '../app/le
 import { cumulSansDefaut, exprDuCumul } from '../app/les-cumuls';
 import { sqlDesNumeros } from '../app/les-numeros';
 import { sqlDesValeursLues } from '../app/les-valeurs-lues';
+import { quiFait } from '../app/les-acces';
 
 type Table = TableDeLaBase;
 type Champ = Table['champs'][number];
@@ -219,8 +220,8 @@ function lisible(m: Manifeste, s: string, t: Table, l: string): string {
  * Qui peut changer la ligne `l`. Le dehors ne change que ses lignes ; une ligne rattachée se change par qui change sa
  * mère, ou par son auteur tant qu'il voit sa mère (INCIDENT 25/11 : un client changeait l'avis d'un autre client).
  */
-function modifiable(m: Manifeste, s: string, t: Table, l: string): string {
-  const roles = ecrivains(m, t);
+function modifiable(m: Manifeste, s: string, t: Table, l: string, geste: 'creation' | 'modification' | 'suppression' = 'modification'): string {
+  const roles = quiFait(t, geste, rolesQuiGerent(m));
   if (roles.length === 0) return 'false';
   const org = dansSonOrganisation(m, s, l);
   const siens = `${l}.owner_id = auth.uid()`;
@@ -271,9 +272,9 @@ function sqlDeLaTable(m: Manifeste, s: string, t: Table): string[] {
     `grant execute on function ${s}.${t.nom}_modifiable(uuid) to authenticated;`,
     ...['lecture', 'creation', 'modification', 'suppression'].map((p) => `drop policy if exists ${t.nom}_${p} on ${T};`),
     `create policy ${t.nom}_lecture on ${T} for select to authenticated, anon using (${lisible(m, s, t, t.nom)});`,
-    `create policy ${t.nom}_creation on ${T} for insert to authenticated with check (owner_id = auth.uid() and ${modifiable(m, s, t, t.nom)}${totalises(m, s, t)});`,
+    `create policy ${t.nom}_creation on ${T} for insert to authenticated with check (owner_id = auth.uid() and ${modifiable(m, s, t, t.nom, 'creation')}${totalises(m, s, t)});`,
     `create policy ${t.nom}_modification on ${T} for update to authenticated using (${modifiable(m, s, t, t.nom)}) with check (${modifiable(m, s, t, t.nom)}${totalises(m, s, t)});`,
-    `create policy ${t.nom}_suppression on ${T} for delete to authenticated using (${modifiable(m, s, t, t.nom)});`,
+    `create policy ${t.nom}_suppression on ${T} for delete to authenticated using (${modifiable(m, s, t, t.nom, 'suppression')});`,
     `revoke all on ${T} from anon, authenticated;`,
     // Le navigateur n'écrit que les champs : l'auteur, l'organisation et l'état sont posés par la base, jamais fournis.
     `grant select on ${T} to authenticated;`,
@@ -283,7 +284,7 @@ function sqlDeLaTable(m: Manifeste, s: string, t: Table): string[] {
     ...(t.cycle ? sqlDuCycle(m, s, t) : []),
     ...(t.nom === TABLE_DE_LA_COMMANDE ? sqlDeLaVente(s, t, m.tables) : []),
     ...(t.propositions ? sqlDesPropositions(s, t) : []),
-    ...(t.ecriture.some((r) => r !== VISITEUR) && t.nom !== TABLE_DE_LA_COMMANDE ? sqlDeLImportDeLaPersonne(s, t, m.tables) : []),
+    ...((t.creation ?? t.ecriture).some((r) => r !== VISITEUR) && t.nom !== TABLE_DE_LA_COMMANDE ? sqlDeLImportDeLaPersonne(s, t, m.tables) : []),
     ...sqlDesCumuls(m, s, t),
     ...sqlDesNumeros(s, t.nom, t.champs, m.organisations),
     ...sqlDesValeursLues(s, t.nom, t.champs),

@@ -8,7 +8,8 @@
  * ouvrait alors un autre projet du compte pour en recopier la forme (essai d'Antoine du 25/11).
  */
 import { NOMS_DES_POLICES } from '../fige/polices';
-import { Appartenance, Nature, Obtention, Organisations, TypeDeChamp } from './manifeste';
+import { Nature, Obtention, Organisations, TypeDeChamp } from './manifeste';
+import { LIGNES } from './les-acces';
 
 export const EXEMPLE_D_APP_JSON = {
   version: 1,
@@ -36,13 +37,13 @@ export const EXEMPLE_D_APP_JSON = {
         { nom: 'places', libelle: 'Seats', type: 'nombre', obligatoire: true },
         { nom: 'genre', libelle: 'Kind', type: 'choix', obligatoire: true, valeurs: ['A', 'B'] },
       ],
-      appartenance: 'publique', lecture: ['proprietaire', 'membre'], ecriture: ['proprietaire'],
+      acces: { lire: ['tous'], creer: ['proprietaire'], modifier: ['proprietaire'], supprimer: ['proprietaire'], lignes: 'toutes' },
       propositions: false, contenu: false, exemples: [],
     },
     {
       nom: 'participations', libelle: 'Sign-ups',
       champs: [{ nom: 'evenement_id', libelle: 'Event', type: 'reference', obligatoire: true, table: 'evenements' }],
-      appartenance: 'personnelle', lecture: ['proprietaire', 'membre'], ecriture: ['proprietaire', 'membre'],
+      acces: { lire: ['inscrits'], creer: ['inscrits'], modifier: ['inscrits'], supprimer: ['proprietaire'], lignes: 'siennes' },
       propositions: false, contenu: false, exemples: [],
     },
   ],
@@ -65,8 +66,8 @@ export function laFormeDAppJson(): string {
   return [
     `Its shape, to follow exactly (a complete valid app.json): ${EXEMPLE_D_APP_JSON_TEXTE}`,
     `Allowed values. nature: ${v(Nature)}. Font (direction.polices.titres and .texte): ${NOMS_DES_POLICES.join(' | ')}.`,
-    `Field type: ${v(TypeDeChamp)}. Table appartenance: ${v(Appartenance)}. Role obtenu: ${v(Obtention)}. organisations: ${v(Organisations)}.`,
-    '`lecture` and `ecriture` of a table list declared roles, or `visiteur`: anyone without an account (in `lecture`, reads a `publique` table, such as a menu; in `ecriture`, sends a row, such as a booking). An empty `lecture` means nobody but the author reads it.',
+    `Field type: ${v(TypeDeChamp)}. Role obtenu: ${v(Obtention)}. organisations: ${v(Organisations)}.`,
+    `\`acces\` of a table says who does each gesture (lire, creer, modifier, supprimer): \`tous\` (anyone, with or without an account: a menu everyone reads, a booking anyone sends), \`inscrits\` (every role of the app), \`visiteur\` (only people without an account), or role names. \`lignes\` says which rows one sees: ${LIGNES.join(' | ')} (who manages the organisation always sees all). A table with a \`parent\` follows its parent row.`,
     'Each of `demandes` is { passage: the words of the person, quoted; tenuePar: [names of the screens, agents or automations that do it] }; leave it [] when unsure.',
   ].join('\n');
 }
