@@ -19,5 +19,5 @@ export async function lAdministrateur() {
   const base = clientDeService();
   const sur = administrationSurSupabase(base, u.id);
   const d: DependancesDeLAdministration = { ...sur, admin: u.id, cle: process.env[CLE_DE_VAVI]?.trim() || null, stripe: (url, init) => fetch(url, init), maintenant: Date.now() };
-  return { compte: u.id, sur, d };
+  return { compte: u.id, courriel: u.email ?? '', sur, d };
 }

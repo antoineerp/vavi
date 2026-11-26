@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { estAdministrateur, leTableau, lEtatDesServices, type LeTableauBrut } from '@/lib/administration/le-tableau';
+import { estAdministrateur, leTableau, lesTableauxDeBord, lEtatDesServices, type LeTableauBrut } from '@/lib/administration/le-tableau';
 import { changerLesPrix, creerUneReduction, lesCentimes, offrir, retirerUneReduction, type DependancesDeLAdministration } from '@/lib/administration/les-gestes';
 import { CHEMIN_DE_LA_MIGRATION_DE_L_ADMINISTRATION, laMigrationDeLAdministration } from '@/lib/administration/le-sql-de-l-administration';
 
@@ -119,5 +119,25 @@ describe('les gestes', () => {
     expect(await creerUneReduction(d({ cle: null }).deps, { compte: A, pourcent: '20', mois: '3', jours: '' })).toMatchObject({ fait: false });
     expect(x.appels).toHaveLength(0);
     expect(await retirerUneReduction(x.deps, 'pas-un-id')).toMatchObject({ fait: false });
+  });
+});
+
+// INCIDENT 26/11 (Antoine) : le lien de l'administration menait à la console : la connexion ne reconnaissait pas `/admin`
+// comme suite et renvoyait à « Mes projets ». Et la page ne montrait ni Supabase, ni Fly, ni Stripe.
+describe('INCIDENT 26/11 — l’administration s’atteint, et mène à l’hébergement', () => {
+  it('la connexion reprend `/admin` comme suite ; la barre du compte y mène l’administrateur', () => {
+    const connexion = readFileSync(join(process.cwd(), 'app', 'connexion', 'page.tsx'), 'utf8');
+    const suite = new RegExp(/test\((\/\^.*\$\/)\.test|(\/\^\\\/\(projets[^\n]*\$\/)/.exec(connexion)![2]!.slice(1, -1));
+    expect(suite.test('/admin')).toBe(true);
+    expect(readFileSync(join(process.cwd(), 'app', '_partage', 'la-barre-du-compte.tsx'), 'utf8')).toContain("lien('/admin', 'admin'");
+  });
+  it('les tableaux de bord tirés de la configuration, sans aucun secret', () => {
+    const t = lesTableauxDeBord({ NEXT_PUBLIC_SUPABASE_URL: 'https://abcdefghijklmnopqrst.supabase.co', FLY_APP_NAME: 'vavi-essai', FLY_REGION: 'cdg', VAVI_STRIPE_SECRET_KEY: 'sk_test_SECRET' });
+    expect(t.map((x) => x.service)).toEqual(['Supabase', 'Fly.io', 'Stripe']);
+    expect(t[0]!.liens[0]!.url).toBe('https://supabase.com/dashboard/project/abcdefghijklmnopqrst');
+    expect(t[1]!.liens[0]!.url).toBe('https://fly.io/apps/vavi-essai');
+    expect(t[2]!.liens[0]!.url).toBe('https://dashboard.stripe.com/test/payments');
+    expect(JSON.stringify(t)).not.toContain('SECRET');
+    expect(lesTableauxDeBord({})).toEqual([]);
   });
 });
