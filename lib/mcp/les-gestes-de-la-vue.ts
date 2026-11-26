@@ -58,6 +58,22 @@ export async function mettreEnLigneDepuisLaVue(c: Contexte, a: { project: string
   return 'refuse' in f ? f : { ok: true, published: true, fiche: f };
 }
 
+/**
+ * LES BOUTONS DE LA FICHE, DÉCIDÉS ICI (Antoine, 26/11 16h51 : la fiche corrigée restait l'ancienne chez lui). Claude.ai
+ * garde la page de la vue et la liste des outils d'une conversation à l'autre : un bouton écrit dans la page ne change
+ * qu'à son rafraîchissement. La page ne fait plus que les dessiner ; les changer ne touche qu'au serveur. Gestes connus
+ * de la page : `link` (ouvre `url`), `publish` (deux clics, jeton de la vue), `panel` (demande le panneau à l'hôte).
+ */
+export interface BoutonDeLaFiche { readonly do: 'link' | 'publish' | 'panel'; readonly label: { readonly fr: string; readonly en: string }; readonly url?: string; readonly main?: boolean }
+
+export function lesBoutonsDeLaFiche(f: { readonly preview_url: string | null; readonly state: string; readonly console_url: string }): BoutonDeLaFiche[] {
+  return [
+    ...(f.preview_url ? [{ do: 'link' as const, label: { fr: 'Voir l’aperçu', en: 'See the preview' }, url: f.preview_url }] : []),
+    ...(f.state === 'a_publier' ? [{ do: 'publish' as const, label: { fr: 'Publier', en: 'Publish' }, main: true }] : []),
+    { do: 'link', label: { fr: 'Console vavi', en: 'vavi console' }, url: f.console_url },
+  ];
+}
+
 async function laFiche(c: Contexte, id: string, connue?: string): Promise<Rendu> {
   const p = await c.projets.lire(c.compte, id);
   if (!p.lu) return refuser('base_illisible', `The project database did not answer (${p.pourquoi}).`);
@@ -67,12 +83,14 @@ async function laFiche(c: Contexte, id: string, connue?: string): Promise<Rendu>
     c.projets.versions(c.compte, id, 5), c.vue?.messages(id) ?? null, c.vue?.visites(id) ?? null, c.vue?.droitDePublier(id) ?? null]);
   const etat = lEtatDeLaMiseEnLigne(projet);
   const adresses = { console: c.adresse, domaine: c.domaineDesApps ?? null };
+  const preview_url = projet.apercuEmpreinte ? lAdresseDeLApp(id, 'apercu', adresses) : null, console_url = `${c.adresse}/projets/${id}`;
   return {
+    buttons: lesBoutonsDeLaFiche({ preview_url, state: etat, console_url }),
     ok: true, id, project: id, name: projet.nom, version: projet.version, state: etat,
     work_session: projet.chantier?.intention ?? null,
-    preview_url: projet.apercuEmpreinte ? lAdresseDeLApp(id, 'apercu', adresses) : null,
+    preview_url,
     online_url: projet.enLigneEmpreinte ? lAdresseDeLApp(id, 'en_ligne', adresses) : null,
-    console_url: `${c.adresse}/projets/${id}`, plan_url: `${c.adresse}/abonnement`,
+    console_url, plan_url: `${c.adresse}/abonnement`,
     can_publish: droit ? droit.permis : null,
     versions: versions.lu ? versions.valeur.map((v) => ({ version: v.numero, why: v.pourquoi, at: v.creeLe })) : null,
     messages, visits: visites,
