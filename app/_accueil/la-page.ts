@@ -163,22 +163,16 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 /* Sections */
 section{padding-block:64px}
 .titre-section{display:grid;gap:12px;margin-bottom:36px;max-width:44em}
-/* Le design : interdits et demandes ; la vérification en quatre temps */
-.design-duo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px}
-.design-col{background:var(--carte);border:1px solid var(--trait);border-radius:14px;padding:24px;display:grid;gap:14px;align-content:start}
-.interdits,.demandes{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-.interdits li{color:var(--encre-douce);text-decoration:line-through;text-decoration-color:var(--marge);text-decoration-thickness:2px;padding-left:26px;position:relative}
-.interdits li::before{content:"✕";position:absolute;left:0;color:var(--marge);text-decoration:none;font-weight:700}
-.demandes li{padding-left:26px;position:relative;color:var(--encre-douce)}
-.demandes li b{color:var(--encre)}
-.demandes li::before{content:"→";position:absolute;left:0;color:var(--vert);font-weight:700}
+/* Ce que Claude ne fait pas seul : quatre cartes, puis le design en une ligne */
 .essais{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;counter-reset:essai}
 .essais li{counter-increment:essai;background:var(--carte);border:1px solid var(--trait);border-radius:14px;padding:20px;display:grid;gap:8px;align-content:start}
 .essais li::before{content:"0" counter(essai);font-family:var(--f-mono);font-size:.8rem;color:var(--cyan);letter-spacing:.1em}
 .essais b{font-family:var(--f-titre);font-size:1.1rem}
 .essais span{color:var(--encre-douce);font-size:.95rem}
 @media (max-width:980px){.essais{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:760px){.design-duo,.essais{grid-template-columns:1fr}}
+@media (max-width:760px){.essais{grid-template-columns:1fr}}
+.ligne-design{margin-top:22px;color:var(--encre-douce);font-size:1.05rem}
+.ligne-design b{color:var(--encre)}
 /* Ouverture sur une colonne, avec la capture réelle de Claude ; ce qui tourne ; l'abonnement */
 .ouverture.une-colonne .enveloppe{grid-template-columns:1fr;gap:36px}
 .ouverture.une-colonne .texte{max-width:46em}
@@ -437,7 +431,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
       vavi
     </a>
     <nav class="nav" aria-label="Sections">
-      <a href="#design">Le design</a>
+      <a href="#fiable">Pourquoi vavi</a>
       <a href="#tourne">Ce que fait vavi</a>
       <a href="#etapes">Comment ça marche</a>
       <a href="#prix">Prix</a>
@@ -469,55 +463,21 @@ details p{margin-top:10px;color:var(--encre-douce)}
   </div>
 </div>
 
-<!-- ═════════ LE DESIGN ═════════ -->
-<section id="design" aria-labelledby="t-design">
+<!-- ═════════ CE QUE CLAUDE NE FAIT PAS SEUL ═════════ -->
+<section id="fiable" aria-labelledby="t-fiable">
   <div class="enveloppe">
     <div class="titre-section">
-      <span class="main">Le design</span>
-      <h2 id="t-design">Des sites qui ne ressemblent pas à de l'IA</h2>
-      <p>Les sites faits par IA finissent souvent par se ressembler. Avec vavi, Claude travaille comme un directeur artistique : il conçoit une identité pour votre sujet, et vavi lui interdit les tics qui trahissent un site généré.</p>
-    </div>
-    <div class="design-duo">
-      <div class="design-col">
-        <h3>Ce que vavi interdit à Claude</h3>
-        <ul class="interdits">
-          <li>Le titre centré en dégradé violet, avec deux boutons dessous</li>
-          <li>L'icône dans un petit carré coloré, les emoji, les halos</li>
-          <li>Les compteurs qui ne comptent rien</li>
-          <li>Les titres-étiquettes du genre « Nos services »</li>
-          <li>Les sections en bandes colorées qui alternent</li>
-          <li>La même ombre et les mêmes coins arrondis partout</li>
-          <li>Les photos de banque qui pourraient aller sur n'importe quel site</li>
-        </ul>
-      </div>
-      <div class="design-col">
-        <h3>Ce que vavi lui demande</h3>
-        <ul class="demandes">
-          <li><b>Une direction artistique écrite pour votre sujet</b> : ses couleurs, ses deux polices, son registre, son mouvement, et pourquoi.</li>
-          <li><b>Une vraie mise en page</b> : grande typographie, compositions qui alternent, une bande sombre ou une photo pleine largeur pour rompre le rythme.</li>
-          <li><b>Des photos de votre métier</b>, ou les vôtres, avec leurs crédits.</li>
-          <li><b>Une lecture garantie</b> : vavi calcule le contraste de chaque texte, sur ordinateur et sur téléphone.</li>
-          <li><b>Un contrôle du rendu</b> : Claude reçoit la capture de votre accueil sur ordinateur et sur téléphone avant de vous le montrer.</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═════════ ESSAYÉ AVANT D'ÊTRE MONTRÉ ═════════ -->
-<section id="essaye" aria-labelledby="t-essaye">
-  <div class="enveloppe">
-    <div class="titre-section">
-      <span class="main">La vérification</span>
-      <h2 id="t-essaye">Claude essaie votre site avant de vous le montrer</h2>
-      <p>vavi donne à Claude un vrai navigateur. Il ne vous dit « ça marche » qu'après l'avoir vérifié, et il vous dit ce qu'il n'a pas pu vérifier.</p>
+      <span class="main">Pourquoi vavi</span>
+      <h2 id="t-fiable">Ce que Claude ne fait pas seul</h2>
+      <p>Les règles ne sont pas des consignes qu'il pourrait oublier : ce sont les outils de vavi qui les tiennent.</p>
     </div>
     <ol class="essais">
-      <li><b>Il construit</b><span>À chaque changement, le site est construit. Une erreur revient à Claude avec le fichier et la ligne, et il la corrige avant de vous répondre.</span></li>
-      <li><b>Il regarde</b><span>Il voit votre accueil sur ordinateur et sur téléphone, avec les images cassées et les liens qui ne mènent nulle part.</span></li>
-      <li><b>Il joue le parcours</b><span>Il clique, remplit un formulaire, crée un compte et remplit un panier, sur une copie de votre base. Rien de réel n'est touché, aucun courriel ne part.</span></li>
-      <li><b>Il vérifie les droits</b><span>Chaque page doit pouvoir lire et enregistrer ce qu'il lui faut. Les règles d'accès, posées par vavi, empêchent un client de voir les données d'un autre.</span></li>
+      <li><b>Il ne peut pas tricher pour faire passer une erreur</b><span>Pas d'erreur masquée, pas de fichier du cadre réécrit, pas de paquet douteux. Après trois essais ratés, il s'arrête et propose de revenir en arrière, au lieu d'user votre abonnement en boucle.</span></li>
+      <li><b>Il essaie votre site avant de vous le montrer</b><span>Dans un vrai navigateur : il clique, remplit, crée un compte et un panier sur une copie de votre base, regarde l'accueil sur ordinateur et sur téléphone. Il ne dit « ça marche » qu'après.</span></li>
+      <li><b>La sécurité vient de la structure</b><span>Claude dit qui a le droit de faire quoi. vavi écrit la base et ses règles d'accès : un client ne voit jamais les données d'un autre, et aucune clé secrète n'arrive dans le code.</span></li>
+      <li><b>Vous n'avez pas à tout réexpliquer</b><span>vavi garde vos choix, la structure du projet et chaque version. Une nouvelle conversation reprend là où la précédente s'est arrêtée.</span></li>
     </ol>
+    <p class="ligne-design"><b>Et un design qui évite les clichés des sites générés par IA</b> : une direction artistique écrite pour votre sujet, avec des photos de votre métier.</p>
   </div>
 </section>
 
@@ -537,7 +497,6 @@ details p{margin-top:10px;color:var(--encre-douce)}
         <li><b>Vos messages, sans spam</b><span>Chaque formulaire est filtré, puis arrive dans votre boîte de réception et par courriel.</span></li>
         <li><b>Vos visites, sans cookie</b><span>Combien de visiteurs, et d'où ils viennent, assistants IA compris. Aucun bandeau de cookies à afficher.</span></li>
         <li><b>Trouvé par Google et par les assistants IA</b><span>Pages lisibles sans JavaScript, plan du site, llms.txt. Vous choisissez quels robots d'IA peuvent lire votre site.</span></li>
-        <li><b>Claude se souvient de vos choix</b><span>Le ton, les couleurs refusées, votre public : notés dans le projet, relus à chaque conversation, modifiables par vous.</span></li>
         <li><b>Vos versions et le bouton Publier</b><span>Chaque changement est gardé. Vous publiez quand ça vous plaît, et vous revenez en arrière d'un clic.</span></li>
       </ul>
       <figure class="capture-console">
