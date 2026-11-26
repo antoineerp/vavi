@@ -39,6 +39,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       <div className="entete"><h1>Administration</h1><span className="attenue">relu le {new Date(maintenant).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })}</span></div>
       {q.fait && <div className="carte" role="status">Fait : {q.fait}</div>}
       {q.refus && <div className="carte" role="alert">Refusé : {q.refus}</div>}
+      {services.some((s) => s.malFormes.length) && <div className="carte" role="alert">Un secret de Fly est mal posé : {services.flatMap((s) => s.malFormes).join(' ; ')}. Corrige-le dans Fly (Secrets), puis Deploy.</div>}
 
       <h2>Hébergement</h2>
       {outils.length === 0 ? <p className="carte attenue">Les adresses de Supabase, Fly et Stripe ne se lisent pas dans la configuration du serveur.</p> : (
@@ -126,7 +127,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
 
       <h2>État des services</h2>
       <ul className="liste carte">{services.map((s) => <li key={s.service}><span>{s.service}</span>
-        <span className={s.manquent.length ? '' : 'attenue'} style={s.manquent.length ? { color: 'var(--alerte)' } : undefined}>{s.manquent.length ? `manque : ${s.manquent.join(', ')}` : 'secrets posés'}</span></li>)}</ul>
+        <span className={s.manquent.length || s.malFormes.length ? '' : 'attenue'} style={s.manquent.length || s.malFormes.length ? { color: 'var(--alerte)' } : undefined}>
+          {[s.manquent.length ? `manque : ${s.manquent.join(', ')}` : '', s.malFormes.length ? `mal posé : ${s.malFormes.join(', ')}` : ''].filter(Boolean).join(' · ') || 'secrets posés'}</span></li>)}</ul>
 
       <h2>Journal</h2>
       <div className="carte">

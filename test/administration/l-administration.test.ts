@@ -141,3 +141,14 @@ describe('INCIDENT 26/11 — l’administration s’atteint, et mène à l’hé
     expect(lesTableauxDeBord({})).toEqual([]);
   });
 });
+
+describe('INCIDENT 26/11 — la clé publiable de Stripe posée à la place de la secrète', () => {
+  it('dite « mal posée », sans répéter la valeur', () => {
+    const s = lEtatDesServices({ VAVI_STRIPE_SECRET_KEY: 'pk_test_VALEUR', VAVI_STRIPE_WEBHOOK_SECRET: 'whsec_x' });
+    const ventes = s.find((x) => x.service === 'Stripe (ventes des apps)')!;
+    expect(ventes.malFormes).toHaveLength(1);
+    expect(ventes.malFormes[0]).toContain('VAVI_STRIPE_SECRET_KEY');
+    expect(JSON.stringify(s)).not.toContain('VALEUR');
+    expect(lEtatDesServices({ VAVI_STRIPE_SECRET_KEY: 'sk_test_x' }).every((x) => x.malFormes.length === 0)).toBe(true);
+  });
+});
