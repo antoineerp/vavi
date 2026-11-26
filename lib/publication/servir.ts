@@ -43,7 +43,9 @@ const enScript = (v: string): string => JSON.stringify(v).replace(/</g, '\\u003c
 export function poserLEnvironnement(html: string, env: EnvDeLApp): string {
   const script = `<base href="${env.base.replace(/[^\w/.-]/g, '')}">` + `<script>window.__SUPABASE_URL__=${enScript(env.supabaseUrl)};window.__SUPABASE_ANON_KEY__=${enScript(env.cleAnonyme)};`
     + `window.__DATABASE_SCHEMA__=${enScript(env.schema)};window.__VAVI_BASENAME__=${enScript(env.base)};`
-    + `window.__PROJECT_ID__=${enScript(env.projet)};window.__CONSTRUCTOR_API_URL__=${enScript(env.api ?? '')};`
+    + `window.__PROJECT_ID__=${enScript(env.projet)};window.__VAVI_API_URL__=${enScript(env.api ?? '')};`
+    // L'ancien nom, que lisent les apps bâties avant le 26/11 (leur dist ne se rebâtit pas pour un nom).
+    + `window.__CONSTRUCTOR_API_URL__=${enScript(env.api ?? '')};`
     + `${env.console ? `window.__VAVI_CONSOLE__=${enScript(env.console)};` : ''}</script>`;
   const tete = /<head[^>]*>/i.exec(html);
   return tete ? html.replace(tete[0], `${tete[0]}${script}`) : `${script}${html}`;

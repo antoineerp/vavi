@@ -53,10 +53,11 @@ describe('servir l’aperçu', () => {
   it('INCIDENT — l’app nomme son projet dans ses appels à la plateforme : sans lui, le panier appelait /api/pay//panier', () => {
     const html = poserLEnvironnement('<html><head></head></html>', ENV);
     expect(html).toContain(`window.__PROJECT_ID__="${P}"`);
+    expect(html).toContain('window.__VAVI_API_URL__=""');
     expect(html).toContain('window.__CONSTRUCTOR_API_URL__=""');
   });
   it('INCIDENT 25/11 — dans le cadre de la vue de Claude, l’app appelle les routes de vavi à leur origine, jamais à celle de Claude', () => {
-    expect(poserLEnvironnement('<html><head></head></html>', { ...ENV, api: 'https://www.vavi.test' })).toContain('window.__CONSTRUCTOR_API_URL__="https://www.vavi.test"');
+    expect(poserLEnvironnement('<html><head></head></html>', { ...ENV, api: 'https://www.vavi.test' })).toContain('window.__VAVI_API_URL__="https://www.vavi.test"');
   });
   it('une page de l’app sert l’entrée ; un fichier absent rend 404 ; un chemin qui sort du dist est refusé', async () => {
     const m = unMagasinEnMemoire();

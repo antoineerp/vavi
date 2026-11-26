@@ -26,7 +26,7 @@ function campagneSeule(recherche: string): string {
 
 function envoyer(chemin: string, recherche: string): void {
   try {
-    const api = window.__CONSTRUCTOR_API_URL__ ?? '';
+    const api = window.__VAVI_API_URL__ ?? '';
     const projet = window.__PROJECT_ID__ ?? '';
     // `api` vide : l'app est servie par la plateforme elle-même (vavi), le collecteur est à la même adresse.
     if (!projet || enApercu || navigator.webdriver || window.parent !== window) return;

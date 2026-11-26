@@ -1,11 +1,14 @@
 /** GET /api/sante — la plateforme répond, et dit sa version et si sa configuration est complète (Supabase et le magasin des builds) ;
- * `?navigateur=oui` essaie en plus le navigateur du serveur (pré-rendu, captures). */
+ * `?navigateur=oui` essaie en plus le navigateur du serveur (pré-rendu, captures) ; `?banque=oui`, la clé de la banque de
+ * photos (26/11 : deux 401 de suite dans une génération, rien ne le montrait). Le courrier des formulaires dit s'il est branché. */
 import { NextResponse, type NextRequest } from 'next/server';
 import { configurationPublique, cleDeService } from '@/lib/supabase/configuration';
 import { lesReglagesDuMagasin } from '@/lib/publication/les-reglages-du-magasin';
 import { leDomaineDesApps } from '@/lib/publication/les-adresses-des-apps';
 import { lEtatDeLaCle, laRaisonDeLaCle } from '@/lib/comptes/les-jetons';
 import { essayerLeNavigateur } from '@/lib/seo/le-pre-rendu';
+import { banqueDeLaPlateforme, CleDeLaBanqueRefusee } from '@/lib/images/la-banque';
+import { leCourrierDeLaPlateforme } from '@/lib/formulaires/sur-supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +18,19 @@ async function leNavigateur() {
   if (dernierEssai && Date.now() - dernierEssai.a < 60_000) return { ...dernierEssai.r, essaye_il_y_a_s: Math.round((Date.now() - dernierEssai.a) / 1000) };
   dernierEssai = { a: Date.now(), r: await essayerLeNavigateur() };
   return dernierEssai.r;
+}
+
+/** La banque de photos : absente, posée, ou (sur demande, une fois par minute au plus) acceptée ou refusée par la banque. */
+let dernierEssaiDeLaBanque: { readonly a: number; readonly r: string } | null = null;
+async function laBanque(essayer: boolean): Promise<string> {
+  const b = banqueDeLaPlateforme();
+  if (!b) return 'absente';
+  if (!essayer) return 'posee';
+  if (dernierEssaiDeLaBanque && Date.now() - dernierEssaiDeLaBanque.a < 60_000) return dernierEssaiDeLaBanque.r;
+  const r = await b.chercher('coffee', 1, new Set()).then(() => 'acceptee',
+    (e: unknown) => (e instanceof CleDeLaBanqueRefusee ? `cle_refusee_${e.statut}` : 'injoignable'));
+  dernierEssaiDeLaBanque = { a: Date.now(), r };
+  return r;
 }
 
 export async function GET(req: NextRequest) {
@@ -40,5 +56,8 @@ export async function GET(req: NextRequest) {
     // Illisible : la forme vue et ce qui manque, jamais la clé.
     ...(etatDeLaCle === 'illisible' ? { cle_des_comptes_pourquoi: laRaisonDeLaCle(process.env.VAVI_CLE_DES_COMPTES) } : {}),
     ...(navigateur ? { navigateur } : {}),
+    // Les messages des formulaires partent par e-mail au propriétaire de l'app : `absent`, ils restent dans la console seule.
+    courrier_des_formulaires: leCourrierDeLaPlateforme(process.env) ? 'pret' : 'absent',
+    banque_de_photos: await laBanque(req.nextUrl.searchParams.get('banque') === 'oui'),
   }, { status: vital.length === 0 ? 200 : 503 });
 }

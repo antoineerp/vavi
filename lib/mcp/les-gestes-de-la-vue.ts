@@ -28,9 +28,11 @@ export interface LecturesDeLaVue {
 
 const SANS_JETON = 'This tool is reserved to the vavi view, clicked by the person. You cannot call it: tell the person to use the Publish button in the vavi card, or in the vavi console.';
 
-export async function laFicheDuProjet(c: Contexte, a: { project: string; geste: string }): Promise<Rendu> {
+/** `known` : l'empreinte de l'aperçu que la vue montre déjà ; la même, la page n'est pas relue (la vue la redemande
+ * toutes les quelques secondes pendant que Claude construit). */
+export async function laFicheDuProjet(c: Contexte, a: { project: string; geste: string; known?: string }): Promise<Rendu> {
   if (!lireUnJetonDeVue(a.geste, c.compte)) return refuser('confirmation_requise', SANS_JETON);
-  return laFiche(c, a.project);
+  return laFiche(c, a.project, a.known);
 }
 
 export async function mettreEnLigneDepuisLaVue(c: Contexte, a: { project: string; geste: string }): Promise<Rendu> {
@@ -56,7 +58,7 @@ export async function mettreEnLigneDepuisLaVue(c: Contexte, a: { project: string
   return 'refuse' in f ? f : { ok: true, published: true, fiche: f };
 }
 
-async function laFiche(c: Contexte, id: string): Promise<Rendu> {
+async function laFiche(c: Contexte, id: string, connue?: string): Promise<Rendu> {
   const p = await c.projets.lire(c.compte, id);
   if (!p.lu) return refuser('base_illisible', `The project database did not answer (${p.pourquoi}).`);
   if (!p.valeur) return refuser('projet_inconnu', `No project "${id}" in this account.`);
@@ -74,7 +76,10 @@ async function laFiche(c: Contexte, id: string): Promise<Rendu> {
     can_publish: droit ? droit.permis : null,
     versions: versions.lu ? versions.valeur.map((v) => ({ version: v.numero, why: v.pourquoi, at: v.creeLe })) : null,
     messages, visits: visites,
-    app_html: projet.apercuEmpreinte && c.vue?.pageDeLApercu
+    // Ce que la vue suit pendant la construction : le chantier ouvert, l'aperçu qu'elle montre (inchangé : pas relu).
+    building: projet.chantier !== null && projet.chantier !== undefined, preview_fingerprint: projet.apercuEmpreinte ?? null,
+    ...(connue && connue === projet.apercuEmpreinte ? { app_html_unchanged: true } : {}),
+    app_html: projet.apercuEmpreinte && projet.apercuEmpreinte !== connue && c.vue?.pageDeLApercu
       ? await c.vue.pageDeLApercu(id, projet.apercuEmpreinte, lAdresseDeLApp(id, 'apercu', adresses)).catch(() => null) : null,
   };
 }

@@ -10,7 +10,8 @@
  * propres appels (`tools/call` des outils réservés à la vue). Elle porte le jeton de vue du compte, que le modèle ne voit
  * jamais : c'est lui qui prouve qu'un clic vient de la personne.
  *
- * Neuf dans vavi (24/11).
+ * Neuf dans vavi (24/11). Le 26/11 (Antoine) : elle s'ouvre dès `create_project` et `ouvrir_chantier`, dit ce que Claude
+ * construit tant que le chantier est ouvert, et devient l'aperçu au premier build.
  */
 export const RESSOURCE_DE_LA_VUE = 'ui://vavi/projet';
 export const TYPE_DE_LA_VUE = 'text/html;profile=mcp-app';
@@ -85,11 +86,13 @@ main{padding:12px 14px;display:grid;gap:10px}
   var T=fr?{attente:'Chargement de l’aperçu…',enLigne:'En ligne',aPublier:'Changements à publier',rien:'Pas encore d’aperçu',grand:'Voir l’aperçu',
     site:'Voir le site en ligne',publier:'Publier',publierQ:'Confirmer : mettre en ligne cet aperçu',publie:'C’est en ligne.',console:'Console vavi',
     offre:'Choisir une offre',
-    cote:'Garder l’app à côté',enGrand:'Ouvrir l’app en grand',erreur:'Cela n’a pas marché :',sansApercu:'Demandez à Claude de construire l’aperçu.'}
+    cote:'Garder l’app à côté',enGrand:'Ouvrir l’app en grand',erreur:'Cela n’a pas marché :',sansApercu:'Demandez à Claude de construire l’aperçu.',
+    construit:'Claude construit :',prepare:'Claude prépare le premier aperçu, il s’affichera ici.',version:'Version'}
   :{attente:'Loading the preview…',enLigne:'Online',aPublier:'Changes to publish',rien:'No preview yet',grand:'See the preview',
     site:'See the live site',publier:'Publish',publierQ:'Confirm: put this preview online',publie:'It is online.',console:'vavi console',
     offre:'Choose a plan',
-    cote:'Keep the app alongside',enGrand:'Open the app large',erreur:'That did not work:',sansApercu:'Ask Claude to build the preview.'};
+    cote:'Keep the app alongside',enGrand:'Open the app large',erreur:'That did not work:',sansApercu:'Ask Claude to build the preview.',
+    construit:'Claude is building:',prepare:'Claude is preparing the first preview; it will show here.',version:'Version'};
   document.getElementById('attente').textContent=T.attente;
   var n=0,attendus={};
   function envoyer(methode,params,notif){var m={jsonrpc:'2.0',method:methode,params:params||{}};if(!notif){m.id=++n;}
@@ -120,7 +123,8 @@ main{padding:12px 14px;display:grid;gap:10px}
     var ombre=hote.shadowRoot;ombre.textContent='';ombre.appendChild(el('style',{texte:STYLE}));
     var b=el('div',{class:'barre',role:'toolbar','aria-label':'vavi'});
     if(message)b.appendChild(el('span',{class:'mot',role:'status',texte:message}));
-    if(!f.app_html)b.appendChild(el('span',{class:'doux',texte:f.preview_url?T.attente:T.sansApercu}));
+    else if(f.building)b.appendChild(el('span',{class:'mot',role:'status',texte:T.construit+' '+(f.work_session||'')}));
+    if(!f.app_html&&!f.app_html_unchanged&&!f.building)b.appendChild(el('span',{class:'doux',texte:f.preview_url?T.attente:T.sansApercu}));
     if(f.preview_url)b.appendChild(el('button',{texte:T.grand,onclick:function(){lien(f.preview_url);}}));
     if(f.app_html&&modes.indexOf('pip')>=0)b.appendChild(el('button',{texte:T.cote,onclick:function(){mode('pip');}}));
     if(f.app_html&&modes.indexOf('fullscreen')>=0)b.appendChild(el('button',{texte:T.enGrand,onclick:function(){mode('fullscreen');}}));
@@ -135,13 +139,30 @@ main{padding:12px 14px;display:grid;gap:10px}
     ombre.appendChild(b);
     setTimeout(function(){document.body.style.paddingBottom=(b.offsetHeight+8)+'px';},30);
   }
-  function montrer(f,message){derniere=f;
+  // PENDANT QUE CLAUDE CONSTRUIT (Antoine, 26/11 : la vue s'ouvre dès la création, dit l'avancement, puis devient
+  // l'aperçu) : avant le premier aperçu, ce que le chantier a déjà fait, version par version ; la fiche est relue toutes
+  // les 5 s tant que le chantier est ouvert (45 min au plus), et l'aperçu nouveau remplace l'ancien de lui-même.
+  function lAvancement(f){var v=document.getElementById('vue');if(!v)return;v.textContent='';
+    v.appendChild(el('strong',{texte:f.name||''}));
+    if(f.building)v.appendChild(el('p',{role:'status',texte:T.construit+' '+(f.work_session||'')}));
+    v.appendChild(el('p',{class:'doux',texte:f.building?T.prepare:T.sansApercu}));
+    var l=el('ol',{reversed:'reversed'});(f.versions||[]).forEach(function(x){l.appendChild(el('li',{texte:T.version+' '+x.version+' · '+(x.why||'')}));});
+    if(l.childNodes.length)v.appendChild(l);}
+  function montrer(f,message){var avant=derniere;derniere=f;
     if(f.app_html)ecrire(f.app_html);
-    else{var v=document.getElementById('vue');if(v)v.textContent='';}
+    else if(f.app_html_unchanged&&avant&&ecrite){f.app_html=avant.app_html;}
+    else lAvancement(f);
     laBarre(f,message);if(!f.app_html)setTimeout(taille,50);
+    suivre(f);
   }
-  function charger(id){projet=id;outil('vavi_fiche_du_projet',{project:id,geste:JETON}).then(function(f){montrer(f);})
-    .catch(function(x){document.getElementById('vue').textContent=T.erreur+' '+x.message;taille();});}
+  var debutDuSuivi=Date.now(),minuteur=null;
+  function suivre(f){if(minuteur)clearTimeout(minuteur);minuteur=null;
+    if(!projet||!f.building||Date.now()-debutDuSuivi>45*60000)return;
+    minuteur=setTimeout(function(){minuteur=null;relire();},5000);}
+  function relire(){if(!projet)return;outil('vavi_fiche_du_projet',{project:projet,geste:JETON,known:(derniere&&derniere.preview_fingerprint)||undefined})
+    .then(function(f){montrer(f);},function(){if(derniere)suivre(derniere);});}
+  function charger(id){projet=id;debutDuSuivi=Date.now();outil('vavi_fiche_du_projet',{project:id,geste:JETON}).then(function(f){montrer(f);})
+    .catch(function(x){var v=document.getElementById('vue');if(v)v.textContent=T.erreur+' '+x.message;taille();});}
   function recevoir(e){var m=e.data;if(!m||m.jsonrpc!=='2.0')return;
     if(m.id!=null&&attendus[m.id]){var a=attendus[m.id];delete attendus[m.id];if(m.error)a.non(new Error(m.error.message));else a.ok(m.result);return;}
     if(m.method==='ui/notifications/tool-input'){var a2=(m.params&&m.params.arguments)||{};if(a2.project){entree=a2.project;if(!projet)charger(a2.project);}}

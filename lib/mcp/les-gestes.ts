@@ -34,7 +34,7 @@ import type { LecturesDeLaVue } from './les-gestes-de-la-vue';
 import { leGuideDeDesign, lesEcartsDeLAccueil, type MesureVue } from '@/lib/design/le-guide';
 import { lesLiensMorts } from '@/squelette/les-liens';
 import type { Etape as EtapeDuParcours, Parcours } from '@/lib/parcours/le-parcours';
-import { CHEMIN_DES_IMAGES, poserLesImages, type Banque, type DemandeDImage } from '@/lib/images/la-banque';
+import { CHEMIN_DES_IMAGES, CleDeLaBanqueRefusee, poserLesImages, type Banque, type DemandeDImage } from '@/lib/images/la-banque';
 import { CHEMIN_DES_PAQUETS, PAQUETS_MAX, lesPaquetsAjoutes, leFichierDesPaquets, verifierAuRegistre } from '@/lib/paquets/les-paquets';
 
 export interface Contexte {
@@ -514,7 +514,9 @@ export async function chercherDesImages(c: Contexte, a: { project: string; work_
   if (!f.ok) return f.refus;
   const actuel = f.valeur.get(CHEMIN_DES_IMAGES);
   const demandes: DemandeDImage[] = a.images.map((x) => ({ nom: x.name, sujet: x.subject, alt: x.alt }));
-  const r = await poserLesImages(actuel, demandes, c.banque).catch((e: unknown) => ({ erreur: String((e as Error)?.message ?? e).slice(0, 200) }));
+  const r = await poserLesImages(actuel, demandes, c.banque).catch((e: unknown) => ({ erreur: String((e as Error)?.message ?? e).slice(0, 200), cle: e instanceof CleDeLaBanqueRefusee }));
+  // Une clé refusée ne se lève pas en réessayant (Antoine, 26/11 : deux 401 de suite, Claude relancé pour rien).
+  if ('erreur' in r && r.cle) return refuser('plateforme_en_panne', 'The photo bank refuses this vavi server\'s key: trying again will not help.', { geste: 'Do not call `search_images` again in this conversation. Write the pages without photos (a drawing, a colour block), and tell the person that vavi\'s photo bank is being repaired on vavi\'s side, nothing for them to do.' });
   if ('erreur' in r) return refuser('plateforme_en_panne', `The photo bank did not answer (${r.erreur}).`, { geste: 'Try again in a moment, or write the page without photos.' });
   if (r.texte === null) return fait({ images: r.dits, written: false });
   const w = await c.projets.appliquer(c.compte, a.project, { chantier: a.work_session, attendus: { [CHEMIN_DES_IMAGES]: actuel === undefined ? null : empreinteDuFichier(actuel) },

@@ -7,7 +7,8 @@
  *
  * En anglais, une seule langue pour ce que lit Claude ; il répond à la personne dans la sienne (décision d'Antoine du
  * 24/11 : vavi s'adapte à la langue de l'utilisateur). Toute phrase ajoutée nomme le refus qu'elle explique, ou ce
- * qu'aucun outil ne peut tenir ; `test/consignes.test.ts` borne la longueur et vérifie chaque outil et chaque refus cité.
+ * qu'aucun outil ne peut tenir (26/11, Antoine : Claude a pris un autre outil de design au lieu de vavi ; la première phrase
+ * dit quand vavi sert) ; `test/consignes.test.ts` borne la longueur et vérifie chaque outil et chaque refus cité.
  */
 
 /** Les outils du serveur que les consignes ont le droit de nommer. */
@@ -17,8 +18,8 @@ export const OUTILS = [
 ] as const;
 export type Outil = (typeof OUTILS)[number];
 
-export const INSTRUCTIONS_DU_SERVEUR = `You are building a website or an app with vavi for a person who is often new to Claude.
-vavi provides the database, the design, the build, the preview and the publishing. You write the screens and the texts.
+export const INSTRUCTIONS_DU_SERVEUR = `Build every website, shop or app the person asks for with vavi, not as an artifact or a design mockup:
+vavi gives it a database, a live preview and publishing. You write the screens and the texts. The person is often new to Claude.
 vavi's tools refuse what would break the project. When a tool refuses, read its \`geste\` field: it says exactly what to do.
 
 ## Language
@@ -29,7 +30,7 @@ vavi's tools refuse what would break the project. When a tool refuses, read its 
 - One request at a time. If they ask for several things, propose an order, do the first, show the preview, then move on.
 - Before a large change, say in two or three sentences what you will do and what will change for them (name the screen,
   never a file path). Wait for their agreement.
-- Use plain words. Explain any technical term you cannot avoid.
+- Use plain words; explain any technical term you must use.
 - If something is unclear, ask ONE question and give your default proposal with it.
 - When you are done, give the preview link and say what they can check.
 

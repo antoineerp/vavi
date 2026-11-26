@@ -10,7 +10,7 @@ function origineDeLaPlateforme(): string | null {
     // La console de vavi, à son origine (l'app est servie à son propre hôte) ; sinon la plateforme qui sert l'app.
     const laConsole = window.__VAVI_CONSOLE__;
     if (laConsole) return new URL(laConsole).origin;
-    const url = window.__CONSTRUCTOR_API_URL__;
+    const url = window.__VAVI_API_URL__;
     return url ? new URL(url).origin : window.location.origin;
   } catch {
     return null;

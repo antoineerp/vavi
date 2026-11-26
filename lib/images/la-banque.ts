@@ -100,6 +100,11 @@ interface ReponseUnsplash {
   }>;
 }
 
+/** La banque refuse la clé de la plateforme (401, 403) : réessayer n'y change rien, seule une clé juste la lèvera. */
+export class CleDeLaBanqueRefusee extends Error {
+  constructor(readonly statut: number) { super(`la banque d’images refuse la clé de vavi (${statut})`); }
+}
+
 /** Unsplash, avec la provenance que ses règles d'usage demandent sur chaque lien de crédit. */
 export class Unsplash implements Banque {
   constructor(private readonly cle: string, private readonly application: string) {}
@@ -112,6 +117,7 @@ export class Unsplash implements Banque {
     const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(sujet)}&per_page=${Math.min(24, combien * 4)}`
       + '&content_filter=high&orientation=landscape&order_by=relevant';
     const r = await avecDelai(url, this.cle);
+    if (r.status === 401 || r.status === 403) throw new CleDeLaBanqueRefusee(r.status);
     if (!r.ok) throw new Error(`la banque d’images a répondu ${r.status} sur « ${sujet} »`);
     const charge = await r.json() as ReponseUnsplash;
     const trouvees: ImageTrouvee[] = [];

@@ -128,6 +128,17 @@ describe('la vue dans Claude', () => {
       console_url: `https://vavi.test/projets/${id}`, app_html: expect.stringContaining(`data-a="https://apercu-${id}.apps.test/"`) });
     expect((f.versions as unknown[]).length).toBeGreaterThan(0);
   });
+  it('26/11 — la vue s’ouvre dès la création et le chantier, suit le chantier ouvert, et ne relit pas un aperçu qu’elle montre', async () => {
+    const o = Object.fromEntries((lesOutils() as { name: string }[]).map((x) => [x.name, x]));
+    for (const n of ['create_project', 'ouvrir_chantier']) expect(o[n]).toMatchObject({ _meta: { ui: { resourceUri: RESSOURCE_DE_LA_VUE } } });
+    const id = await unApercu();
+    const jeton = ecrireUnJetonDeVue(MOI);
+    const f = await appel('vavi_fiche_du_projet', { project: id, geste: jeton });
+    expect(f).toMatchObject({ building: false, preview_fingerprint: expect.any(String), app_html: expect.any(String) });
+    await appel('ouvrir_chantier', { project: id, intention: 'ajouter la carte' });
+    const g = await appel('vavi_fiche_du_projet', { project: id, geste: jeton, known: f.preview_fingerprint });
+    expect(g).toMatchObject({ building: true, work_session: 'ajouter la carte', app_html_unchanged: true, app_html: null });
+  });
 });
 
 describe('« Publier » dans Claude, cliqué par la personne seule', () => {

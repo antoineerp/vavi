@@ -37,7 +37,7 @@ export function surLeCompte(f: (c: CompteDeLApp | null) => void): () => void { a
 if (typeof window !== 'undefined') window.addEventListener('storage', (e) => { if (e.key === CLE) { courante = lireLaGardee(); for (const f of abonnes) f(courante?.compte ?? null); } });
 
 const projet = (): string => (typeof window === 'undefined' ? '' : (window as { __PROJECT_ID__?: string }).__PROJECT_ID__ ?? '');
-const base = (): string => (typeof window === 'undefined' ? '' : (window as { __CONSTRUCTOR_API_URL__?: string }).__CONSTRUCTOR_API_URL__ ?? '');
+const base = (): string => (typeof window === 'undefined' ? '' : (window as { __VAVI_API_URL__?: string }).__VAVI_API_URL__ ?? '');
 /** L'aperçu ou l'app en ligne : le lien d'un courriel ramène là où la personne s'est inscrite. */
 const ou = (): 'apercu' | 'en_ligne' => (typeof window !== 'undefined' && (/^apercu-/.test(window.location.hostname) || /^\/p\//.test(window.location.pathname)) ? 'apercu' : 'en_ligne');
 
