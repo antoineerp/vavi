@@ -157,8 +157,10 @@ main{padding:12px 14px;display:grid;gap:10px}
   }
   var debutDuSuivi=Date.now(),minuteur=null;
   function suivre(f){if(minuteur)clearTimeout(minuteur);minuteur=null;
-    if(!projet||!f.building||Date.now()-debutDuSuivi>45*60000)return;
-    minuteur=setTimeout(function(){minuteur=null;relire();},5000);}
+    if(!projet||Date.now()-debutDuSuivi>45*60000)return;
+    // UNE SEULE VUE PAR CONVERSATION (Antoine, 26/11 : « je vois 2 fois le rendu dans le même message ») : seuls create_project
+    // et get_project_state la portent, et elle suit le projet elle-même, vite pendant un chantier, lentement sinon.
+    minuteur=setTimeout(function(){minuteur=null;relire();},f.building?5000:15000);}
   function relire(){if(!projet)return;outil('vavi_fiche_du_projet',{project:projet,geste:JETON,known:(derniere&&derniere.preview_fingerprint)||undefined})
     .then(function(f){montrer(f);},function(){if(derniere)suivre(derniere);});}
   // LE PANNEAU S'OUVRE DE LUI-MÊME (Antoine, 26/11 : « comme Claude Design, qui s'ouvre automatiquement à droite ») : le
@@ -166,7 +168,8 @@ main{padding:12px 14px;display:grid;gap:10px}
   // refuser (un geste de la personne exigé) : la vue reste alors dans la conversation, ses boutons « à côté » et « en grand ».
   var modeCourant=null,dejaDemande=false;
   function ouvrirLePanneau(){if(dejaDemande||modeCourant==='fullscreen')return;
-    var voulu=modes.indexOf('fullscreen')>=0?'fullscreen':modes.indexOf('pip')>=0?'pip':null;if(!voulu)return;dejaDemande=true;mode(voulu);}
+    // Un hôte qui ne dit pas ses modes (Claude.ai, 26/11 : la vue restait dans la conversation) reçoit la demande quand même.
+    var voulu=modes.indexOf('fullscreen')>=0||!modes.length?'fullscreen':modes.indexOf('pip')>=0?'pip':null;if(!voulu)return;dejaDemande=true;mode(voulu);}
   function charger(id){projet=id;debutDuSuivi=Date.now();outil('vavi_fiche_du_projet',{project:id,geste:JETON}).then(function(f){montrer(f);ouvrirLePanneau();})
     .catch(function(x){var v=document.getElementById('vue');if(v)v.textContent=T.erreur+' '+x.message;taille();});}
   function recevoir(e){var m=e.data;if(!m||m.jsonrpc!=='2.0')return;
