@@ -8,6 +8,7 @@
  * qui proposait l'envoi menait à la connexion.
  */
 import { appelerLaPlateforme } from './plateforme';
+import { pageCourante } from './mesure';
 import type { Ligne, NomDeTable, Nouvelle, TablesDeLApp } from './donnees';
 import type { Resultat } from './resultat';
 
@@ -23,6 +24,7 @@ export async function envoyerSansCompte<T extends TableSansCompte>(
 ): Promise<Resultat<Envoyee<T>>> {
   const corps = new FormData();
   corps.append('depot', JSON.stringify({ table, ligne }));
+  corps.append('page', pageCourante());
   for (const [colonne, fichier] of Object.entries(pieces)) if (fichier instanceof File) corps.append(colonne, fichier, fichier.name);
   const r = await appelerLaPlateforme<{ readonly ligne: Envoyee<T> }>('depot/<projet>', corps);
   return r.forme === 'refus' ? r : { forme: 'donnee', donnee: r.donnee.ligne };

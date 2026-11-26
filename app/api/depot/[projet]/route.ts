@@ -8,6 +8,7 @@
  * au hasard, la visite servie) ; la plateforme écrit au nom du propriétaire, sous la sécurité des lignes de l'app.
  *
  * Ce qu'il remplace : rien (essai d'Antoine du 26/11 : la route manquait, tout envoi d'un visiteur dans une table échouait).
+ * L'envoi gardé arrive aussi dans « Messages » et par courriel (`transmettreUneLigne`).
  */
 import { clientDeService } from '@/lib/supabase/service';
 import { leProjetServi } from '@/lib/projets/les-projets';
@@ -19,7 +20,8 @@ import { joindreUnePiece, OCTETS_D_UNE_PIECE } from '@/lib/capacites/les-pieces-
 import { laVisiteAttendue, nomDeLaPreuve, premierSpam, sansLesChampsDuJugement, verdictDeLaVisite, verdictDesChamps, verdictDuContenu } from '@/lib/formulaires/le-jugement';
 import { uneFenetre } from '@/lib/mcp/les-limites';
 import { lesPiecesReelles } from '@/app/_partage/les-fichiers-reels';
-import { lEmpreinteDeLAdresse, secretDeLaPreuve } from '@/app/_partage/les-formulaires-reels';
+import { laReceptionReelle, lEmpreinteDeLAdresse, secretDeLaPreuve } from '@/app/_partage/les-formulaires-reels';
+import { transmettreUneLigne } from '@/lib/formulaires/les-messages';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -75,6 +77,21 @@ export async function POST(requete: Request, { params }: { params: Promise<{ pro
     relais: (fonction, args) => agirPourUnCompte(base, proprietaire, fonction, args),
     joindre: (cible, piece) => joindreUnePiece(projet, proprietaire, cible, piece, pj),
   });
-  if (r.statut === 201) console.info(`[depot] ${projet.slice(0, 8)} ${String(depot.table)} reçu${pieces.length ? ` · ${pieces.length} fichier(s)` : ''}`);
+  if (r.statut === 201) {
+    console.info(`[depot] ${projet.slice(0, 8)} ${String(depot.table)} reçu${pieces.length ? ` · ${pieces.length} fichier(s)` : ''}`);
+    // Aussi dans « Messages » et par courriel, chaque champ sous son libellé : le propriétaire sait qu'on lui a écrit.
+    // Un échec ici ne défait pas l'envoi : la ligne est gardée dans l'app.
+    const table = m.manifeste.tables.find((t) => t.nom === depot.table);
+    if (table) {
+      const envoye = sansLesChampsDuJugement(ligne);
+      const lisible = Object.fromEntries([
+        ...table.champs.filter((c) => envoye[c.nom] !== undefined && envoye[c.nom] !== null && envoye[c.nom] !== '').map((c) => [c.libelle, envoye[c.nom]]),
+        ...pieces.map((x) => [table.champs.find((c) => c.nom === x.colonne)?.libelle ?? x.colonne, `fichier joint : ${x.nom}`]),
+      ]);
+      const page = typeof forme.get('page') === 'string' ? String(forme.get('page')) : null;
+      const t = await transmettreUneLigne(laReceptionReelle(), { projet, table: table.nom, ligne: lisible, page, adresse: adresse === 'inconnue' ? null : adresse }).catch((e) => ({ lu: false as const, pourquoi: String(e) }));
+      if (!t.lu) console.warn(`[depot] ${projet.slice(0, 8)} non transmis à la boîte : ${t.pourquoi}`);
+    }
+  }
   return Response.json(r.corps, { status: r.statut, headers: { 'cache-control': 'no-store' } });
 }
