@@ -27,6 +27,8 @@ ARG VAVI_VERSION=inconnue
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 VAVI_VERSION=$VAVI_VERSION VAVI_DEPENDANCES_DES_APPS=/tmp/vavi-dependances-des-apps
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
+# Les images de la page d'accueil (`public/accueil`) : la sortie autonome de Next ne copie pas `public`.
+COPY --from=build /app/public ./public
 COPY --from=build /app/squelette/gabarit ./squelette/gabarit
 USER node
 EXPOSE 3000
