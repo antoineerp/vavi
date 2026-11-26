@@ -6,6 +6,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { lesTextes, reecrire } from './gestes';
+import { fournirUnePhoto } from './contenu/gestes';
 import { laPhrasePourClaude, type Endroit } from '@/lib/contenus/la-phrase-pour-claude';
 
 export interface TextesDeLEditeur {
@@ -24,8 +25,18 @@ const MONTRER = {
 
 type Choix = { readonly situation: string; readonly passages: string[] };
 
+/** Une photo cliquée dans l'aperçu : la sienne à la place, sur place (`fournirUnePhoto`), ou une autre de la banque plus bas. */
+const PHOTO = {
+  fr: { titre: 'Remplacer cette photo', fichier: 'Votre photo (JPEG, PNG ou WebP, 8 Mo au plus ; le lieu de la prise de vue est retiré)', alt: 'Ce que montre la photo', mettre: 'Mettre ma photo',
+    banque: 'Ou choisir une autre photo de la banque', pasIci: 'Cette image ne se remplace pas ici (elle est écrite dans la page) : montrez-la à Claude.' },
+  en: { titre: 'Replace this photo', fichier: 'Your photo (JPEG, PNG or WebP, 8 MB at most; where it was taken is removed)', alt: 'What the photo shows', mettre: 'Use my photo',
+    banque: 'Or pick another bank photo', pasIci: 'This image cannot be replaced here (it is written in the page): show it to Claude.' },
+} as const;
+
 /** `apercu` : l'adresse de l'aperçu, à son hôte (vague 0) ; les messages ne s'échangent qu'avec son origine. */
-export function EditeurDeTextes({ id, apercu, t, projet, langue }: { readonly id: string; readonly apercu: string; readonly t: TextesDeLEditeur; readonly projet: string; readonly langue: 'fr' | 'en' }) {
+export function EditeurDeTextes({ id, apercu, t, projet, langue, photos = [] }: { readonly id: string; readonly apercu: string; readonly t: TextesDeLEditeur; readonly projet: string; readonly langue: 'fr' | 'en';
+  /** Les photos de l'app (`src/images.json`) : cliquées dans l'aperçu, elles se remplacent sur place. */
+  readonly photos?: readonly { readonly nom: string; readonly alt: string }[] }) {
   const origine = new URL(apercu, typeof window === 'undefined' ? 'http://localhost' : window.location.href).origin;
   const cadre = useRef<HTMLIFrameElement>(null);
   const [mode, setMode] = useState<'textes' | 'claude' | null>(null);
@@ -38,6 +49,8 @@ export function EditeurDeTextes({ id, apercu, t, projet, langue }: { readonly id
   const [message, setMessage] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
   const [cle, setCle] = useState(0);
+  const [photo, setPhoto] = useState<{ readonly nom: string; readonly alt: string } | null>(null);
+  const mp = PHOTO[langue];
 
   const dire = (a: boolean) => cadre.current?.contentWindow?.postMessage({ type: 'EDITION_VISUELLE', actif: a }, origine);
   useEffect(() => {
@@ -53,6 +66,12 @@ export function EditeurDeTextes({ id, apercu, t, projet, langue }: { readonly id
         setMessage(null);
         return;
       }
+      if (d.image) {
+        const trouvee = photos.find((x) => x.nom === d.image);
+        setChoix(null); setPhoto(trouvee ?? null); setMessage(trouvee ? null : mp.pasIci);
+        return;
+      }
+      setPhoto(null);
       if (!d.source) { setChoix(null); setMessage(t.textesPasIci); return; }
       const r = await lesTextes(id, d.source);
       if (!r.lu) { setChoix(null); setMessage(t.textesRefus[r.pourquoi] ?? t.textesPasIci); return; }
@@ -61,11 +80,11 @@ export function EditeurDeTextes({ id, apercu, t, projet, langue }: { readonly id
     };
     window.addEventListener('message', ecouter);
     return () => window.removeEventListener('message', ecouter);
-  }, [actif, mode, id, t, origine]);
+  }, [actif, mode, id, t, origine, photos, mp]);
 
   const basculer = (vers: 'textes' | 'claude') => {
     const suivant = mode === vers ? null : vers;
-    setMode(suivant); setChoix(null); setEndroit(null); setDemande('');
+    setMode(suivant); setChoix(null); setPhoto(null); setEndroit(null); setDemande('');
     setMessage(suivant === 'textes' ? t.textesChoisir : suivant === 'claude' ? m.choisir : null);
     dire(suivant !== null);
   };
@@ -103,6 +122,20 @@ export function EditeurDeTextes({ id, apercu, t, projet, langue }: { readonly id
             </>
           )}
         </div>
+      )}
+      {mode === 'textes' && photo && (
+        <form action={fournirUnePhoto.bind(null, id, photo.nom)} style={{ marginTop: '0.75rem' }}>
+          <strong>{mp.titre}</strong>
+          <label htmlFor="photo-cliquee" className="attenue" style={{ display: 'block', fontSize: '0.85rem' }}>{mp.fichier}</label>
+          <input id="photo-cliquee" name="photo" type="file" accept="image/jpeg,image/png,image/webp" required />
+          <label htmlFor="alt-cliquee" className="attenue" style={{ display: 'block', fontSize: '0.85rem' }}>{mp.alt}</label>
+          <input id="alt-cliquee" name="alt" maxLength={300} defaultValue={photo.alt} style={{ width: '100%' }} />
+          <div className="ligne">
+            <button type="submit">{mp.mettre}</button>
+            <a className="bouton discret" href={`#photo-${photo.nom}`}>{mp.banque}</a>
+            <button type="button" className="discret" onClick={() => setPhoto(null)}>{t.annuler}</button>
+          </div>
+        </form>
       )}
       {choix && (
         <form action={envoyer}>

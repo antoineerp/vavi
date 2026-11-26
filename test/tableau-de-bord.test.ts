@@ -48,6 +48,18 @@ describe('la console', () => {
     const mise = readFileSync(join(process.cwd(), 'app', 'projets', '[id]', 'layout.tsx'), 'utf8');
     expect(mise).toContain("roles.some((r) => r.obtenu !== 'proprietaire')");
   });
+
+  // 26/11 (« enrichir ») : une photo se remplace en cliquant dessus dans l'aperçu ; l'image de partage se dépose ;
+  // chaque page montre son résultat Google tel qu'il serait.
+  it('photo cliquée remplacée sur place, image de partage déposée, aperçu Google par page', () => {
+    const lire = (...f: string[]) => readFileSync(join(process.cwd(), 'app', 'projets', '[id]', ...f), 'utf8');
+    expect(lire('editeur.tsx')).toContain('fournirUnePhoto.bind(null, id, photo.nom)');
+    const ref = lire('referencement', 'page.tsx');
+    expect(ref).toContain('formAction={deposerLImageDePartage.bind(null, id)}');
+    expect(ref).toContain('<ApercuGoogle');
+    // L'image déposée n'est pas dans la banque : enregistrer le reste ne la refuse pas.
+    expect(lire('contenu', 'gestes.ts')).toContain('choisie !== deposee');
+  });
 });
 
 
