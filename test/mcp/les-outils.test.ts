@@ -442,6 +442,17 @@ describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {
     await ok('write_notes', { project, notes: '- Warm tone.\n- No purple.\n- Families.', read_fingerprint: lue });
     expect(((await ok('get_project_state', { project })).project_notes as { text: string }).text).toContain('Families');
   });
+  it('26/11 — l’index : l’état dit les pages et qui importe chaque fichier ; read_files le redit au fichier lu', async () => {
+    const { project, work_session } = await unChantier();
+    await ok('apply_changes', { project, work_session, why: 'une carte partagée', build: false, changes: [
+      { path: 'src/composants/Carte.tsx', content: 'export const Carte = () => null;\n' },
+      { path: 'src/pages/catalogue.tsx', content: "import { Carte } from '@/composants/Carte';\nexport const titre = 'Catalogue';\nexport default function P() { return <Carte />; }\n" }] });
+    const etat = await ok('get_project_state', { project });
+    expect(etat.pages).toContainEqual({ path: 'src/pages/catalogue.tsx', address: '/catalogue', title: 'Catalogue' });
+    expect((etat.your_files as { path: string; used_by?: string[] }[]).find((x) => x.path === 'src/composants/Carte.tsx')?.used_by).toEqual(['src/pages/catalogue.tsx']);
+    const f = await ok('read_files', { project, paths: ['src/composants/Carte.tsx'] });
+    expect((f.files as { used_by?: string[] }[])[0]!.used_by).toEqual(['src/pages/catalogue.tsx']);
+  });
   it('une clé de la banque refusée (401) dit de ne pas réessayer (incident du 26/11 : deux 401, « réessayez »)', async () => {
     const { project, work_session } = await unChantier();
     (c as { banque?: unknown }).banque = { chercher: async () => { throw new CleDeLaBanqueRefusee(401); }, signaler: async () => undefined };
