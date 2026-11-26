@@ -27,7 +27,40 @@ export const RAYONS = ['net', 'doux', 'rond'] as const;
 export const CHAMPS_DES_POLICES = { titres: 'police_titres', texte: 'police_texte' } as const;
 
 export interface Apparence { readonly couleurs: Readonly<Record<(typeof COULEURS)[number], string>>; readonly polices: { readonly titres: string; readonly texte: string }; readonly rayon: (typeof RAYONS)[number] }
-export interface Referencement { readonly pages: Readonly<Record<string, { readonly titre?: string; readonly description?: string }>>; readonly image?: string; readonly ia?: ChoixDesIa }
+/** Une page : son titre et sa description dans Google ; `cachee` : Google ne la référence pas (noindex, hors du plan du site). */
+export interface ChoixDUnePage { readonly titre?: string; readonly description?: string; readonly cachee?: boolean }
+/** Une ancienne adresse du site, envoyée pour toujours (301) vers une page du site ou une adresse https. */
+export interface Redirection { readonly de: string; readonly vers: string }
+export interface Referencement { readonly pages: Readonly<Record<string, ChoixDUnePage>>; readonly image?: string; readonly ia?: ChoixDesIa; readonly redirections?: readonly Redirection[] }
+
+const ADRESSE_DU_SITE = /^\/[^\s?#:*"<>]{0,300}$/;
+const VERS = /^(\/[^\s"<>]{0,300}|https:\/\/[^\s"<>]{1,1000})$/;
+export const REDIRECTIONS_MAX = 200;
+const sansBarreFinale = (a: string): string => a.replace(/\/+$/, '') || '/';
+
+/**
+ * PURE — les redirections tapées dans la console, une par ligne : l'ancienne adresse, puis la nouvelle (séparées par
+ * des espaces, une flèche ou « -> »). Une adresse complète de l'ancien site est ramenée à son chemin. Ce qui ne se lit
+ * pas est dit, ligne comprise.
+ */
+export function lesRedirectionsTapees(texte: string): { readonly ok: true; readonly redirections: readonly Redirection[] } | { readonly ok: false; readonly detail: string } {
+  const vues = new Map<string, Redirection>();
+  const lignes = texte.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lignes.length > REDIRECTIONS_MAX) return { ok: false, detail: `${REDIRECTIONS_MAX} redirections au plus` };
+  for (const ligne of lignes) {
+    const [brut, vers, ...reste] = ligne.split(/\s*(?:->|→|=>)\s*|\s+/).filter(Boolean);
+    if (!brut || !vers || reste.length) return { ok: false, detail: `« ${ligne.slice(0, 80)} » : l’ancienne adresse, puis la nouvelle` };
+    const de = sansBarreFinale(/^https?:\/\//.test(brut) ? (() => { try { return new URL(brut).pathname; } catch { return ''; } })() : brut.startsWith('/') ? brut : `/${brut}`);
+    if (!ADRESSE_DU_SITE.test(de)) return { ok: false, detail: `« ${brut.slice(0, 80)} » : une adresse du site, comme /ancienne-page` };
+    if (!VERS.test(vers)) return { ok: false, detail: `« ${vers.slice(0, 80)} » : une page du site (/page) ou une adresse https` };
+    if (vers.startsWith('/') && sansBarreFinale(vers) === de) return { ok: false, detail: `${de} mènerait vers elle-même` };
+    vues.set(de, { de, vers });
+  }
+  return { ok: true, redirections: [...vues.values()] };
+}
+
+/** PURE — les redirections, une par ligne, telles que la console les montre. */
+export const lesRedirectionsEnTexte = (rs: readonly Redirection[] | undefined): string => (rs ?? []).map((x) => `${x.de} ${x.vers}`).join('\n');
 /** L'apparence envoyée par le formulaire de la console, ou ce qui est mal formé. PUR. */
 export function lApparenceDuFormulaire(f: { get(nom: string): unknown }): { readonly lue: true; readonly apparence: Apparence } | { readonly lue: false; readonly detail: string } {
   const lire = (nom: string) => String(f.get(nom) ?? '');
@@ -64,18 +97,20 @@ export function avecLApparence(appJson: string, a: Apparence): { readonly ok: tr
  * retiré. `image` : l'image de partage, une adresse https (une photo de l'app ou de la banque) ou un fichier du site (`/…`) ; `ia` : le choix des
  * robots d'IA, gardé seulement s'il ferme une famille (sans choix, tous entrent).
  */
-export function leReferencementRelu(pages: Readonly<Record<string, { readonly titre?: string; readonly description?: string }>>, image?: string, ia?: ChoixDesIa): { readonly ok: true; readonly texte: string } | { readonly ok: false; readonly detail: string } {
+export function leReferencementRelu(pages: Readonly<Record<string, ChoixDUnePage>>, image?: string, ia?: ChoixDesIa, redirections: readonly Redirection[] = []): { readonly ok: true; readonly texte: string } | { readonly ok: false; readonly detail: string } {
   if (image && !/^(https:\/\/[^\s"<>]{1,1000}|\/[^\s"<>/][^\s"<>]{0,300})$/.test(image)) return { ok: false, detail: 'image de partage : une adresse https, ou un fichier du site' };
   const choix = ia && (!ia.assistants || !ia.entrainement) ? { ia: { assistants: ia.assistants, entrainement: ia.entrainement } } : {};
-  const propre: Record<string, { titre?: string; description?: string }> = {};
+  const propre: Record<string, ChoixDUnePage> = {};
   for (const [adresse, p] of Object.entries(pages)) {
     if (!/^\/[^\s?#:*]{0,300}$/.test(adresse)) return { ok: false, detail: `adresse ${adresse}` };
     const titre = (p.titre ?? '').trim(), description = (p.description ?? '').trim();
     if (titre.length > 70) return { ok: false, detail: `${adresse} : titre de plus de 70 caractères` };
     if (description.length > 200) return { ok: false, detail: `${adresse} : description de plus de 200 caractères` };
-    if (titre || description) propre[adresse] = { ...(titre ? { titre } : {}), ...(description ? { description } : {}) };
+    if (titre || description || p.cachee) propre[adresse] = { ...(titre ? { titre } : {}), ...(description ? { description } : {}), ...(p.cachee ? { cachee: true } : {}) };
   }
-  return { ok: true, texte: `${JSON.stringify({ pages: propre, ...(image ? { image } : {}), ...choix }, null, 2)}\n` };
+  const relues = lesRedirectionsTapees(lesRedirectionsEnTexte(redirections));
+  if (!relues.ok) return relues;
+  return { ok: true, texte: `${JSON.stringify({ pages: propre, ...(image ? { image } : {}), ...choix, ...(relues.redirections.length ? { redirections: relues.redirections } : {}) }, null, 2)}\n` };
 }
 
 /** PURE — le référencement stocké, lu ; absent ou illisible : aucun choix. */
@@ -84,7 +119,8 @@ export function leReferencementStocke(texte: string | undefined): Referencement 
     const o = JSON.parse(texte ?? '') as Referencement;
     if (!o || typeof o.pages !== 'object' || !o.pages) return { pages: {} };
     const ia = o.ia && typeof o.ia === 'object' ? { ia: { assistants: o.ia.assistants !== false, entrainement: o.ia.entrainement !== false } } : {};
-    return { pages: o.pages, ...(typeof o.image === 'string' && o.image ? { image: o.image } : {}), ...ia };
+    const redirections = Array.isArray(o.redirections) ? o.redirections.filter((x) => x && typeof x.de === 'string' && typeof x.vers === 'string').slice(0, REDIRECTIONS_MAX) : [];
+    return { pages: o.pages, ...(typeof o.image === 'string' && o.image ? { image: o.image } : {}), ...ia, ...(redirections.length ? { redirections } : {}) };
   } catch { return { pages: {} }; }
 }
 
@@ -107,11 +143,11 @@ async function ecrire(d: DependancesDeLaReecriture, id: string, chemin: string, 
 export const changerLApparence = (d: DependancesDeLaReecriture, id: string, a: Apparence): Promise<Changement> =>
   ecrire(d, id, 'app.json', (avant) => (avant === undefined ? { ok: false, detail: 'no app.json' } : avecLApparence(avant, a)), 'apparence changée dans la console');
 
-/** `image` absente : celle déjà posée reste ; `null` : retirée. `ia` absent : le choix posé reste. */
-export const changerLeReferencement = (d: DependancesDeLaReecriture, id: string, pages: Referencement['pages'], o: { readonly image?: string | null; readonly ia?: ChoixDesIa } = {}): Promise<Changement> =>
+/** `image` absente : celle déjà posée reste ; `null` : retirée. `ia`, `redirections` absents : ce qui est posé reste. */
+export const changerLeReferencement = (d: DependancesDeLaReecriture, id: string, pages: Referencement['pages'], o: { readonly image?: string | null; readonly ia?: ChoixDesIa; readonly redirections?: readonly Redirection[] } = {}): Promise<Changement> =>
   ecrire(d, id, CHEMIN_DU_REFERENCEMENT, (avant) => {
     const posee = leReferencementStocke(avant);
-    return leReferencementRelu(pages, o.image === null ? undefined : o.image ?? posee.image, o.ia ?? posee.ia);
+    return leReferencementRelu(pages, o.image === null ? undefined : o.image ?? posee.image, o.ia ?? posee.ia, o.redirections ?? posee.redirections);
   }, 'référencement changé dans la console');
 
 /**
