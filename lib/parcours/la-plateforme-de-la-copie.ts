@@ -6,6 +6,7 @@
  *   · le panier (`/api/pay/<projet>/panier`) est chiffré pour de vrai, au prix de la copie ;
  *   · le paiement (`/api/pay/<projet>/checkout`) est SIMULÉ : Stripe ne s'ouvre pas, la page revient à son adresse de
  *     succès, et le parcours dit que rien n'est payé (ce que le paiement accorde n'est donc pas essayé) ;
+ *   · l'envoi d'un visiteur sans compte (`/api/depot/<projet>`) est JOUÉ pour de vrai dans la copie, sans ses fichiers ;
  *   · toute autre route reste indisponible (`null`).
  * Les gestes réels sont injectés (`lib/mcp/le-contexte-reel`) : ce module ne fait qu'aiguiller. PUR, hors ces gestes.
  */
@@ -15,6 +16,15 @@ export interface GestesDeLaCopie {
   readonly comptes: (geste: string, corps: Record<string, unknown>) => Promise<{ readonly statut: number; readonly corps: unknown }>;
   /** Le panier chiffré au prix de la copie ; absent : l'app ne vend pas. */
   readonly panier?: (corps: Record<string, unknown>) => Promise<{ readonly statut: number; readonly corps: unknown }>;
+  /** L'envoi sans compte `{ table, ligne }` écrit dans la copie ; absent : indisponible. */
+  readonly depot?: (depot: unknown) => Promise<{ readonly statut: number; readonly corps: unknown }>;
+}
+
+/** Le champ `depot` d'un corps multipart (tel que le navigateur l'envoie) ; ou d'un corps JSON ; `null` : absent. PUR. */
+export function leDepotDuCorps(brut: string | null): unknown {
+  if (!brut) return null;
+  const m = /name="depot"\r?\n(?:[^\r\n]+\r?\n)*\r?\n([\s\S]*?)\r?\n--/.exec(brut);
+  try { return JSON.parse(m ? m[1]! : brut) as unknown; } catch { return null; }
 }
 
 /** Les gestes des comptes qu'un parcours joue ; `changer` (le mot de passe, connecté) et les autres restent indisponibles. */
@@ -41,6 +51,11 @@ export async function laRouteDeLaCopie(g: GestesDeLaCopie, chemin: string, brut:
     const qui = typeof corps.email === 'string' ? ` (${corps.email.slice(0, 80)})` : '';
     const courriel = geste === 'lien' || geste === 'oublie' ? ', the email with its link was NOT sent (a journey sends none)' : '';
     return { ...r, dit: `account « ${geste} »${qui} played on the copy: ${r.statut < 300 ? `accepted${courriel}` : `refused (${JSON.stringify(r.corps).slice(0, 120)})`}` };
+  }
+  if (/^\/api\/depot\/[^/]+$/.test(chemin)) {
+    if (!g.depot) return null;
+    const r = await g.depot(leDepotDuCorps(brut));
+    return { ...r, dit: `visitor send without an account played on the copy: ${r.statut < 300 ? 'row saved' : `refused (${JSON.stringify(r.corps).slice(0, 160)})`}; files are not sent in a journey` };
   }
   const pay = /^\/api\/pay\/[^/]+\/(panier|checkout)$/.exec(chemin);
   if (!pay || !g.panier) return null;

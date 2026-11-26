@@ -23,7 +23,7 @@ export interface DomainesActifs {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** Les routes `/api/<x>/` qu'une app appelle, servies sur son hôte. Rien d'autre de la console n'y passe. */
-export const API_DES_APPS = ['ai', 'audience', 'coffre', 'compte', 'comptes', 'entreprises', 'ephemeride', 'external', 'file', 'forms', 'geocode', 'mail', 'pay', 'pieces', 'sms'] as const;
+export const API_DES_APPS = ['ai', 'audience', 'coffre', 'compte', 'comptes', 'depot', 'entreprises', 'ephemeride', 'external', 'file', 'forms', 'geocode', 'mail', 'pay', 'pieces', 'sms'] as const;
 
 /** Une route `/api/<x>/…` qu'une app appelle (`API_DES_APPS`). PURE. */
 export function estUneRouteDesApps(chemin: string): boolean {
