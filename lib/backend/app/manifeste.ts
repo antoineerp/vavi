@@ -257,6 +257,7 @@ export const Direction = z.object({
   rayon: z.enum(['net', 'doux', 'rond']).describe('l’arrondi des boutons, des champs et des cartes'),
   travail: z.enum(['affirme', 'sobre']).default('affirme').describe('l’allure des écrans derrière un compte : `affirme`, une colonne de menu sombre et de grands titres ; `sobre`, une colonne de menu claire, l’écran ouvert à la teinte de l’accent, des titres de taille courante — celle d’une app jointe ou reprise qui a une colonne claire'),
   couleursDemandees: z.boolean().default(false).describe('vrai seulement quand la demande nomme elle-même ses couleurs'),
+  logo: z.string().regex(/^https:\/\/[^\s"<>]{1,1000}$/).optional().describe('set only by the owner in the console (their uploaded logo): never write it; show the brand with `<Marque />`'),
 }).superRefine((d, ctx) => {
   if (d.couleursDemandees) return;
   for (const [nom, hex] of Object.entries(d.couleurs)) {

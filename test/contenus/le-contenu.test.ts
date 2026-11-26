@@ -1,6 +1,6 @@
 /** « Gérer le contenu » : l'apparence et le référencement changés par la personne, relus avant d'être écrits. */
 import { describe, expect, it } from 'vitest';
-import { avecLApparence, avecUneImage, changerUneImage, changerLeReferencement, leReferencementRelu, leReferencementStocke, CHEMIN_DU_REFERENCEMENT } from '@/lib/contenus/le-contenu';
+import { avecLApparence, avecLeLogo, avecUneImage, changerUneImage, changerLeReferencement, leReferencementRelu, leReferencementStocke, CHEMIN_DU_REFERENCEMENT } from '@/lib/contenus/le-contenu';
 import { desProjetsEnMemoire } from '../aides/des-projets-en-memoire';
 import { lArbreDUnProjet } from '@/lib/projets/l-arbre-d-un-projet';
 import { NOTES } from '../donnees/une-app';
@@ -86,5 +86,23 @@ describe('INCIDENT 26/11 — l’apparence ne s’enregistrait jamais depuis la 
     const r = avecLApparence(JSON.stringify(app), { couleurs: { fond: '#ffffff', texte: '#111111', accent: '#2f6b4f', surface: '#fafafa', bordure: '#dddddd' }, rayon: 'net', polices: { titres: 'Fraunces', texte: 'Inter' } });
     if (!r.ok) throw new Error(r.detail);
     expect(JSON.parse(r.texte).direction.couleurs).toMatchObject({ accent: '#2f6b4f', second: '#5f7a5a', ancre: '#2f2420' });
+  });
+});
+
+// 26/11 (oui d'Antoine : un logo déposé dans la console) : il entre dans la direction d'app.json, s'en retire, et le
+// manifeste refuse ce qui n'est pas une adresse https.
+describe('le logo déposé', () => {
+  it('posé dans direction.logo, le reste inchangé ; retiré par null', () => {
+    const r = avecLeLogo(APP_JSON, 'https://www.vavi.dev/photos/abc/logo.webp');
+    expect(r.ok).toBe(true);
+    const j = JSON.parse((r as { texte: string }).texte);
+    expect(j.direction.logo).toBe('https://www.vavi.dev/photos/abc/logo.webp');
+    expect(j.direction.couleurs).toEqual(JSON.parse(APP_JSON).direction.couleurs);
+    const sans = JSON.parse((avecLeLogo((r as { texte: string }).texte, null) as { texte: string }).texte);
+    expect('logo' in sans.direction).toBe(false);
+  });
+  it('une adresse qui n’est pas https est refusée', () => {
+    expect(avecLeLogo(APP_JSON, 'javascript:alert(1)').ok).toBe(false);
+    expect(avecLeLogo(APP_JSON, 'http://x.fr/logo.png').ok).toBe(false);
   });
 });

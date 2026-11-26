@@ -2,7 +2,7 @@
  * Ce que le cadre tend au chrome de l'agent (`src/Chrome.tsx`) : le menu de la personne et la commande du compte.
  * Le chrome est à l'agent : en-tête, menu, pied. Il monte `<CommandeDuCompte />` et rend chaque entrée de `menu` ;
  * une app qui vend monte aussi `<LienDuPanier />` ; une app à plusieurs langues, `<ChoixDeLaLangue />` ; la vitrine
- * ferme sur `<PiedDePage />`. Un `menu` vide (une app d'une seule page) : l'en-tête ne porte que la marque, sans barre de
+ * ferme sur `<PiedDePage />`. La marque se montre par `<Marque />` : le logo que le propriétaire dépose, sinon le nom. Un `menu` vide (une app d'une seule page) : l'en-tête ne porte que la marque, sans barre de
  * navigation ni bouton de menu au téléphone.
  *
  * Ce qu'il remplace : le compte et le panier écrits en texte (« Se connecter », « Panier ») ; un pied laissé à l'écriture
@@ -104,6 +104,20 @@ export function ChoixDeLaLangue({ className }: { readonly className?: string }) 
   );
 }
 
+/**
+ * La marque de l'app : le logo que le propriétaire a déposé dans la console (`direction.logo` d'app.json), sinon son nom.
+ * `sombre` : posée sur une bande sombre (le pied), le logo reçoit une pastille claire pour rester lisible.
+ */
+export function Marque({ className = '', sombre = false }: { readonly className?: string; readonly sombre?: boolean }) {
+  const logo = APP.direction.logo;
+  if (!logo) return <span className={className}>{APP.nom}</span>;
+  return (
+    <span className={`inline-flex items-center ${sombre ? 'rounded-bouton bg-white px-3 py-2' : ''} ${className}`}>
+      <img src={logo} alt={APP.nom} className="h-9 w-auto max-w-[12rem] object-contain" />
+    </span>
+  );
+}
+
 /** Une colonne du pied : son intitulé, écrit par l'app, et ses liens. */
 export interface ColonneDuPied { readonly titre: string; readonly liens: readonly { readonly libelle: string; readonly vers: string }[] }
 
@@ -131,7 +145,7 @@ export function PiedDePage({ menu, marque, phrase, colonnes }: {
       <footer data-cadre="pied" className="bg-ancre text-sur-ancre">
         <div className="mx-auto grid max-w-6xl gap-x-10 gap-y-12 px-4 py-16 lg:grid-cols-12">
           <div className="lg:col-span-4">
-            <Link to="/" className="font-titre text-2xl font-semibold">{marque ?? APP.nom}</Link>
+            <Link to="/" className="font-titre text-2xl font-semibold">{marque ?? <Marque sombre />}</Link>
             {phrase ? <p className="mt-4 max-w-[36ch] text-sur-ancre/70">{phrase}</p> : null}
           </div>
           <nav aria-label={L.planDuSite} className={`grid grid-cols-2 gap-x-10 gap-y-8 sm:grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] ${coordonnees ? 'lg:col-span-5' : 'lg:col-span-8'}`}>
