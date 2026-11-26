@@ -383,6 +383,20 @@ describe('Claude essaie l’app comme un visiteur (Antoine, 26/11)', () => {
     const a = await appelerUnOutil(c, 'try_journey', { project: w.project, steps: [{ action: 'open', path: 'contact' }] });
     expect(a.connu && 'invalide' in a).toBe(true);
   });
+  it('try_journey avec `on_copy` : joué sur une copie sans compte, et le rapport dit ce qui n’est pas essayé (le paiement)', async () => {
+    const w = await unChantier();
+    await ok('apply_changes', { ...w, why: 'accueil', changes: [{ path: 'src/pages/index.tsx', content: 'export default function A() { return null; }' }] });
+    const options: unknown[] = [];
+    (c as { jouer?: Contexte['jouer'] }).jouer = async (_p, _e, _m, _etapes, o) => {
+      options.push(o);
+      return { etapes: [{ n: 1, etape: 'open /', ok: true, fait: 'done', adresse: '/' }], arret: null, simule: ['account « inscrire » played on the copy: accepted'], erreursDeLaPage: [] };
+    };
+    const s = await ok('try_journey', { project: w.project, steps: [{ action: 'open', path: '/' }], on_copy: true });
+    expect(options).toEqual([{ copie: true, role: null }]);
+    expect(s).toMatchObject({ passed: true, on_copy: expect.stringContaining('sign-up'), not_checked: expect.stringContaining('payment is simulated') });
+    await ok('try_journey', { project: w.project, steps: [{ action: 'open', path: '/' }] });
+    expect(options[1]).toEqual({ copie: false, role: null });
+  });
 });
 
 describe('des sites aussi riches qu’en août (Antoine, 25/11)', () => {

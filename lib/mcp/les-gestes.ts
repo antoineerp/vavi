@@ -63,7 +63,7 @@ export interface Contexte {
   /** Les builds rouges de suite, par compte et projet ; absent : une mémoire du processus. */
   readonly buildsRouges?: Map<string, number>;
   /** Joue un parcours de visiteur sur le build vert d'empreinte donnée (`lib/parcours`) ; absent ou sans navigateur : la raison. */
-  readonly jouer?: (projet: string, empreinte: string, manifeste: Manifeste, etapes: readonly EtapeDuParcours[], role: string | null) => Promise<Parcours | { readonly raison: string }>;
+  readonly jouer?: (projet: string, empreinte: string, manifeste: Manifeste, etapes: readonly EtapeDuParcours[], o: { readonly copie: boolean; readonly role: string | null }) => Promise<Parcours | { readonly raison: string }>;
   /** Les chantiers où Claude a lu le guide de design (compte|projet|chantier) ; absent : une mémoire du processus. */
   readonly guidesLus?: Set<string>;
   /** L'abonnement du compte, tel que Claude le lit (l'offre, ce qu'elle publie, où la choisir) ; absent : non dit. */
@@ -667,7 +667,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
  * contente pas de la regarder). Rien n'est écrit : les écritures sont simulées et dites. Le résultat n'est jamais un refus
  * de l'app : une étape qui échoue est un fait, que Claude corrige au tour.
  */
-export async function jouerUnParcours(c: Contexte, a: { project: string; steps: readonly EtapeDuParcours[]; as_role?: string }): Promise<Rendu> {
+export async function jouerUnParcours(c: Contexte, a: { project: string; steps: readonly EtapeDuParcours[]; as_role?: string; on_copy?: boolean }): Promise<Rendu> {
   const p = await leProjet(c, a.project);
   if (!p.ok) return p.refus;
   const f = await lesFichiers(c, a.project);
@@ -685,7 +685,8 @@ export async function jouerUnParcours(c: Contexte, a: { project: string; steps: 
       { fichier: 'app.json', geste: 'Play the journey with one of the roles of app.json, or without `as_role` as a visitor.' });
   }
   const t = Date.now();
-  const r = await c.jouer(a.project, arbre.empreinte, arbre.manifeste, a.steps, a.as_role ?? null).catch((e: unknown) => ({ raison: String((e as Error)?.message ?? e).slice(0, 300) }));
+  const copie = Boolean(a.as_role) || a.on_copy === true;
+  const r = await c.jouer(a.project, arbre.empreinte, arbre.manifeste, a.steps, { copie, role: a.as_role ?? null }).catch((e: unknown) => ({ raison: String((e as Error)?.message ?? e).slice(0, 300) }));
   if ('raison' in r) return refuser('plateforme_en_panne', `The journey could not be played: ${r.raison}. This is not caused by your files.`);
   const reussies = r.etapes.filter((e) => e.ok).length;
   console.log(`[try_journey] ${a.project} ${reussies}/${a.steps.length} étapes en ${Date.now() - t} ms`);
@@ -697,9 +698,10 @@ export async function jouerUnParcours(c: Contexte, a: { project: string; steps: 
     ...(r.erreursDeLaPage.length ? { page_errors: r.erreursDeLaPage } : {}),
     ...(r.arret?.capture ? { _images: [{ data: r.arret.capture.toString('base64'), mimeType: 'image/jpeg' }] } : {}),
     next: r.arret === null ? 'The journey works. Tell the person what you checked.' : 'Fix what stopped the journey (the screen, the text, the label), build again, and play the journey again.',
-    ...(a.as_role ? { signed_in_as: `a test account with the role « ${a.as_role} », on a temporary copy of the database (its example rows, nothing of the real data), deleted after the journey: its writes were real there, so the rules of the database were checked` } : {}),
-    not_checked: a.as_role ? 'signing up, signing in and paying themselves (the platform routes answer « unavailable » in a journey); forms are simulated.'
-      : 'nothing was written or sent: writes and forms are simulated, so the rules of the database (required fields, duplicates) are not checked here; play it with `as_role` to check them on a copy.',
+    ...(a.as_role ? { signed_in_as: `a test account with the role « ${a.as_role} », on a temporary copy of the database (its example rows, nothing of the real data), deleted after the journey: its writes were real there, so the rules of the database were checked` }
+      : copie ? { on_copy: 'played without an account on a temporary copy of the database (its example rows, nothing of the real data), deleted after the journey: writes, sign-up and sign-in were real there' } : {}),
+    not_checked: copie ? 'emails are not sent (a sign-up on the copy needs no confirmation, sign-in links are listed in `simulated`); payment is simulated (Stripe does not open, so what it grants is not checked); forms are simulated.'
+      : 'nothing was written or sent: writes, forms, sign-up and payment are simulated or unavailable, so the rules of the database (required fields, duplicates) are not checked here; play it with `on_copy: true` (or `as_role`) to check them on a copy.',
   });
 }
 

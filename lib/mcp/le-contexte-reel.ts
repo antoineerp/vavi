@@ -24,6 +24,11 @@ import { ouvrirLeNavigateur, preRendre } from '@/lib/seo/le-pre-rendu';
 import { capturer, type NavigateurAPhotographier } from '@/lib/seo/les-captures';
 import { jouerLeParcours, BASE_DU_PARCOURS, type NavigateurDuParcours } from '@/lib/parcours/le-parcours';
 import { avecUneCopie } from '@/lib/parcours/la-copie';
+import { laRouteDeLaCopie, type GestesDeLaCopie } from '@/lib/parcours/la-plateforme-de-la-copie';
+import { entrer, envoyerUnLien, rafraichir, sInscrire, sortir, type Dependances as DependancesDesComptes, type Issue as IssueDesComptes } from '@/lib/comptes/les-comptes';
+import { magasinSurSupabase } from '@/lib/comptes/sur-supabase';
+import { chiffrerLePanier } from '@/lib/vente/la-vente';
+import type { Manifeste } from '@/lib/backend/app/manifeste';
 import { laCleDesComptes, signerUnJeton, DUREE_DU_JETON_S } from '@/lib/comptes/les-jetons';
 import type { ContexteDuServeur } from './le-serveur';
 import { abonnementsSurSupabase } from '@/lib/abonnements/sur-supabase';
@@ -47,12 +52,49 @@ async function laLangue(base: ReturnType<typeof clientDeService>, compte: string
   return l;
 }
 
+/** Les premières fois déjà notées par ce processus : la base n'est appelée qu'une fois par compte et par étape. */
+const PREMIERES_FOIS_NOTEES = new Set<string>();
+
+/**
+ * Les routes de la plateforme jouées sur une copie de parcours : ses comptes (inscription sans validation, aucun
+ * courriel envoyé), son panier chiffré au prix de la copie, sous l'app.json joué (`la-plateforme-de-la-copie`).
+ */
+function lesGestesDeLaCopie(base: ReturnType<typeof clientDeService>, cle: NonNullable<ReturnType<typeof laCleDesComptes>>, id: string, schema: string, m: Manifeste, proprietaire: string): GestesDeLaCopie {
+  const d: DependancesDesComptes = { magasin: magasinSurSupabase(base), cle, maintenant: () => Date.now(), courrier: async () => true };
+  const ctx = { app: schema, nomDeLApp: m.nom, langue: m.langues.principale, retour: '/' };
+  const rendu = <T,>(r: IssueDesComptes<T>) => (r.ok ? { statut: 200, corps: r.valeur as unknown } : { statut: 400, corps: { error: r.refus } });
+  const texte = (x: unknown, max = 300) => (typeof x === 'string' ? x.slice(0, max) : '');
+  return {
+    async comptes(geste, c) {
+      switch (geste) {
+        case 'inscrire': return rendu(await sInscrire(d, { ...ctx, email: texte(c.email), motDePasse: texte(c.motDePasse, 200), sansValidation: true }));
+        case 'entrer': return rendu(await entrer(d, { app: schema, email: texte(c.email), motDePasse: texte(c.motDePasse, 200), sansValidation: true }));
+        case 'lien': return rendu(await envoyerUnLien(d, { ...ctx, email: texte(c.email), nature: 'entrer' }));
+        case 'oublie': return rendu(await envoyerUnLien(d, { ...ctx, email: texte(c.email), nature: 'mot_de_passe' }));
+        case 'rafraichir': return rendu(await rafraichir(d, { app: schema, rafraichir: texte(c.rafraichir, 200) }));
+        default: return rendu(await sortir(d, { rafraichir: texte(c.rafraichir, 200) }));
+      }
+    },
+    panier: (c) => chiffrerLePanier({
+      rpc: (f, a) => base.rpc(f, a), leProjet: async () => ({ lu: true, valeur: { proprietaire, appJson: JSON.stringify(m) } }),
+      leCompte: async () => null, secretDuWebhook: null, stripe: () => Promise.reject(new Error('no Stripe in a journey')), journal: (l) => console.error(l),
+    }, id, c),
+  };
+}
+
 export async function leContexteReel(compte: string): Promise<ContexteDuServeur> {
   const base = clientDeService();
   const projets = projetsSurSupabase(base);
   const magasin = magasinS3();
   return {
     langue: await laLangue(base, compte),
+    noter(etape) {
+      const cle = `${compte}|${etape}`;
+      if (PREMIERES_FOIS_NOTEES.has(cle)) return;
+      void Promise.resolve(base.rpc('vavi_noter_une_premiere_fois', { p_compte: compte, p_etape: etape })).then((r) => {
+        if (r.error) console.error(`[premier-site] ${etape} non notée : ${r.error.message}`); else PREMIERES_FOIS_NOTEES.add(cle);
+      }, (e: unknown) => console.error(`[premier-site] ${etape} non notée : ${String(e)}`));
+    },
     gabaritPackageJson: leGabarit(),
     async noteDuChantier(id) {
       const p = await projets.lire(compte, id);
@@ -84,29 +126,33 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         return capturer(o.navigateur as unknown as NavigateurAPhotographier, dist, {
           env: { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet }, langue: m.langues.principale, hotesDesImages: images });
       },
-      async jouer(projet, empreinte, m, etapes, role) {
+      async jouer(projet, empreinte, m, etapes, { copie: surCopie, role }) {
         const publique = configurationPublique(process.env);
         const schema = schemaDuProjet(projet);
         if (!publique.lue || !schema) return { raison: 'the database of the app is not configured' };
         if (!magasin.lu) return { raison: 'the storage of the builds is not configured' };
+        const cle = surCopie ? laCleDesComptes(process.env) : null;
+        if (surCopie && !cle) return { raison: 'the key of the app accounts is not set on this vavi server' };
         const images = [new URL(adresseDeLaPlateforme()).origin, 'https://images.unsplash.com'];
         const o = await ouvrirLeNavigateur([publique.valeur.url, ...images]);
         if ('raison' in o) return { raison: o.raison };
         const racine = racineDuBuild(projet, empreinte);
-        const jouer = (s: string, session?: { cle: string; valeur: unknown }) => {
+        const jouer = (s: string, plus: { session?: { cle: string; valeur: unknown }; plateforme?: (chemin: string, corps: string | null) => ReturnType<typeof laRouteDeLaCopie> } = {}) => {
           const env = { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema: s, projet, base: BASE_DU_PARCOURS };
           return jouerLeParcours(o.navigateur as unknown as NavigateurDuParcours, etapes, {
-            lire: (segments) => servirUnDist(magasin.magasin, racine, segments, env), base: publique.valeur.url, images, langue: m.langues.principale, ...(session ? { session } : {}) });
+            lire: (segments) => servirUnDist(magasin.magasin, racine, segments, env), base: publique.valeur.url, images, langue: m.langues.principale,
+            copie: surCopie, ...plus });
         };
-        if (!role) return jouer(schema);
-        // Avec un compte : une copie de la base, un compte d'essai au rôle demandé, sa session signée par vavi (`lib/comptes`).
-        const cle = laCleDesComptes(process.env);
-        if (!cle) { await o.navigateur.close().catch(() => undefined); return { raison: 'the key of the app accounts is not set on this vavi server' }; }
-        const r = await avecUneCopie(base, m, compte, role, (copie) => {
+        if (!surCopie || !cle) return jouer(schema);
+        // Sur une copie : ses comptes, son panier, le paiement simulé (`la-plateforme-de-la-copie`) ; avec un rôle, la session
+        // d'un compte d'essai signée par vavi (`lib/comptes`).
+        const r = await avecUneCopie(base, m, compte, role, (c) => {
           const t = Math.floor(Date.now() / 1000);
-          return jouer(copie.schema, { cle: `vavi-session-${copie.schema}`, valeur: {
-            jeton: signerUnJeton(cle, { compte: copie.compte, app: copie.schema, email: copie.email }, t), rafraichir: 'parcours', expire: t + DUREE_DU_JETON_S,
-            compte: { id: copie.compte, email: copie.email, confirme: true } } });
+          const gestes = lesGestesDeLaCopie(base, cle, c.id, c.schema, m, compte);
+          return jouer(c.schema, { plateforme: (chemin, corps) => laRouteDeLaCopie(gestes, chemin, corps),
+            ...(c.essai ? { session: { cle: `vavi-session-${c.schema}`, valeur: {
+              jeton: signerUnJeton(cle, { compte: c.essai.compte, app: c.schema, email: c.essai.email }, t), rafraichir: 'parcours', expire: t + DUREE_DU_JETON_S,
+              compte: { id: c.essai.compte, email: c.essai.email, confirme: true } } } } : {}) });
         });
         if (!r.ok) await o.navigateur.close().catch(() => undefined);
         return r.ok ? r.valeur : { raison: r.raison };

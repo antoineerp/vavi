@@ -2,6 +2,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DependancesDeLAdministration } from './les-gestes';
 import type { LeTableauBrut, UnCompte } from './le-tableau';
+import type { LePremierSiteBrut } from './le-premier-site';
 
 type Base = Pick<SupabaseClient, 'from' | 'rpc' | 'auth'>;
 type Issue<T> = { readonly lu: true; readonly valeur: T } | { readonly lu: false; readonly pourquoi: string };
@@ -9,11 +10,15 @@ type Issue<T> = { readonly lu: true; readonly valeur: T } | { readonly lu: false
 const dit = (r: { error: { message: string } | null }): string | null => r.error?.message ?? null;
 
 export function administrationSurSupabase(base: Base, admin: string):
-  Omit<DependancesDeLAdministration, 'admin' | 'cle' | 'stripe' | 'maintenant'> & { leTableauBrut(depuis: string): Promise<Issue<LeTableauBrut>>; lesComptes(): Promise<Issue<readonly UnCompte[]>> } {
+  Omit<DependancesDeLAdministration, 'admin' | 'cle' | 'stripe' | 'maintenant'> & { leTableauBrut(depuis: string): Promise<Issue<LeTableauBrut>>; lePremierSiteBrut(): Promise<Issue<LePremierSiteBrut>>; lesComptes(): Promise<Issue<readonly UnCompte[]>> } {
   return {
     async leTableauBrut(depuis) {
       const r = await base.rpc('vavi_admin_le_tableau', { p_depuis: depuis });
       return r.error ? { lu: false, pourquoi: r.error.message } : { lu: true, valeur: r.data as LeTableauBrut };
+    },
+    async lePremierSiteBrut() {
+      const r = await base.rpc('vavi_admin_le_premier_site');
+      return r.error ? { lu: false, pourquoi: r.error.message } : { lu: true, valeur: r.data as LePremierSiteBrut };
     },
     async lesComptes() {
       const comptes: UnCompte[] = [];

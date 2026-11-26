@@ -27,6 +27,24 @@ export interface ContexteDuServeur extends ContexteDesRessources {
   readonly outils: Contexte;
   /** La langue du compte (`fr`, `en`…), `en` par défaut : les prompts sont rendus dans la sienne. */
   readonly langue: string;
+  /** Note une première fois du compte (le temps jusqu'au premier site, `lib/administration/le-premier-site`) ; sans attendre, sans jamais échouer. */
+  readonly noter?: (etape: EtapeFranchie) => void;
+}
+
+export type EtapeFranchie = 'connecteur' | 'projet' | 'build_vert' | 'parcours' | 'en_ligne';
+
+/** PURE — l'étape du premier site que ce résultat d'outil marque ; `null` : aucune. Un refus n'en marque jamais. */
+export function lEtapeFranchie(outil: string, rendu: Readonly<Record<string, unknown>>, refus: boolean): EtapeFranchie | null {
+  if (refus) return null;
+  const vert = (x: unknown): boolean => Boolean(x && typeof x === 'object' && (x as { green?: unknown }).green === true);
+  switch (outil) {
+    case 'create_project': return 'projet';
+    case 'build_preview': return vert(rendu) ? 'build_vert' : null;
+    case 'apply_changes': return vert(rendu.build) ? 'build_vert' : null;
+    case 'try_journey': return 'parcours';
+    case 'publish': case 'vavi_mettre_en_ligne': return 'en_ligne';
+    default: return null;
+  }
 }
 
 const erreur = (id: ReponseRpc['id'], code: number, message: string): ReponseRpc => ({ jsonrpc: '2.0', id, error: { code, message } });
@@ -41,6 +59,7 @@ async function repondre(r: Requete, ctx: ContexteDuServeur): Promise<ReponseRpc 
   if (notification) return null; // `notifications/initialized`, `notifications/cancelled` : rien à rendre.
   switch (r.method) {
     case 'initialize': {
+      ctx.noter?.('connecteur');
       const demandee = typeof p.protocolVersion === 'string' ? p.protocolVersion : VERSION_DU_PROTOCOLE;
       return resultat(id, {
         protocolVersion: VERSIONS_ACCEPTEES.includes(demandee) ? demandee : VERSION_DU_PROTOCOLE,
@@ -59,6 +78,8 @@ async function repondre(r: Requete, ctx: ContexteDuServeur): Promise<ReponseRpc 
       if (!a.connu) return erreur(id, -32602, `Unknown tool "${nom}".`);
       if ('invalide' in a) return erreur(id, -32602, `Invalid arguments for ${nom}: ${a.invalide}`);
       const refus = estUnRefus(a.rendu);
+      const etape = lEtapeFranchie(nom, a.rendu as Record<string, unknown>, refus);
+      if (etape) ctx.noter?.(etape);
       // Les images d'un rendu (`_images` : les captures d'un build vert) vont en blocs image, jamais dans le JSON.
       const { _images: images, ...rendu } = a.rendu as Record<string, unknown>;
       const { _images: imagesDuBuild, ...build } = (rendu.build ?? {}) as Record<string, unknown>;

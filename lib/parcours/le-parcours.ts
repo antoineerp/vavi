@@ -10,8 +10,9 @@
  * Sans compte, RIEN N'EST ÉCRIT. Les écritures de la base (`voie_neuve_creer`, `_modifier`, `_supprimer`, `_appeler`) et l'envoi d'un
  * formulaire sont SIMULÉS : la page reçoit une réponse de succès, et le parcours dit ce qui aurait été écrit ou envoyé.
  * Les lectures passent (en visiteur, sous la RLS). Avec un compte (`la-copie.ts`, étape 3), le parcours tourne sur une
- * copie temporaire de la base, connecté au rôle demandé, et ses écritures y sont réelles. Les routes de la plateforme
- * (s'inscrire, payer) ne sont jamais jouées : leur appel répond « indisponible » et c'est dit. Même clôture du réseau que le pré-rendu, plus les images des hôtes de photos.
+ * copie temporaire de la base, connecté au rôle demandé ou sans compte pour s'y inscrire, et ses écritures y sont réelles ;
+ * l'inscription, la connexion et le panier y sont joués pour de vrai, le paiement simulé (`la-plateforme-de-la-copie.ts`).
+ * Hors copie, les routes de la plateforme répondent « indisponible », et c'est dit. Même clôture du réseau que le pré-rendu, plus les images des hôtes de photos.
  */
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -146,6 +147,10 @@ export async function jouerLeParcours(navigateur: NavigateurDuParcours, etapes: 
   readonly base: string; readonly images: readonly string[]; readonly langue: string;
   /** Un parcours avec compte : la session posée dans le navigateur avant la première page, sur une copie de la base. */
   readonly session?: { readonly cle: string; readonly valeur: unknown };
+  /** Sur une copie, les routes de la plateforme qu'elle joue (comptes, panier, paiement simulé, `la-plateforme-de-la-copie`) ; `null` : indisponible. */
+  readonly plateforme?: (chemin: string, corps: string | null) => Promise<{ readonly statut: number; readonly corps: unknown; readonly dit?: string } | null>;
+  /** Sur une copie, les écritures sont réelles (même sans session : on s'y inscrit). */
+  readonly copie?: boolean;
 }): Promise<Parcours> {
   const { adresse: site, serveur } = await servirLeBuild(o.lire);
   const jouees: EtapeJouee[] = [];
@@ -159,10 +164,15 @@ export async function jouerLeParcours(navigateur: NavigateurDuParcours, etapes: 
     if (o.session) await page.addInitScript(`try { localStorage.setItem(${JSON.stringify(o.session.cle)}, ${JSON.stringify(JSON.stringify(o.session.valeur))}); } catch (e) {}`);
     await page.route('**/*', async (r) => {
       const q = r.request();
-      const s = leSortDeLaRequete(q.url(), q.method(), q.resourceType(), { site, base: o.base, images: o.images, copie: Boolean(o.session) });
+      const s = leSortDeLaRequete(q.url(), q.method(), q.resourceType(), { site, base: o.base, images: o.images, copie: Boolean(o.session) || o.copie === true });
       if (s.sort === 'servie') return r.continue();
       if (s.sort === 'bloquee') return r.abort('blockedbyclient');
       if (s.sort === 'indisponible') {
+        const jouee = o.plateforme ? await o.plateforme(s.chemin, q.postData()).catch((e: unknown) => ({ statut: 503, corps: { error: 'panne' }, dit: `${s.chemin} failed: ${message(e)}` })) : null;
+        if (jouee) {
+          if (jouee.dit) simule.push(jouee.dit);
+          return r.fulfill({ status: jouee.statut, contentType: 'application/json', body: JSON.stringify(jouee.corps) });
+        }
         simule.push(`${s.chemin} was called: not played in a journey (accounts, payment), it answered « unavailable »`);
         return r.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'not available in a vavi journey' }) });
       }
