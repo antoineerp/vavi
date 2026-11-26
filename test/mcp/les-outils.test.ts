@@ -348,14 +348,14 @@ describe('les règles seulement demandées, rendues sûres (choix d’Antoine du
   });
   it('le build vert rend la mesure de l’accueil comparée au guide, et les liens qui ne mènent nulle part', async () => {
     const w = await unChantier();
-    (c as { capturer?: Contexte['capturer'] }).capturer = async () => ({ captures: [], manquees: ['x'], mesure: { sections: 3, photos: 4, photosCassees: 0, titres: 1 } });
+    (c as { capturer?: Contexte['capturer'] }).capturer = async () => ({ captures: [], manquees: ['x'], mesure: { sections: 3, photos: 4, photosCassees: 1, titres: 1 } });
     const r = await ok('apply_changes', { ...w, why: 'accueil', changes: [{ path: 'src/pages/index.tsx', content: 'export default function A() {\n  return <a href="/equipe">Équipe</a>;\n}' }] });
     const b = r.build as Record<string, unknown>;
-    expect(b.home_checks).toMatchObject({ to_fix: [expect.stringContaining('3 section(s)')] });
+    expect(b.home_checks).toMatchObject({ to_fix: ['1 image(s) on the home page did not load'] });
     expect(b.broken_links).toMatchObject({ links: ['src/pages/index.tsx:2 /equipe'] });
     (c as { capturer?: Contexte['capturer'] }).capturer = async () => ({ captures: [], manquees: ['x'], mesure: { sections: 7, photos: 5, photosCassees: 0, titres: 1 } });
     const r2 = await ok('apply_changes', { ...w, why: 'la page', changes: [{ path: 'src/pages/equipe.tsx', content: 'export default function E() { return null; }' }] });
-    expect((r2.build as Record<string, unknown>).home_checks).toMatch(/holds the design guide/);
+    expect((r2.build as Record<string, unknown>).home_checks).toMatch(/no broken image, one main title/);
     expect((r2.build as Record<string, unknown>).broken_links).toBeUndefined();
   });
 });

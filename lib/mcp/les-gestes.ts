@@ -640,7 +640,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   const t1 = Date.now();
   const vues = c.capturer ? await c.capturer(a.project, b.dist, arbre.manifeste).catch((e: unknown) => ({ captures: [], manquees: [String((e as Error)?.message ?? e).slice(0, 200)], mesure: undefined })) : null;
   if (vues) console.log(`[build_preview] ${a.project} captures ${Date.now() - t1} ms (${vues.captures.length})`);
-  // Ce que le guide demande, mesuré (choix d'Antoine du 26/11) : l'accueil rendu, les liens écrits. Jamais un refus.
+  // Les défauts objectifs de l'accueil rendu (image cassée, titre principal) et les liens écrits vers nulle part. Jamais un refus.
   const ecarts = vues?.mesure ? lesEcartsDeLAccueil(arbre.manifeste, vues.mesure) : [];
   const liens = lesLiensMorts(new Map([...f.valeur].filter(([ch]) => !estFige(ch))));
   return fait({
@@ -648,7 +648,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
     preview_updated: designe.lu,
     ...(vues ? { screens: vues.captures.length ? `the home page on ${vues.captures.map((x) => x.ecran === 'bureau' ? 'a desktop screen (1280×800)' : 'a phone (390×844)').join(' and ')}, as images below: look at them and fix what is visibly wrong (empty or broken section, unreadable text, overflowing menu) before showing the person`
       : `not taken: ${vues.manquees.join(' | ')}` } : {}),
-    ...(vues?.mesure ? { home_checks: ecarts.length ? { to_fix: ecarts, measured: vues.mesure } : 'the home page holds the design guide (sections, photos, one title)' } : {}),
+    ...(vues?.mesure ? { home_checks: ecarts.length ? { to_fix: ecarts, measured: vues.mesure } : 'no broken image, one main title' } : {}),
     ...(liens.length ? { broken_links: { links: liens.slice(0, 20).map((l) => `${l.fichier}:${l.ligne} ${l.lien}`), next: 'Each of these links leads to no page of the app (or to no `id` for an anchor): point it to a page that exists, create the page, or remove the link.' } } : {}),
     ...(vues?.captures.length ? { _images: vues.captures.map((x) => ({ data: x.jpeg.toString('base64'), mimeType: 'image/jpeg' })) } : {}),
     next: 'When the person’s request is done, call `publish` to close the work session.',
