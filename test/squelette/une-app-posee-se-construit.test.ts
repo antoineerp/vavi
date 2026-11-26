@@ -42,4 +42,36 @@ describe.runIf(process.env.VAVI_BATIR === 'oui')('une app posée se construit', 
     const c = await construireLApp(ceQueLAppTire(arbre, m));
     if (!c.construite) throw new Error(JSON.stringify(c.ecarts));
   }, 600_000);
+  // 26/11 : les sections prêtes (galerie, tarifs et avis lus en base, plan, contact, questions) se montent et se construisent.
+  it('une page qui monte toutes les sections prêtes se construit', async () => {
+    const m = unManifeste({ nature: 'site', nom: 'Essai sections',
+      roles: [{ nom: 'gerant', libelle: 'Gérant', obtenu: 'proprietaire' }],
+      tables: [
+        { nom: 'formule', libelle: 'Formules', appartenance: 'publique', lecture: ['visiteur', 'gerant'], ecriture: ['gerant'],
+          champs: [{ nom: 'nom', libelle: 'Nom', type: 'texte', obligatoire: true }, { nom: 'prix', libelle: 'Prix', type: 'montant', obligatoire: true }] },
+        { nom: 'temoignage', libelle: 'Avis', appartenance: 'publique', lecture: ['visiteur', 'gerant'], ecriture: ['gerant'],
+          champs: [{ nom: 'texte', libelle: 'Texte', type: 'texte_long', obligatoire: true }, { nom: 'signature', libelle: 'Signature', type: 'texte', obligatoire: true }, { nom: 'note', libelle: 'Note', type: 'entier' }] },
+      ] });
+    const arbre = poserLeFige(m);
+    arbre.set('src/Chrome.tsx', CHROME);
+    arbre.set('src/pages/index.tsx', [
+      "import { PUBLIC } from '@/lib/acces';",
+      "import { Avis, Contact, Galerie, Plan, QuestionsFrequentes, Tarifs } from '@/briques/sections';",
+      'export const acces = PUBLIC;',
+      'export default function Accueil() {',
+      '  return (<>',
+      '    <h1>Bienvenue</h1>',
+      "    <Galerie titre=\"L’atelier\" photos={[{ photo: <img src=\"/a.jpg\" alt=\"a\" />, legende: 'Un' }]} />",
+      "    <Tarifs table=\"formule\" titre=\"Tarifs\" formule={(l) => ({ nom: l.nom, prix: l.prix, points: ['Un'] })} />",
+      "    <Avis table=\"temoignage\" titre=\"Ils en parlent\" avis={(l) => ({ texte: l.texte, auteur: l.signature, note: l.note })} />",
+      "    <Plan adresse=\"1 rue de la Paix, Paris\" horaires={['Lundi : 9 h – 18 h']} />",
+      "    <Contact formKey=\"contact\" titre=\"Écrivez-nous\" telephone coordonnees={{ courriel: 'a@b.fr' }} />",
+      "    <QuestionsFrequentes titre=\"Questions\" questions={[{ question: 'Où ?', reponse: 'Ici.' }]} />",
+      '  </>);',
+      '}',
+      '',
+    ].join('\n'));
+    const c = await construireLApp(ceQueLAppTire(arbre, m));
+    if (!c.construite) throw new Error(JSON.stringify(c.ecarts));
+  }, 600_000);
 });
