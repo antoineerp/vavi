@@ -75,7 +75,7 @@ describe('INCIDENT 26/11 — l’apparence ne s’enregistrait jamais depuis la 
     const a = lApparenceDuFormulaire(f);
     expect(a).toEqual({ lue: true, apparence: { couleurs: { fond: '#f6f1ea', texte: '#2a211b', accent: '#2f6b4f', surface: '#fffaf4', bordure: '#e2d6c6' }, rayon: 'doux', polices: { titres: 'Fraunces', texte: 'Inter' } } });
     // La page nomme ses listes de polices par ces noms, jamais par celui d'une couleur.
-    const page = (await import('node:fs')).readFileSync('app/projets/[id]/contenu/page.tsx', 'utf8');
+    const page = (await import('node:fs')).readFileSync('app/projets/[id]/gerer/l-apparence.tsx', 'utf8');
     expect(page).toContain('name={CHAMPS_DES_POLICES.texte}');
     expect(page).not.toMatch(/<select name="(texte|titres)"/);
   });
