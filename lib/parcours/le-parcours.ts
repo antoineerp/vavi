@@ -17,6 +17,7 @@
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { randomUUID } from 'node:crypto';
+import { leDepotDuCorps } from './la-plateforme-de-la-copie';
 
 export const BASE_DU_PARCOURS = '/__vavi_base__/';
 export const ETAPES_MAX = 25;
@@ -97,14 +98,17 @@ const ECRITURES = /\/rest\/v1\/rpc\/(voie_neuve_(?:creer|modifier|supprimer|appe
 export function leSortDeLaRequete(url: string, methode: string, sorte: string, o: { readonly site: string; readonly base: string; readonly images: readonly string[]; readonly copie?: boolean }):
   | { readonly sort: 'servie' }
   | { readonly sort: 'bloquee' }
-  | { readonly sort: 'simulee'; readonly quoi: 'base' | 'formulaire'; readonly fonction?: string }
+  | { readonly sort: 'simulee'; readonly quoi: 'base' | 'formulaire' | 'depot'; readonly fonction?: string }
   | { readonly sort: 'indisponible'; readonly chemin: string } {
   let u: URL;
   try { u = new URL(url); } catch { return { sort: 'bloquee' }; }
   if (url.startsWith('data:')) return { sort: 'servie' };
   if (u.origin === new URL(o.site).origin) {
     const api = /\/api\/(.+)$/.exec(u.pathname);
-    if (api) return api[1] === 'forms/submit' ? { sort: 'simulee', quoi: 'formulaire' } : { sort: 'indisponible', chemin: `/api/${api[1]}` };
+    if (api && api[1] === 'forms/submit') return { sort: 'simulee', quoi: 'formulaire' };
+    // L'envoi sans compte : joué dans la copie (`la-plateforme-de-la-copie`), simulé sans elle.
+    if (api && /^depot\/[^/]+$/.test(api[1]!) && !o.copie) return { sort: 'simulee', quoi: 'depot' };
+    if (api) return { sort: 'indisponible', chemin: `/api/${api[1]}` };
     return { sort: 'servie' };
   }
   if (u.origin === new URL(o.base).origin) {
@@ -117,7 +121,11 @@ export function leSortDeLaRequete(url: string, methode: string, sorte: string, o
 }
 
 /** La réponse simulée d'une écriture, et ce qu'elle dit au rapport. PUR. */
-export function laReponseSimulee(quoi: 'base' | 'formulaire', fonction: string | undefined, corps: string | null): { readonly corps: unknown; readonly dit: string } {
+export function laReponseSimulee(quoi: 'base' | 'formulaire' | 'depot', fonction: string | undefined, corps: string | null): { readonly corps: unknown; readonly dit: string } {
+  if (quoi === 'depot') {
+    const d = leDepotDuCorps(corps) as { table?: unknown; ligne?: unknown } | null;
+    return { corps: { id: randomUUID(), ligne: d?.ligne ?? {} }, dit: `a visitor's row would be saved without an account in « ${String(d?.table ?? '?')} »: ${JSON.stringify(d?.ligne ?? {}).slice(0, 300)}` };
+  }
   let a: Record<string, unknown> = {};
   try { a = JSON.parse(corps ?? '{}') as Record<string, unknown>; } catch { /* corps illisible : dit tel quel */ }
   const court = (v: unknown) => JSON.stringify(v ?? {}).slice(0, 300);
