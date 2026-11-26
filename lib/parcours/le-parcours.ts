@@ -7,10 +7,11 @@
  * magasin. Un fait par étape : réussie, ou arrêtée avec sa raison (rien à cliquer, texte jamais affiché, erreur de la
  * page) et une capture de l'endroit. Jamais un refus : Claude lit et corrige au tour.
  *
- * RIEN N'EST ÉCRIT. Les écritures de la base (`voie_neuve_creer`, `_modifier`, `_supprimer`, `_appeler`) et l'envoi d'un
+ * Sans compte, RIEN N'EST ÉCRIT. Les écritures de la base (`voie_neuve_creer`, `_modifier`, `_supprimer`, `_appeler`) et l'envoi d'un
  * formulaire sont SIMULÉS : la page reçoit une réponse de succès, et le parcours dit ce qui aurait été écrit ou envoyé.
- * Les lectures passent (en visiteur, sous la RLS). Les comptes et le paiement ne sont pas joués (étape 3) : leur appel
- * répond « indisponible » et c'est dit. Même clôture du réseau que le pré-rendu, plus les images des hôtes de photos.
+ * Les lectures passent (en visiteur, sous la RLS). Avec un compte (`la-copie.ts`, étape 3), le parcours tourne sur une
+ * copie temporaire de la base, connecté au rôle demandé, et ses écritures y sont réelles. Les routes de la plateforme
+ * (s'inscrire, payer) ne sont jamais jouées : leur appel répond « indisponible » et c'est dit. Même clôture du réseau que le pré-rendu, plus les images des hôtes de photos.
  */
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -56,6 +57,7 @@ interface Route {
 }
 interface PageJouee {
   route(motif: string, h: (r: Route) => unknown): Promise<unknown>;
+  addInitScript(script: string): Promise<void>;
   on(e: 'pageerror', f: (e: Error) => void): void;
   goto(url: string, o: { waitUntil: 'networkidle'; timeout: number }): Promise<unknown>;
   waitForLoadState(s: 'networkidle', o: { timeout: number }): Promise<void>;
@@ -91,7 +93,7 @@ const ECRITURES = /\/rest\/v1\/rpc\/(voie_neuve_(?:creer|modifier|supprimer|appe
  * Ce qu'une requête de la page devient : servie (le site, une lecture de la base, une image permise), simulée (une
  * écriture, un formulaire), indisponible (une autre route de la plateforme), ou bloquée. PUR.
  */
-export function leSortDeLaRequete(url: string, methode: string, sorte: string, o: { readonly site: string; readonly base: string; readonly images: readonly string[] }):
+export function leSortDeLaRequete(url: string, methode: string, sorte: string, o: { readonly site: string; readonly base: string; readonly images: readonly string[]; readonly copie?: boolean }):
   | { readonly sort: 'servie' }
   | { readonly sort: 'bloquee' }
   | { readonly sort: 'simulee'; readonly quoi: 'base' | 'formulaire'; readonly fonction?: string }
@@ -106,7 +108,8 @@ export function leSortDeLaRequete(url: string, methode: string, sorte: string, o
   }
   if (u.origin === new URL(o.base).origin) {
     const e = ECRITURES.exec(u.pathname);
-    return e && methode === 'POST' ? { sort: 'simulee', quoi: 'base', fonction: e[1]! } : { sort: 'servie' };
+    // Sur une copie de la base (parcours avec compte), les écritures sont réelles : la copie est effacée à la fin.
+    return e && methode === 'POST' && !o.copie ? { sort: 'simulee', quoi: 'base', fonction: e[1]! } : { sort: 'servie' };
   }
   if (sorte === 'image' && o.images.some((h) => new URL(h).origin === u.origin)) return { sort: 'servie' };
   return { sort: 'bloquee' };
@@ -141,6 +144,8 @@ function servirLeBuild(lire: (segments: readonly string[]) => Promise<{ statut: 
 export async function jouerLeParcours(navigateur: NavigateurDuParcours, etapes: readonly Etape[], o: {
   readonly lire: (segments: readonly string[]) => Promise<{ statut: number; type: string; corps: Buffer }>;
   readonly base: string; readonly images: readonly string[]; readonly langue: string;
+  /** Un parcours avec compte : la session posée dans le navigateur avant la première page, sur une copie de la base. */
+  readonly session?: { readonly cle: string; readonly valeur: unknown };
 }): Promise<Parcours> {
   const { adresse: site, serveur } = await servirLeBuild(o.lire);
   const jouees: EtapeJouee[] = [];
@@ -150,9 +155,11 @@ export async function jouerLeParcours(navigateur: NavigateurDuParcours, etapes: 
   try {
     const page = await navigateur.newPage({ viewport: { width: 1280, height: 800 }, locale: o.langue, reducedMotion: 'reduce' });
     page.on('pageerror', (e) => { if (erreurs.length < 10) erreurs.push(message(e)); });
+    // En texte : une fonction compilée porterait des aides du compilateur que la page n'a pas (`les-captures.ts`).
+    if (o.session) await page.addInitScript(`try { localStorage.setItem(${JSON.stringify(o.session.cle)}, ${JSON.stringify(JSON.stringify(o.session.valeur))}); } catch (e) {}`);
     await page.route('**/*', async (r) => {
       const q = r.request();
-      const s = leSortDeLaRequete(q.url(), q.method(), q.resourceType(), { site, base: o.base, images: o.images });
+      const s = leSortDeLaRequete(q.url(), q.method(), q.resourceType(), { site, base: o.base, images: o.images, copie: Boolean(o.session) });
       if (s.sort === 'servie') return r.continue();
       if (s.sort === 'bloquee') return r.abort('blockedbyclient');
       if (s.sort === 'indisponible') {

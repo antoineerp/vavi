@@ -33,7 +33,7 @@ Supabase (projet neuf, région Europe), pnpm seul. Né le 24/11/2026 des fonctio
 ```bash
 pnpm install
 pnpm typecheck          # 0 erreur
-pnpm test               # tous verts (les essais sur PostgreSQL réel tournent en root : sudo -E env "PATH=$PATH" pnpm exec vitest run test/backend test/donnees test/relais test/projets test/vente test/formulaires test/stripe-connect test/conformite test/capacites test/abonnements test/administration test/export.test.ts ;
+pnpm test               # tous verts (les essais sur PostgreSQL réel tournent en root : sudo -E env "PATH=$PATH" pnpm exec vitest run test/backend test/donnees test/relais test/projets test/vente test/formulaires test/stripe-connect test/conformite test/capacites test/abonnements test/administration test/parcours test/export.test.ts ;
                         #  le build d'une app posée tourne avec VAVI_BATIR=oui)
 pnpm fermeture          # 0 écart
 pnpm build

@@ -63,7 +63,7 @@ export interface Contexte {
   /** Les builds rouges de suite, par compte et projet ; absent : une mémoire du processus. */
   readonly buildsRouges?: Map<string, number>;
   /** Joue un parcours de visiteur sur le build vert d'empreinte donnée (`lib/parcours`) ; absent ou sans navigateur : la raison. */
-  readonly jouer?: (projet: string, empreinte: string, manifeste: Manifeste, etapes: readonly EtapeDuParcours[]) => Promise<Parcours | { readonly raison: string }>;
+  readonly jouer?: (projet: string, empreinte: string, manifeste: Manifeste, etapes: readonly EtapeDuParcours[], role: string | null) => Promise<Parcours | { readonly raison: string }>;
   /** Les chantiers où Claude a lu le guide de design (compte|projet|chantier) ; absent : une mémoire du processus. */
   readonly guidesLus?: Set<string>;
   /** L'abonnement du compte, tel que Claude le lit (l'offre, ce qu'elle publie, où la choisir) ; absent : non dit. */
@@ -667,7 +667,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
  * contente pas de la regarder). Rien n'est écrit : les écritures sont simulées et dites. Le résultat n'est jamais un refus
  * de l'app : une étape qui échoue est un fait, que Claude corrige au tour.
  */
-export async function jouerUnParcours(c: Contexte, a: { project: string; steps: readonly EtapeDuParcours[] }): Promise<Rendu> {
+export async function jouerUnParcours(c: Contexte, a: { project: string; steps: readonly EtapeDuParcours[]; as_role?: string }): Promise<Rendu> {
   const p = await leProjet(c, a.project);
   if (!p.ok) return p.refus;
   const f = await lesFichiers(c, a.project);
@@ -679,8 +679,13 @@ export async function jouerUnParcours(c: Contexte, a: { project: string; steps: 
   if (!b.valeur) return refuser('build_perime', 'The current version has not been built: a journey plays the green build of the current version.');
   if (!b.valeur.vert) return refuser('build_rouge', 'The last build of the current version is red: fix it before playing a journey.');
   if (!c.jouer) return refuser('plateforme_en_panne', 'Journeys are not available on this vavi server.');
+  const roles = arbre.manifeste.roles.map((x) => x.nom);
+  if (a.as_role && !roles.includes(a.as_role)) {
+    return refuser('app_json_refuse', `app.json declares no role « ${a.as_role} »${roles.length ? ` (its roles: ${roles.join(', ')})` : ' (it has no roles: play the journey without `as_role`)'}.`,
+      { fichier: 'app.json', geste: 'Play the journey with one of the roles of app.json, or without `as_role` as a visitor.' });
+  }
   const t = Date.now();
-  const r = await c.jouer(a.project, arbre.empreinte, arbre.manifeste, a.steps).catch((e: unknown) => ({ raison: String((e as Error)?.message ?? e).slice(0, 300) }));
+  const r = await c.jouer(a.project, arbre.empreinte, arbre.manifeste, a.steps, a.as_role ?? null).catch((e: unknown) => ({ raison: String((e as Error)?.message ?? e).slice(0, 300) }));
   if ('raison' in r) return refuser('plateforme_en_panne', `The journey could not be played: ${r.raison}. This is not caused by your files.`);
   const reussies = r.etapes.filter((e) => e.ok).length;
   console.log(`[try_journey] ${a.project} ${reussies}/${a.steps.length} étapes en ${Date.now() - t} ms`);
@@ -692,7 +697,9 @@ export async function jouerUnParcours(c: Contexte, a: { project: string; steps: 
     ...(r.erreursDeLaPage.length ? { page_errors: r.erreursDeLaPage } : {}),
     ...(r.arret?.capture ? { _images: [{ data: r.arret.capture.toString('base64'), mimeType: 'image/jpeg' }] } : {}),
     next: r.arret === null ? 'The journey works. Tell the person what you checked.' : 'Fix what stopped the journey (the screen, the text, the label), build again, and play the journey again.',
-    not_checked: 'nothing was written or sent: writes and forms are simulated, so the rules of the database (required fields, duplicates) are not checked here; journeys with an account or a payment are not played yet.',
+    ...(a.as_role ? { signed_in_as: `a test account with the role « ${a.as_role} », on a temporary copy of the database (its example rows, nothing of the real data), deleted after the journey: its writes were real there, so the rules of the database were checked` } : {}),
+    not_checked: a.as_role ? 'signing up, signing in and paying themselves (the platform routes answer « unavailable » in a journey); forms are simulated.'
+      : 'nothing was written or sent: writes and forms are simulated, so the rules of the database (required fields, duplicates) are not checked here; play it with `as_role` to check them on a copy.',
   });
 }
 

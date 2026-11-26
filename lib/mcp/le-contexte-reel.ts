@@ -23,6 +23,8 @@ import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { ouvrirLeNavigateur, preRendre } from '@/lib/seo/le-pre-rendu';
 import { capturer, type NavigateurAPhotographier } from '@/lib/seo/les-captures';
 import { jouerLeParcours, BASE_DU_PARCOURS, type NavigateurDuParcours } from '@/lib/parcours/le-parcours';
+import { avecUneCopie } from '@/lib/parcours/la-copie';
+import { laCleDesComptes, signerUnJeton, DUREE_DU_JETON_S } from '@/lib/comptes/les-jetons';
 import type { ContexteDuServeur } from './le-serveur';
 import { abonnementsSurSupabase } from '@/lib/abonnements/sur-supabase';
 import { lEtatDuCompte, laVueDeLAbonnement, leDroitDePublier } from '@/lib/abonnements/l-abonnement';
@@ -82,7 +84,7 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         return capturer(o.navigateur as unknown as NavigateurAPhotographier, dist, {
           env: { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet }, langue: m.langues.principale, hotesDesImages: images });
       },
-      async jouer(projet, empreinte, m, etapes) {
+      async jouer(projet, empreinte, m, etapes, role) {
         const publique = configurationPublique(process.env);
         const schema = schemaDuProjet(projet);
         if (!publique.lue || !schema) return { raison: 'the database of the app is not configured' };
@@ -90,10 +92,24 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         const images = [new URL(adresseDeLaPlateforme()).origin, 'https://images.unsplash.com'];
         const o = await ouvrirLeNavigateur([publique.valeur.url, ...images]);
         if ('raison' in o) return { raison: o.raison };
-        const env = { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet, base: BASE_DU_PARCOURS };
         const racine = racineDuBuild(projet, empreinte);
-        return jouerLeParcours(o.navigateur as unknown as NavigateurDuParcours, etapes, {
-          lire: (segments) => servirUnDist(magasin.magasin, racine, segments, env), base: publique.valeur.url, images, langue: m.langues.principale });
+        const jouer = (s: string, session?: { cle: string; valeur: unknown }) => {
+          const env = { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema: s, projet, base: BASE_DU_PARCOURS };
+          return jouerLeParcours(o.navigateur as unknown as NavigateurDuParcours, etapes, {
+            lire: (segments) => servirUnDist(magasin.magasin, racine, segments, env), base: publique.valeur.url, images, langue: m.langues.principale, ...(session ? { session } : {}) });
+        };
+        if (!role) return jouer(schema);
+        // Avec un compte : une copie de la base, un compte d'essai au rôle demandé, sa session signée par vavi (`lib/comptes`).
+        const cle = laCleDesComptes(process.env);
+        if (!cle) { await o.navigateur.close().catch(() => undefined); return { raison: 'the key of the app accounts is not set on this vavi server' }; }
+        const r = await avecUneCopie(base, m, compte, role, (copie) => {
+          const t = Math.floor(Date.now() / 1000);
+          return jouer(copie.schema, { cle: `vavi-session-${copie.schema}`, valeur: {
+            jeton: signerUnJeton(cle, { compte: copie.compte, app: copie.schema, email: copie.email }, t), rafraichir: 'parcours', expire: t + DUREE_DU_JETON_S,
+            compte: { id: copie.compte, email: copie.email, confirme: true } } });
+        });
+        if (!r.ok) await o.navigateur.close().catch(() => undefined);
+        return r.ok ? r.valeur : { raison: r.raison };
       },
       // Après la réponse de l'outil : le serveur de vavi est un processus qui dure (Fly), le travail va au bout.
       enArrierePlan(nom, travail) { void travail().catch((e: unknown) => console.error(`[arrière-plan] ${nom} : ${(e as Error)?.message ?? e}`)); },

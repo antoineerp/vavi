@@ -59,6 +59,16 @@ describe.runIf(process.env.VAVI_NAVIGATEUR === 'oui')('un parcours joué dans un
     expect(r.simule).toEqual(['form « contact » would be sent to the owner: {"nom":"Ana","message":"Bonjour"}', 'a row would be created in « demande »: {"nom":"Ana","message":"Bonjour"}']);
     expect(r.etapes[0]!.adresse).toBe('/contact');
   }, 60_000);
+  it('avec un compte : la session est posée avant la première page, et les écritures vont à la copie, réelles', async () => {
+    const page = `<!doctype html><html><body><p id="s"></p><script>
+      document.getElementById('s').textContent = 'connecté ' + (JSON.parse(localStorage.getItem('vavi-session-app_copie') || '{}').compte || {}).email;
+    </script></body></html>`;
+    const r = await jouerLeParcours(await lancer(), [{ action: 'open', path: '/' }, { action: 'expect', text: 'connecté essai@vavi.invalid' }], {
+      lire: async () => ({ statut: 200, type: 'text/html; charset=utf-8', corps: Buffer.from(page) }), base: 'https://abc.supabase.co', images: [], langue: 'fr',
+      session: { cle: 'vavi-session-app_copie', valeur: { jeton: 'j', rafraichir: 'r', expire: 1, compte: { id: 'x', email: 'essai@vavi.invalid', confirme: true } } } });
+    expect(r.etapes.map((e) => e.ok)).toEqual([true, true]);
+    expect(leSortDeLaRequete('https://abc.supabase.co/rest/v1/rpc/voie_neuve_creer', 'POST', 'fetch', { ...o, copie: true })).toEqual({ sort: 'servie' });
+  }, 60_000);
   it('s’arrête à la première étape qui échoue, avec sa raison et une capture', async () => {
     const r = await jouerLeParcours(await lancer(), [
       { action: 'open', path: '/' }, { action: 'click', target: 'Réserver' }, { action: 'expect', text: 'jamais' },

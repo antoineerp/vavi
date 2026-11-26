@@ -134,8 +134,9 @@ export const DEFINITIONS = {
       z.object({ action: z.literal('select'), target: z.string().min(1).max(120).describe('The label of the list.'), value: z.string().min(1).max(200).describe('The visible text of the option.') }),
       z.object({ action: z.literal('check'), target: z.string().min(1).max(120).describe('The label of the box or choice.') }),
       z.object({ action: z.literal('expect'), text: z.string().min(1).max(200).describe('A text that must appear on the page.') }),
-    ])).min(1).max(25) }),
-    description: 'After a green build, plays what a visitor does on the preview, step by step, in a real browser: open an address, click a button or link by its text, fill a field by its label, check that a text appears. Each step comes back done or stopped with its reason, and a picture of the page where it stopped. Nothing is written: database writes and forms are simulated and listed. Play the main journey of what you just built or changed (a form sends and thanks, a menu leads to its page) before telling the person it works.',
+    ])).min(1).max(25),
+    as_role: z.string().regex(/^[a-z][a-z0-9_]{0,40}$/).optional().describe('A role of app.json: the journey is played signed in with a test account that has this role, on a temporary copy of the database (its example rows), deleted after. Omitted: as a visitor, without an account.') }),
+    description: 'After a green build, plays what a visitor does on the preview, step by step, in a real browser: open an address, click a button or link by its text, fill a field by its label, check that a text appears. Each step comes back done or stopped with its reason, and a picture of the page where it stopped. As a visitor nothing is written (database writes and forms are simulated and listed); with `as_role`, the journey runs signed in on a temporary copy of the database, so its writes and access rules are really checked, and nothing of the real data is touched. Play the main journey of what you just built or changed (a form sends and thanks, a menu leads to its page) before telling the person it works.',
     geste: (c, a) => g.jouerUnParcours(c, a),
   }),
   publish: def({
