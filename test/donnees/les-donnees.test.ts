@@ -1,6 +1,6 @@
 /** Ce que la console montre et laisse écrire d'une app, dérivé d'app.json. */
 import { describe, expect, it } from 'vitest';
-import { enCsv, enTexte, leNomDUneLigne, lesTablesDeLaConsole, relireLaSaisie, seModifie } from '@/lib/donnees/les-donnees';
+import { enCsv, enTexte, leNomDUneLigne, lesLignesDuTexte, lesTablesDeLaConsole, relireLaSaisie, seModifie } from '@/lib/donnees/les-donnees';
 import { NOTES, lu } from './une-app';
 
 const [notes, depenses] = lesTablesDeLaConsole(lu(NOTES));
@@ -39,5 +39,17 @@ describe('les tables de la console', () => {
     const csv = enCsv(notes!, [{ id: 'i1', created_at: 't', etat: 'soumise', objet: 'Dîner; "client"', montant: 10 }], 'fr');
     expect(csv.split('\r\n')[0]).toBe('﻿id;créée le;état;Objet;Montant;Urgent;Catégorie;Justificatif;Validée le');
     expect(csv.split('\r\n')[1]).toBe('i1;t;Soumise;"Dîner; ""client""";10;;;;');
+  });
+});
+
+// 26/11 (« enrichir » la console) : un texte cliqué dans l'aperçu qui est une donnée mène à sa ligne, sans rien deviner.
+describe('lesLignesDuTexte', () => {
+  const lignes = [{ id: 'a1', objet: 'Repas  client\nDupont', montant: 42 }, { id: 'a2', objet: 'Train Lyon', montant: 42 }];
+  it('la ligne dont un champ de texte porte exactement le texte cliqué (espaces repliés)', () => {
+    expect(lesLignesDuTexte(' Repas client Dupont ', [{ table: notes!, lignes }])).toEqual([{ table: 'notes', libelle: 'Notes', ligne: 'a1', nom: 'Repas  client\nDupont', champ: 'Objet' }]);
+  });
+  it('un texte seulement contenu, ou un nombre affiché, ne désigne aucune ligne', () => {
+    expect(lesLignesDuTexte('Repas', [{ table: notes!, lignes }])).toEqual([]);
+    expect(lesLignesDuTexte('42', [{ table: notes!, lignes }])).toEqual([]);
   });
 });
