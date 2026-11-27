@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { createHmac } from 'node:crypto';
 import { lEtat, lEtatAvecLOffert, lePeutPublier, leSiteEstServi, leMontant, laGrille, laReductionDuPaiement, GRILLE_DU_CODE, type Abonnement, type Reduction } from '@/lib/abonnements/les-offres';
 import { lEvenement, lesFactures, ouvrirLePaiement } from '@/lib/abonnements/stripe-billing';
-import { choisirUneOffre, laVueDeLAbonnement, lesFacturesDuCompte, lireLeRetourDuPaiement, ouvrirLePortailDuCompte, recevoirUnEvenement, type DependancesDesAbonnements } from '@/lib/abonnements/l-abonnement';
+import { choisirUneOffre, completerLAbonnement, laVueDeLAbonnement, lesFacturesDuCompte, lireLeRetourDuPaiement, ouvrirLePortailDuCompte, recevoirUnEvenement, type DependancesDesAbonnements } from '@/lib/abonnements/l-abonnement';
 import { CHEMIN_DE_LA_MIGRATION_DES_ABONNEMENTS, laMigrationDesAbonnements } from '@/lib/abonnements/le-sql-des-abonnements';
 
 const COMPTE = 'aaaaaaaa-0000-4000-8000-00000000000a';
@@ -128,6 +128,23 @@ describe('le webhook des abonnements', () => {
     expect(await lireLeRetourDuPaiement(autre, COMPTE, 'cs_live_ABCDEFGH12')).toBe(false);
     expect(autre.appliques).toEqual([]);
     expect(await lireLeRetourDuPaiement(d(), COMPTE, '../v1/customers')).toBe(false);
+  });
+  it('INCIDENT 27/11 — actif sans période (la session seule reçue) : l’abonnement est relu chez Stripe, sa date posée ; déjà complet ou d’un autre compte : rien', async () => {
+    const sub = { id: 'sub_ABCDEF1', status: 'active', metadata: meta, items: { data: [{ current_period_end: 1702592100, quantity: 1, price: { unit_amount: 200 } }] } };
+    const lus: string[] = [];
+    const sansDate = (o: unknown) => d({ lAbonnement: async () => ({ lu: true, valeur: { ...ab({ finDePeriode: null }), client: 'cus_ABCDEF1', abonnement: 'sub_ABCDEF1' } }),
+      stripe: async (url) => { lus.push(url); return { ok: true, json: async () => o }; } });
+    const x = sansDate(sub);
+    await completerLAbonnement(x, COMPTE);
+    expect(lus[0]).toBe('https://api.stripe.com/v1/subscriptions/sub_ABCDEF1');
+    expect(x.appliques).toMatchObject([{ finDePeriode: new Date(1702592100 * 1000).toISOString(), statut: 'active' }]);
+    const autre = sansDate({ ...sub, metadata: { ...meta, vavi_compte: 'bbbbbbbb-0000-4000-8000-00000000000b' } });
+    await completerLAbonnement(autre, COMPTE);
+    expect(autre.appliques).toEqual([]);
+    const complet = d();
+    await completerLAbonnement(complet, COMPTE);
+    expect(complet.appliques).toEqual([]);
+    expect(lEvenement('customer.subscription.created', sub)).toMatchObject({ forme: 'mise_a_jour' });
   });
   it('la page de paiement ramène l’identifiant de sa session, et le projet d’où l’on vient (pour le publier)', async () => {
     const corps: string[] = [];

@@ -130,7 +130,8 @@ export function lEvenement(type: string, objet: Record<string, unknown>): Lectur
       finDePeriode: null, resilieALaFin: false, client: idDe(objet.customer), abonnement: idDe(objet.subscription),
       montant: typeof objet.amount_subtotal === 'number' && objet.amount_subtotal >= 0 ? objet.amount_subtotal : null } };
   }
-  if (type === 'customer.subscription.updated' || type === 'customer.subscription.deleted') {
+  // `created` aussi (Antoine, 27/11 : la date du prochain paiement restait « — » : à la souscription, Stripe envoie `created`).
+  if (type === 'customer.subscription.created' || type === 'customer.subscription.updated' || type === 'customer.subscription.deleted') {
     const m = lesMetadonnees(objet.metadata);
     if (!m) return { forme: 'sans_objet' };
     // La fin de période : sur l'abonnement (anciennes versions de l'API) ou sur ses lignes (versions récentes).
