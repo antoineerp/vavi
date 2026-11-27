@@ -6,6 +6,7 @@
  * remplis par `laPageDAccueil`.
  */
 import { adresseDeLaPlateforme, adresseMcp, lienDInstallation } from '@/lib/mcp/l-adresse';
+import { EN, NEUTRES } from './en-anglais';
 
 const GABARIT = String.raw`<!doctype html>
 <html lang="fr">
@@ -14,6 +15,10 @@ const GABARIT = String.raw`<!doctype html>
 <title>vavi : votre site, construit avec Claude</title>
 <meta name="description" content="Construisez votre site avec Claude, dans votre abonnement Claude. vavi apporte moins de jetons dépensés, des designs plus riches, un vrai backend et une console pour piloter votre site.">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="canonical" href="__CONSOLE__/__LANGUE__">
+<link rel="alternate" hreflang="fr" href="__CONSOLE__/fr">
+<link rel="alternate" hreflang="en" href="__CONSOLE__/en">
+<link rel="alternate" hreflang="x-default" href="__CONSOLE__/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap">
 <style>
@@ -76,7 +81,9 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .bouton:active{transform:translate(2px,2px);box-shadow:0 1px 0 var(--trait),0 22px 44px -28px var(--ombre)}
 .bouton.plein{background:var(--vert);color:#fff;border-color:var(--vert)}
 .entete .bouton{padding:8px 14px;font-size:.95rem}
-@media (max-width:820px){.nav{display:none}.entete .bouton{margin-left:auto}}
+.entete .langue{font-family:var(--f-mono);font-size:.85rem;color:var(--encre-douce);text-decoration:none;white-space:nowrap}
+.entete .langue:hover{color:var(--encre);text-decoration:underline}
+@media (max-width:820px){.nav{display:none}.entete .bouton{margin-left:auto}.entete .langue{margin-left:auto}.entete .langue + .bouton{margin-left:0}}
 
 /* Ouverture */
 .ouverture{padding-block:56px 40px}
@@ -437,6 +444,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
       <a href="#prix">Prix</a>
       <a href="#questions">Questions</a>
     </nav>
+    __AUTRE_LANGUE__
     <a class="bouton" href="__CONSOLE__/projets">Ma console</a>
   </div>
 </header>
@@ -992,13 +1000,55 @@ document.querySelectorAll('[data-copier]').forEach(function(b){
 </html>
 `;
 
+export type LangueDeLAccueil = 'fr' | 'en';
+
+const ESPACES = /\s+/g;
+/** Un texte à traduire : ni vide, ni neutre, ni un trou du gabarit, ni sans lettre. */
+const aTraduire = (cle: string): boolean => cle !== '' && !NEUTRES.includes(cle) && !cle.includes('__') && /\p{L}/u.test(cle);
+const traduit = (brut: string): string => {
+  const cle = brut.replace(ESPACES, ' ').trim();
+  if (!aTraduire(cle)) return brut;
+  const en = EN[cle];
+  return en === undefined ? brut : `${/^\s*/.exec(brut)![0]}${en}${/\s*$/.exec(brut)![0]}`;
+};
+
+/** PURE : les textes de la page (nœuds et attributs lus) qui n'ont pas leur traduction anglaise ; vide, la page est entière. */
+export function lesTextesSansTraduction(html: string = GABARIT): readonly string[] {
+  const manque = new Set<string>();
+  const voir = (brut: string) => { const cle = brut.replace(ESPACES, ' ').trim(); if (aTraduire(cle) && EN[cle] === undefined) manque.add(cle); };
+  for (const [i, morceau] of html.split(BLOCS).entries()) {
+    if (i % 2 === 1) continue;
+    for (const m of morceau.matchAll(/>([^<>]+)</g)) voir(m[1]!);
+    for (const m of morceau.matchAll(ATTRIBUTS)) voir(m[2]!);
+  }
+  return [...manque];
+}
+
+const BLOCS = /(<style\b[\s\S]*?<\/style>|<script\b[\s\S]*?<\/script>)/;
+const ATTRIBUTS = /\b(alt|title|aria-label|content|placeholder|data-texte)="([^"]*)"/g;
+
+/** Le gabarit en anglais : chaque nœud de texte et chaque attribut lu, traduit par `EN` ; le style intact, le script aux
+ * seuls mots qu'il écrit à l'écran. */
+function enAnglais(html: string): string {
+  return html.replace('<html lang="fr">', '<html lang="en">').split(BLOCS).map((morceau, i) => {
+    if (i % 2 === 1) return morceau.startsWith('<script') ? morceau.replace(/'(Copié|Copier|Sélectionné)'/g, (_, m: string) => `'${m === 'Copier' ? 'Copy' : EN[m]}'`) : morceau;
+    return morceau.replace(/>([^<>]+)</g, (_, t: string) => `>${traduit(t)}<`).replace(ATTRIBUTS, (_, a: string, v: string) => `${a}="${traduit(v)}"`);
+  }).join('');
+}
+
+const GABARITS: Readonly<Record<LangueDeLAccueil, string>> = { fr: GABARIT, en: enAnglais(GABARIT) };
+const AUTRE_LANGUE: Readonly<Record<LangueDeLAccueil, string>> = {
+  fr: '<a class="langue" href="__CONSOLE__/en" hreflang="en" lang="en">English</a>',
+  en: '<a class="langue" href="__CONSOLE__/fr" hreflang="fr" lang="fr">Français</a>',
+};
+
 /** Le texte, sûr dans un attribut comme dans un élément. */
 const enHtml = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /** PURE : la page, l'adresse du connecteur, le premier message et la phrase des préférences posés (ceux de la page Commencer).
  * Les liens vers la console sont absolus : servie sous vavi.dev, la page envoie à la console, là où la connexion est réglée. */
-export function laPageDAccueil(t: { readonly premier: string; readonly preference: string }, adresse: string = adresseMcp(), console: string = adresseDeLaPlateforme()): string {
-  return GABARIT.split('__CONSOLE__').join(enHtml(console))
+export function laPageDAccueil(t: { readonly premier: string; readonly preference: string }, adresse: string = adresseMcp(), console: string = adresseDeLaPlateforme(), langue: LangueDeLAccueil = 'fr'): string {
+  return GABARITS[langue].split('__AUTRE_LANGUE__').join(AUTRE_LANGUE[langue]).split('__LANGUE__').join(langue).split('__CONSOLE__').join(enHtml(console))
     .split('__LIEN_D_INSTALLATION__').join(enHtml(lienDInstallation(adresse)))
     .split('__ADRESSE_MCP__').join(enHtml(adresse))
     .split('__PREMIER_MESSAGE__').join(enHtml(t.premier.trim()))
