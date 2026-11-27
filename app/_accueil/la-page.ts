@@ -1028,7 +1028,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
 <footer class="pied">
   <div class="enveloppe">
     <span>vavi · hébergé en Europe</span>
-    <nav aria-label="Pied de page"><a href="#prix">Prix</a><a href="#questions">Questions</a><a href="__CONSOLE__/commencer">Commencer</a><a href="__CONSOLE__/projets">Console</a><a href="__CONSOLE__/confidentialite">Confidentialité</a><a href="mailto:info@vavi.dev">Contact</a></nav>
+    <nav aria-label="Pied de page"><a href="#prix">Prix</a><a href="#questions">Questions</a><a href="__CONSOLE__/commencer">Commencer</a><a href="__CONSOLE__/projets">Console</a><a href="__CONSOLE__/confidentialite">Confidentialité</a><a href="__CONSOLE__/mentions-legales">Mentions légales</a><a href="mailto:info@vavi.dev">Contact</a></nav>
   </div>
 </footer>
 

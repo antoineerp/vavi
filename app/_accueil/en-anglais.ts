@@ -329,6 +329,7 @@ export const EN: Readonly<Record<string, string>> = {
   ", la livraison par zone et par poids, les codes de remise.": ", shipping by zone and weight, discount codes.",
   "Comparer honnêtement": "An honest comparison",
   "Un hébergement seul coûte quelques euros par mois. Il faut ensuite quelqu'un pour installer l'app, la base, les sauvegardes, les comptes, les courriels et les paiements, puis la réparer quand une mise à jour casse. Chez vavi, tout cela est dans le prix affiché.": "Hosting alone costs a few euros a month. Then you need someone to install the app, the database, backups, accounts, emails and payments, and to fix it when an update breaks something. With vavi, all of that is in the price shown.",
+  'Mentions légales': 'Legal notice',
 };
 
 /** Les textes de la page qui se lisent pareil dans les deux langues (noms, adresses, code). */
