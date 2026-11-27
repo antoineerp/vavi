@@ -32,9 +32,23 @@ describe('l’archive', () => {
     const f = lArchive(x);
     expect(f.get('code/src/pages/index.tsx')).toBe(code.get('src/pages/index.tsx'));
     expect([...f.keys()].filter((k) => k.startsWith('base/'))).toEqual(['base/00-le-socle-de-vavi.sql', 'base/01-membres.sql', 'base/02-pieces-jointes.sql']);
-    expect(JSON.parse(f.get('donnees/produits.json')!)).toEqual([{ id: 1, titre: 'Vélo' }]);
+    expect(JSON.parse(f.get('donnees/produits.json') as string)).toEqual([{ id: 1, titre: 'Vélo' }]);
     expect(f.get('LISEZ-MOI.md')).toContain('Ce qui reste chez vavi');
     expect(lArchive({ ...x, donnees: null }).get('LISEZ-MOI.md')).toContain('ABSENT');
+  });
+  it('les fichiers déposés partent octet pour octet sous fichiers/, un chemin qui remonte nettoyé ; illisibles ou laissés, le LISEZ-MOI le dit', () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 255, 1, 2]);
+    const f = lArchive({ ...x, fichiers: new Map([['pieces/p1/devis/l1/plan.png', png], ['coffres/p1/../../etc/passwd', new Uint8Array([1])]]) });
+    expect(f.get('fichiers/pieces/p1/devis/l1/plan.png')).toEqual(png);
+    expect([...f.keys()].filter((k) => k.startsWith('fichiers/'))).toEqual(['fichiers/pieces/p1/devis/l1/plan.png', 'fichiers/coffres/p1/etc/passwd']);
+    expect(f.get('LISEZ-MOI.md')).toContain('les 2 fichier(s) déposé(s)');
+    expect(f.get('LISEZ-MOI.md')).not.toContain('restent dans le stockage de vavi');
+    expect(lArchive({ ...x, fichiers: null }).get('LISEZ-MOI.md')).toContain('`fichiers/` : ABSENT');
+    expect(lArchive({ ...x, fichiers: new Map([['pieces/a', png]]), fichiersLaisses: 3 }).get('LISEZ-MOI.md')).toContain('3 fichier(s) n’ont pas tenu');
+    const dossier = mkdtempSync(join(tmpdir(), 'vavi-export-'));
+    writeFileSync(join(dossier, 'b.zip'), leZip(f));
+    const hex = execFileSync('python3', ['-I', '-c', 'import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); assert z.testzip() is None; print(z.read("fichiers/pieces/p1/devis/l1/plan.png").hex())', join(dossier, 'b.zip')], { encoding: 'utf8' }).trim();
+    expect(hex).toBe(Buffer.from(png).toString('hex'));
   });
   it('le zip s’ouvre avec un outil ordinaire et rend chaque fichier tel quel', () => {
     const dossier = mkdtempSync(join(tmpdir(), 'vavi-export-'));

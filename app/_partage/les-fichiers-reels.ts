@@ -93,3 +93,41 @@ export function unFichier(f: { readonly nom: string; readonly type: string | nul
     },
   });
 }
+
+/**
+ * Les fichiers déposés d'un projet, pour son export (`lib/export`) : les deux seaux, parcourus sous `<projet>/`, octet
+ * pour octet, à leur chemin préfixé du seau. Au-delà du plafond, les fichiers restants sont comptés, jamais tus.
+ * `null` : le stockage n'a pas pu être lu.
+ */
+export async function lesFichiersDeposes(projet: string, plafond: number, auPlus = 20_000): Promise<{ readonly fichiers: Map<string, Uint8Array>; readonly laisses: number } | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(projet)) return null;
+  const base = clientDeService();
+  const fichiers = new Map<string, Uint8Array>();
+  let octets = 0, laisses = 0;
+  const { data: seaux, error } = await base.storage.listBuckets();
+  if (error) return null;
+  for (const seau of [SEAU_DES_PIECES, SEAU_DES_COFFRES]) {
+    if (!(seaux ?? []).some((b) => b.name === seau)) continue;
+    const aVoir = [projet];
+    while (aVoir.length) {
+      const dossier = aVoir.pop()!;
+      for (let depart = 0; ; depart += 1000) {
+        const l = await base.storage.from(seau).list(dossier, { limit: 1000, offset: depart });
+        if (l.error) return null;
+        for (const o of l.data ?? []) {
+          const chemin = `${dossier}/${o.name}`;
+          if (o.id === null) { aVoir.push(chemin); continue; }
+          const taille = Number((o.metadata as { size?: unknown } | null)?.size ?? 0);
+          if (fichiers.size >= auPlus || octets + taille > plafond) { laisses += 1; continue; }
+          const d = await base.storage.from(seau).download(chemin);
+          if (d.error) return null;
+          const b = new Uint8Array(await d.data.arrayBuffer());
+          octets += b.length;
+          fichiers.set(`${seau}/${chemin}`, b);
+        }
+        if ((l.data ?? []).length < 1000) break;
+      }
+    }
+  }
+  return { fichiers, laisses };
+}

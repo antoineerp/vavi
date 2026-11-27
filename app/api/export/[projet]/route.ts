@@ -1,4 +1,4 @@
-/** GET /api/export/<projet> — l'archive du projet (code, base, données), pour son propriétaire, sur une offre payante. */
+/** GET /api/export/<projet> — l'archive du projet (code, base, données, fichiers déposés), pour son propriétaire, sur une offre payante. */
 import { NextResponse, type NextRequest } from 'next/server';
 import { compteConnecte } from '@/lib/supabase/serveur';
 import { clientDeService } from '@/lib/supabase/service';
@@ -10,7 +10,8 @@ import { laMigrationDuSocle } from '@/lib/relais/le-socle-de-la-base';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { lEtatDuCompte } from '@/lib/abonnements/l-abonnement';
 import { abonnementsSurSupabase } from '@/lib/abonnements/sur-supabase';
-import { lArchive, leZip, lePeutExporter } from '@/lib/export/l-export';
+import { lArchive, leZip, lePeutExporter, OCTETS_DES_FICHIERS_EXPORTES } from '@/lib/export/l-export';
+import { lesFichiersDeposes } from '@/app/_partage/les-fichiers-reels';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,9 +36,11 @@ export async function GET(requete: NextRequest, { params }: { params: Promise<{ 
   const arbre = await lArbreLu(f.valeur, m.lu ? m.magasin : null);
   if (!arbre.lu) return console_('erreur=panne');
   const d = p.valeur.basePoseeLe ? await base.rpc('vavi_exporter_les_donnees', { p_schema: schema }) : { data: {}, error: null };
+  const deposes = await lesFichiersDeposes(id, OCTETS_DES_FICHIERS_EXPORTES).catch(() => null);
   const le = new Date().toISOString();
   const zip = leZip(lArchive({ nom: p.valeur.nom, schema, code: arbre.construit, base: sqlDeLaBase(arbre.manifeste, { schema, proprietaire: c.utilisateur.id }),
-    socle: laMigrationDuSocle(), donnees: d.error ? null : (d.data as Record<string, unknown[]>), le }));
+    socle: laMigrationDuSocle(), donnees: d.error ? null : (d.data as Record<string, unknown[]>),
+    fichiers: deposes ? deposes.fichiers : null, fichiersLaisses: deposes?.laisses ?? 0, le }));
   const nom = `${p.valeur.nom.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 40) || 'app'}-${le.slice(0, 10)}.zip`;
   return new NextResponse(Buffer.from(zip), { headers: { 'content-type': 'application/zip', 'content-disposition': `attachment; filename="${nom}"`,
     'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
