@@ -72,4 +72,10 @@ describe('l’activité de vavi', () => {
     await servirLeMcp({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'get_project_state', arguments: {} } }, ctx);
     expect(vus).toEqual([['get_project_state', true]]);
   });
+  it('les visites de www.vavi.dev : une courbe par jour, la période, la semaine ; illisibles, « — » (null), jamais 0', () => {
+    const avec = lActivite(brut, comptes, projets, new Set([MOI]), MAINTENANT, 30, { visites: [{ jour: '2026-11-27', visites: 5 }, { jour: '2026-11-15', visites: 3 }, { jour: '2026-08-01', visites: 99 }], provenances: [{ referent: 'direct', visites: 6 }] });
+    expect(avec.accueil).toMatchObject({ periode: 8, semaine: 5, provenances: [{ referent: 'direct', visites: 6 }] });
+    expect(avec.accueil!.serie).toHaveLength(30);
+    expect(lActivite(brut, comptes, projets, new Set([MOI]), MAINTENANT, 30).accueil).toBeNull();
+  });
 });

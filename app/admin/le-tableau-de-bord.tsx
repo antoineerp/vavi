@@ -42,6 +42,7 @@ export function TableauDeBord({ a, jours, revenu, abonnes, essais, masques, migr
         <Tuile titre="Projets créés" chiffre={nombre(a.projets.periode)} detail={`${a.projets.semaine} cette semaine · ${a.projets.total} en tout`} serie={a.projets.serie} jours={j} />
         <Tuile titre="Builds réussis" chiffre={a.builds ? nombre(a.builds.verts.periode) : '—'} detail={a.builds ? `${a.builds.rouges} en échec · ${part(a.builds.verts.periode, a.builds.verts.periode + a.builds.rouges)} de réussite` : 'mesure à poser'} serie={a.builds?.verts.serie} jours={j} />
         <Tuile titre="Sites en ligne" chiffre={nombre(a.misesEnLigne.enLigne)} detail={`+${a.misesEnLigne.periode} publiés en ${jours} j`} serie={a.misesEnLigne.serie} jours={j} />
+        <Tuile titre="Visites de www.vavi.dev" chiffre={a.accueil ? nombre(a.accueil.periode) : '—'} detail={a.accueil ? `${nombre(a.accueil.semaine)} cette semaine, sans cookie` : 'à poser : migration 20261127180000'} serie={a.accueil?.serie} jours={j} />
         <Tuile titre="Visites des sites" chiffre={a.visites ? nombre(a.visites.periode) : '—'} detail={a.visites ? `${nombre(a.visites.semaine)} cette semaine, sans cookie` : 'mesure à poser'} serie={a.visites?.serie} jours={j} />
         <Tuile titre="Revenu mensuel TTC" chiffre={revenu} detail={`${abonnes} abonné(s) payant(s) · ${essais} à l’essai`} jours={j} />
       </div>
@@ -54,6 +55,8 @@ export function TableauDeBord({ a, jours, revenu, abonnes, essais, masques, migr
       <div className="grille-deux">
         <div className="carte"><h3>Du compte au site en ligne</h3>
           <ul className="liste">
+            {a.accueil && <li><span>Visites de l’accueil ({jours} j)</span><strong>{nombre(a.accueil.periode)}</strong></li>}
+            {a.accueil && <li><span>Inscrits ({jours} j)</span><strong>{a.inscrits.periode} <span className="attenue">({part(a.inscrits.periode, a.accueil.periode)} des visites)</span></strong></li>}
             <li><span>Comptes</span><strong>{a.conversion.comptes}</strong></li>
             <li><span>Avec au moins un projet</span><strong>{a.conversion.avecUnProjet} <span className="attenue">({part(a.conversion.avecUnProjet, a.conversion.comptes)})</span></strong></li>
             <li><span>Avec un site en ligne</span><strong>{a.conversion.avecUnSiteEnLigne} <span className="attenue">({part(a.conversion.avecUnSiteEnLigne, a.conversion.comptes)})</span></strong></li>
@@ -66,7 +69,12 @@ export function TableauDeBord({ a, jours, revenu, abonnes, essais, masques, migr
           )}
         </div>
       </div>
-      <p className="attenue">Sans les comptes administrateurs{masques ? ` (leurs ${masques} projet(s) ne sont comptés nulle part ici)` : ''}. L’usage du connecteur se compte depuis la pose de sa mesure, le 27/11.</p>
+      {a.accueil && a.accueil.provenances.length > 0 && (
+        <div className="carte"><h3>D’où viennent les visiteurs de l’accueil ({jours} j)</h3>
+          <ul className="liste">{a.accueil.provenances.map((p) => <li key={p.referent}><span>{p.referent === 'direct' ? 'Accès direct ou lien sans provenance' : p.referent}</span><strong>{nombre(p.visites)}</strong></li>)}</ul>
+        </div>
+      )}
+      <p className="attenue">Sans les comptes administrateurs{masques ? ` (leurs ${masques} projet(s) ne sont comptés nulle part ici)` : ''}. L’usage du connecteur se compte depuis la pose de sa mesure, le 27/11 ; les visites de l’accueil, depuis le 27/11 au soir.</p>
     </section>
   );
 }

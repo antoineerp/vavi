@@ -26,7 +26,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const { sur, courriel: moi } = await lAdministrateur();
   const maintenant = Date.now();
   const depuis = new Date(maintenant - JOURS * 24 * 3600 * 1000).toISOString();
-  const [lu, comptesLus, premier, activite] = await Promise.all([sur.leTableauBrut(depuis), sur.lesComptes(), sur.lePremierSiteBrut(), sur.lActiviteBrute(new Date(maintenant - (JOURS - 1) * 24 * 3600 * 1000).toISOString())]);
+  const debut = new Date(maintenant - (JOURS - 1) * 24 * 3600 * 1000).toISOString();
+  const [lu, comptesLus, premier, activite, accueil] = await Promise.all([sur.leTableauBrut(depuis), sur.lesComptes(), sur.lePremierSiteBrut(), sur.lActiviteBrute(debut), sur.lAccueilBrut(debut)]);
   // Les comptes administrateurs (leurs projets d'essai) : hors de cette page, qui ne parle que des clients.
   const admins = new Set(comptesLus.lu ? comptesLus.valeur.filter((c) => estAdministrateur(process.env[VARIABLE_DES_ADMINISTRATEURS], { id: c.id, courriel: c.courriel, confirme: true })).map((c) => c.id) : []);
   const masques = lu.lu ? lu.valeur.projets.filter((p) => admins.has(p.proprietaire)).length : 0;
@@ -50,7 +51,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       {q.refus && <div className="carte" role="alert">Refusé : {q.refus}</div>}
       {services.some((s) => s.malFormes.length) && <div className="carte" role="alert">Un secret de Fly est mal posé : {services.flatMap((s) => s.malFormes).join(' ; ')}. Corrige-le dans Fly (Secrets), puis Deploy.</div>}
 
-      <TableauDeBord a={lActivite(activite.lu ? activite.valeur : null, comptes.valeur, brut.valeur.projets, admins, maintenant, JOURS)} jours={JOURS}
+      <TableauDeBord a={lActivite(activite.lu ? activite.valeur : null, comptes.valeur, brut.valeur.projets, admins, maintenant, JOURS, accueil.lu ? accueil.valeur : null)} jours={JOURS}
         revenu={euros(t.revenus.mensuel)} abonnes={t.revenus.abonnes} essais={t.comptes.filter((c) => c.etat.etat === 'aucun').length} masques={masques}
         migration={activite.lu ? null : activite.pourquoi} />
 
