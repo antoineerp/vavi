@@ -151,6 +151,10 @@ export const REGLES: readonly Regle[] = [
     texte: 'Une table à période `exclusive` se réserve : la page lit les places prises par `lesOccupations(table, du, au, ressource)` de `@/lib/occupations` (même sans compte, sans rien d’autre que début, fin, ressource et capacité), grise d’avance ce que `estLibre(occupations, debut, fin, capacite)` refuse, et calcule la fin depuis la durée choisie. La base reste seule juge : si la place a été prise entre-temps, l’écriture rend un refus « période déjà prise » à montrer avec son `geste`, puis la page relit les occupations.',
     porte: 'reservations', tenuePar: { fige: 'src/lib/occupations.ts' } }),
 
+  regle({ id: 'regles-de-gestion', sujet: 'formulaires',
+    texte: 'Les règles de gestion d’`app.json` (`regles`, `uniques`) sont tenues par la base, sur chaque écran : ne les recopiez pas en code de page. Un formulaire peut prévenir avant l’envoi (un champ requis, une borne), mais le refus de la base rend la phrase `dit` de la règle comme `raison`, avec son `geste` : montrez-les près du formulaire, sans rien effacer de la saisie.',
+    porte: 'regles' }),
+
   // ── Textes
   regle({ id: 'textes-par-langue', sujet: 'langues',
     texte: 'L’app parle les langues d’`app.json` : chaque texte visible d’une page s’écrit dans `contenus` de `@/lib/textes`, une fois par langue, et s’affiche par `textes(…)` ; chaque `titre` se donne par langue ; le chrome monte `<ChoixDeLaLangue />` de `@/briques/chrome`.',

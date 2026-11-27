@@ -41,6 +41,11 @@ describe('l’envoi sans compte', () => {
     const autre = await envoyerSansCompte(m, 'app_x', { table: 'messages', ligne: { nom: 'Ana', texte: 'Bonjour à vous' } }, [], { relais: async () => ({ lu: false as const, pourquoi: 'x', code: '23502' }) });
     expect(autre.statut).toBe(422);
   });
+  it('une règle de gestion rompue : 422, la phrase de la règle rendue telle quelle à la page', async () => {
+    const d = { relais: async () => ({ lu: false as const, pourquoi: 'règle : Un message dit au moins dix mots.', code: '23514' }) };
+    const r = await envoyerSansCompte(m, 'app_x', { table: 'messages', ligne: { nom: 'Ana', texte: 'Bonjour à vous' } }, [], d);
+    expect(r).toEqual({ statut: 422, corps: { error: 'Un message dit au moins dix mots.', code: '23514' } });
+  });
   it('les places prises : une route des apps, aucune pendant un parcours', () => {
     expect(existsSync('app/api/occupations/[projet]/route.ts')).toBe(true);
     expect(estUneRouteDesApps('/api/occupations/p')).toBe(true);

@@ -28,9 +28,14 @@ const REFUS: Readonly<Record<string, readonly [keyof Libelles, keyof Libelles]>>
   'trop-de-lignes': ['refusTropDeLignes', 'gestePrevenir'],
 };
 
-/** Le refus d'un code SQLSTATE, dit par les libellés de l'app. */
-export function refusDit(code: string | null): Omit<ErreurDuRelais, 'code'> {
+/** Une règle de gestion d'app.json porte sa phrase, écrite pour la personne, après ce préfixe (23514, 23505). */
+const PREFIXE_D_UNE_REGLE = 'règle : ';
+
+/** Le refus d'un code SQLSTATE, dit par les libellés de l'app ; celui d'une règle de gestion, par sa phrase. */
+export function refusDit(code: string | null, message?: string | null): Omit<ErreurDuRelais, 'code'> {
   const L = libellesPour(langueCourante());
+  const regle = message?.startsWith(PREFIXE_D_UNE_REGLE) ? message.slice(PREFIXE_D_UNE_REGLE.length).trim() : '';
+  if (regle && /^23/.test(code ?? '')) return { message: regle, geste: L.gesteCorriger };
   const valeur = /^(23|22P02)/.test(code ?? '') ? (['refusValeur', 'gesteCorriger'] as const) : (['refusAutre', 'gesteReessayer'] as const);
   const [raison, geste] = REFUS[code ?? ''] ?? valeur;
   return { message: L[raison], geste: L[geste] };
@@ -44,7 +49,7 @@ async function appel<T>(fonction: string, args: Record<string, unknown>): Promis
   const { data, error } = await supabase.rpc(fonction, { p_schema: schema, ...args });
   if (error) {
     console.warn('[base]', fonction, error.code, error.message);
-    return { donnee: null, erreur: { ...refusDit(error.code ?? null), code: error.code ?? null } };
+    return { donnee: null, erreur: { ...refusDit(error.code ?? null, error.message), code: error.code ?? null } };
   }
   return { donnee: (data ?? null) as T | null, erreur: null };
 }

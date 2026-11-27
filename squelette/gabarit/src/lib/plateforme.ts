@@ -59,5 +59,7 @@ function refusDe(statut: number, lu: unknown): { readonly forme: 'refus'; readon
   // La place est prise (une période exclusive) : dit dans la langue de l'app, avec le geste qui le lève.
   if (e.code === '23P01') return { forme: 'refus', raison: L.refusOccupe, geste: L.gesteAutrePeriode };
   const raison = typeof e.error === 'string' ? e.error : `${statut}`;
+  // Une règle de gestion de l'app : sa phrase dit déjà quoi corriger.
+  if (typeof e.code === 'string' && /^23/.test(e.code) && typeof e.error === 'string') return { forme: 'refus', raison, geste: L.gesteCorriger };
   return { forme: 'refus', raison: typeof e.detail === 'string' ? `${raison} (${e.detail})` : raison, geste: L.reessayerDansUnInstant };
 }

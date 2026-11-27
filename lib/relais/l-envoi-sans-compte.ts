@@ -37,6 +37,8 @@ export async function envoyerSansCompte(m: Pick<Manifeste, 'tables'>, schema: st
   const id = cree.lu ? objet(cree.valeur).id : null;
   // La place est prise (`periode.exclusive`) : dit comme tel, la page propose une autre période.
   if (!cree.lu && cree.code === '23P01') return { statut: 409, corps: { error: 'Cette période est déjà prise : choisissez une autre date ou un autre créneau.', code: '23P01' } };
+  // Une règle de gestion d'app.json (`les-regles-en-base.ts`) : sa phrase, écrite pour la personne, dit quoi corriger.
+  if (!cree.lu && /^23/.test(cree.code ?? '') && cree.pourquoi.startsWith('règle : ')) return { statut: 422, corps: { error: cree.pourquoi.slice('règle : '.length).trim(), code: cree.code } };
   if (!cree.lu || typeof id !== 'string') {
     return { statut: 422, corps: { error: 'L’envoi est refusé par l’app : un champ manque ou n’a pas la bonne forme.', ...(cree.lu ? {} : { detail: cree.pourquoi }) } };
   }
