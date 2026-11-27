@@ -13,7 +13,7 @@ import { JaugeRonde } from '@/app/_partage/les-graphiques';
 import { claudeYTravaille, lEtat, laTeinte } from '@/app/_partage/le-pilotage';
 import { adresseDeLApp } from '@/app/_partage/l-adresse-des-apps';
 import { lesAbonnementsReels, PAGE_DE_L_ABONNEMENT } from '@/app/_partage/les-abonnements-reels';
-import { lEtatDuCompte, lesFacturesDuCompte } from '@/lib/abonnements/l-abonnement';
+import { lEtatDuCompte, lesFacturesDuCompte, lireLeRetourDuPaiement } from '@/lib/abonnements/l-abonnement';
 import { GRILLE_DU_CODE, OFFRES, OFFRES_PAYANTES, leMontant } from '@/lib/abonnements/les-offres';
 import { choisir, ouvrirLePortail, resilierALaFin } from './gestes';
 
@@ -44,6 +44,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const t = TEXTES[c.langue].abonnement;
   const m = MOTS[c.langue];
   const d = lesAbonnementsReels();
+  // Au retour du paiement, l'abonnement est lu chez Stripe sans attendre le webhook (27/11).
+  if (q.fait === 'abonne') await lireLeRetourDuPaiement(d, c.compte, q.session).catch(() => false);
   const [e, g, a, f, l] = await Promise.all([lEtatDuCompte(d, c.compte), d.laGrille(), d.lAbonnement(c.compte), lesFacturesDuCompte(d, c.compte), c.projets.lister(c.compte)]);
   const grille = g.lu ? g.valeur : GRILLE_DU_CODE;
   const locale = c.langue === 'fr' ? 'fr-FR' : 'en-GB';

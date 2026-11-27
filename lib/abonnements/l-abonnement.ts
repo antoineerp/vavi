@@ -65,8 +65,16 @@ export async function recevoirUnEvenement(d: DependancesDesAbonnements, corps: s
     if (compte) await avertirDeLImpaye(d, compte);
     return { statut: 200, corps: { recu: true } };
   }
-  const r = await d.appliquer(l.maj, typeof e.created === 'number' ? e.created : 0);
-  if (!r.lu) { d.journal(`[abonnements] ${l.maj.compte.slice(0, 8)} — non appliqué : ${r.pourquoi}`); return { statut: 500, corps: { error: 'retry' } }; }
+  const r = await appliquerLaMiseAJour(d, l.maj, typeof e.created === 'number' ? e.created : 0);
+  if (!r.lu) return { statut: 500, corps: { error: 'retry' } };
+  return { statut: 200, corps: { recu: true, applique: r.valeur } };
+}
+
+/** Une mise à jour lue de Stripe, appliquée ; puis l'engagement tenu et l'ancien abonnement arrêté. */
+async function appliquerLaMiseAJour(d: DependancesDesAbonnements, maj: MiseAJour, le: number): Promise<Issue<boolean>> {
+  const l = { maj };
+  const r = await d.appliquer(l.maj, le);
+  if (!r.lu) { d.journal(`[abonnements] ${l.maj.compte.slice(0, 8)} — non appliqué : ${r.pourquoi}`); return r; }
   // UNE RÉSILIATION AVANT LE TERME DE L'ENGAGEMENT (la page Stripe du compte, le tableau de bord de Stripe) : l'arrêt est
   // reporté au terme, comme le geste de la console le fait. Une seule fois : la date reportée vaut le terme.
   const terme = laFinDUneResiliation(r.valeur.engageJusquAu, d.maintenant);
@@ -79,7 +87,29 @@ export async function recevoirUnEvenement(d: DependancesDesAbonnements, corps: s
     const f = await resilier(d.stripe, d.cle, r.valeur.ancien, false);
     if (f) d.journal(`[abonnements] ${l.maj.compte.slice(0, 8)} — l'ancien abonnement ${r.valeur.ancien} n'est pas résilié : ${f}`);
   }
-  return { statut: 200, corps: { recu: true, applique: r.valeur.applique } };
+  return { lu: true, valeur: r.valeur.applique };
+}
+
+/**
+ * AU RETOUR DU PAIEMENT, L'ABONNEMENT EST LU CHEZ STRIPE (Antoine, 27/11 : payé, validé par Stripe, et la console disait
+ * encore « Essai gratuit »). Le webhook seul l'inscrivait : absent, mal réglé ou en retard, rien n'arrivait. Stripe renvoie
+ * la personne avec l'identifiant de sa session (`session_id`) ; le serveur la relit lui-même avec la clé secrète (rien
+ * de ce que porte l'adresse n'est cru), vérifie qu'elle est à ce compte, et applique la même lecture que le webhook.
+ * Le webhook reste : renouvellements, impayés, résiliations. Rend vrai si l'abonnement est inscrit.
+ */
+export async function lireLeRetourDuPaiement(d: DependancesDesAbonnements, compte: string, session: string | undefined): Promise<boolean> {
+  if (!d.cle || !session || !/^cs_(test|live)_[A-Za-z0-9]{8,200}$/.test(session)) return false;
+  const r = await d.stripe(`https://api.stripe.com/v1/checkout/sessions/${session}?expand[]=subscription`, { method: 'GET', headers: { authorization: `Bearer ${d.cle}` } }).catch(() => null);
+  const o = r?.ok ? ((await r.json().catch(() => null)) as Record<string, unknown> | null) : null;
+  if (!o || (o.metadata as { vavi_compte?: unknown } | undefined)?.vavi_compte !== compte) { d.journal(`[abonnements] ${compte.slice(0, 8)} — retour du paiement illisible`); return false; }
+  const l = lEvenement('checkout.session.completed', o);
+  if (l.forme !== 'mise_a_jour') return false;
+  const a = await appliquerLaMiseAJour(d, l.maj, typeof o.created === 'number' ? o.created : 0);
+  // L'abonnement lui-même (sa période, son montant), s'il est rendu avec la session.
+  const sub = o.subscription && typeof o.subscription === 'object' ? lEvenement('customer.subscription.updated', o.subscription as Record<string, unknown>) : null;
+  if (sub?.forme === 'mise_a_jour') await appliquerLaMiseAJour(d, sub.maj, Math.floor(d.maintenant / 1000));
+  d.journal(`[abonnements] ${compte.slice(0, 8)} — abonnement lu au retour du paiement (${l.maj.statut})`);
+  return a.lu && l.maj.statut === 'active';
 }
 
 const AVIS = {
@@ -120,7 +150,7 @@ export async function choisirUneOffre(d: DependancesDesAbonnements, compte: stri
   if (!a.lu || !g.lu || !r.lu) return { refus: 'panne' };
   const p = await d.laPersonne(compte);
   const s = await ouvrirLePaiement(d.stripe, d.cle, { compte, courriel: p?.courriel ?? null, client: a.valeur?.client ?? null, offre, projetsEnPlus: enPlus,
-    langue: p?.langue ?? 'fr', retourOk: `${d.adresseDeLaPage}?fait=abonne`, retourAnnule: d.adresseDeLaPage,
+    langue: p?.langue ?? 'fr', retourOk: `${d.adresseDeLaPage}?fait=abonne&session={CHECKOUT_SESSION_ID}`, retourAnnule: d.adresseDeLaPage,
     grille: g.valeur, coupon: laReductionDuPaiement(r.valeur, compte, d.maintenant)?.coupon ?? null });
   if (!s.ouvert) { d.journal(`[abonnements] ${compte.slice(0, 8)} — Stripe a refusé la session : ${s.pourquoi}`); return { refus: 'stripe' }; }
   return { url: s.url };

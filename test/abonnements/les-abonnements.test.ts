@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { createHmac } from 'node:crypto';
 import { lEtat, lEtatAvecLOffert, lePeutPublier, leSiteEstServi, leMontant, laGrille, laReductionDuPaiement, GRILLE_DU_CODE, type Abonnement, type Reduction } from '@/lib/abonnements/les-offres';
 import { lEvenement, lesFactures, ouvrirLePaiement } from '@/lib/abonnements/stripe-billing';
-import { choisirUneOffre, laVueDeLAbonnement, lesFacturesDuCompte, ouvrirLePortailDuCompte, recevoirUnEvenement, type DependancesDesAbonnements } from '@/lib/abonnements/l-abonnement';
+import { choisirUneOffre, laVueDeLAbonnement, lesFacturesDuCompte, lireLeRetourDuPaiement, ouvrirLePortailDuCompte, recevoirUnEvenement, type DependancesDesAbonnements } from '@/lib/abonnements/l-abonnement';
 import { CHEMIN_DE_LA_MIGRATION_DES_ABONNEMENTS, laMigrationDesAbonnements } from '@/lib/abonnements/le-sql-des-abonnements';
 
 const COMPTE = 'aaaaaaaa-0000-4000-8000-00000000000a';
@@ -116,6 +116,22 @@ describe('le webhook des abonnements', () => {
       leCompteDe: async () => COMPTE, autresEnLigne: async () => ({ lu: true, valeur: 0 }),
       laPersonne: async () => ({ courriel: 'a@b.fr', langue: 'fr' }), courrier: async (m) => { envois.push(m.texte); return true; }, ...x };
   };
+  it('INCIDENT 27/11 — payé, webhook absent : au retour, la session est relue chez Stripe et l’abonnement inscrit ; une session d’un autre compte, non', async () => {
+    const session = { id: 'cs_live_ABCDEFGH12', mode: 'subscription', payment_status: 'paid', created: 1700000100, customer: 'cus_X1', amount_subtotal: 200, metadata: meta,
+      subscription: { id: 'sub_NEUF1234', status: 'active', metadata: meta, items: { data: [{ current_period_end: 1702592100, quantity: 1, price: { unit_amount: 200 } }] } } };
+    const lus: string[] = [];
+    const x = d({ secretDuWebhook: null, stripe: async (url, init) => { lus.push(`${init.method} ${url}`); return { ok: true, json: async () => session }; } });
+    expect(await lireLeRetourDuPaiement(x, COMPTE, 'cs_live_ABCDEFGH12')).toBe(true);
+    expect(lus[0]).toBe('GET https://api.stripe.com/v1/checkout/sessions/cs_live_ABCDEFGH12?expand[]=subscription');
+    expect(x.appliques).toMatchObject([{ compte: COMPTE, offre: 'site', statut: 'active', client: 'cus_X1' }, { abonnement: 'sub_NEUF1234', finDePeriode: new Date(1702592100 * 1000).toISOString() }]);
+    const autre = d({ stripe: async () => ({ ok: true, json: async () => ({ ...session, metadata: { ...meta, vavi_compte: 'bbbbbbbb-0000-4000-8000-00000000000b' } }) }) });
+    expect(await lireLeRetourDuPaiement(autre, COMPTE, 'cs_live_ABCDEFGH12')).toBe(false);
+    expect(autre.appliques).toEqual([]);
+    expect(await lireLeRetourDuPaiement(d(), COMPTE, '../v1/customers')).toBe(false);
+  });
+  it('la page de paiement ramène l’identifiant de sa session', () => {
+    expect(readFileSync(join(__dirname, '../../lib/abonnements/l-abonnement.ts'), 'utf8')).toContain('?fait=abonne&session={CHECKOUT_SESSION_ID}');
+  });
   const ev = (type: string, objet: Record<string, unknown>, extra: Record<string, unknown> = {}) => JSON.stringify({ type, created: 1700000000, data: { object: objet }, ...extra });
   const meta = { vavi_compte: COMPTE, vavi_offre: 'site', vavi_en_plus: '0' };
 
