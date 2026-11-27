@@ -7,12 +7,13 @@
  * colonnes empilées des figures de l'ancien générateur n'avaient pas été reprises.
  */
 import type { ReactNode } from 'react';
+import { Aire, Cascade, Chaleur, Cumul, Entonnoir, Tuile } from './figures-de-plus';
 
 export interface Part {
   readonly cle: string; readonly libelle: string | null; readonly valeur: number | null; readonly objectif?: number | null;
   readonly series?: readonly { readonly cle: string; readonly valeur: number | null }[];
 }
-export type Forme = 'colonnes' | 'courbe' | 'barres' | 'anneau';
+export type Forme = 'colonnes' | 'courbe' | 'aire' | 'cumul' | 'cascade' | 'chaleur' | 'tuile' | 'barres' | 'anneau' | 'entonnoir';
 
 export interface FigureProps {
   readonly parts: readonly Part[];
@@ -26,8 +27,15 @@ export interface FigureProps {
   readonly choisir: (cle: string) => void;
 }
 
-/** La couleur de la `k`-ième modalité : l'accent, puis des teintes qui en tournent, de même clarté. */
-export const couleur = (k: number): string => (k === 0 ? 'var(--accent)' : `oklch(from var(--accent) l c calc(h + ${(k * 67) % 360}))`);
+/**
+ * La couleur de la `k`-ième modalité, tirée de la direction : l'accent, la seconde teinte, l'ancre, puis leurs tons
+ * éclaircis. Ce qu'elle remplace : des teintes qui tournaient autour de l'accent et tombaient sur le violet, banni.
+ */
+export const couleur = (k: number): string => {
+  const base = ['var(--accent)', 'var(--seconde)', 'var(--ancre)'][k % 3]!;
+  const tour = Math.floor(k / 3);
+  return tour === 0 ? base : `color-mix(in oklch, ${base} ${Math.max(30, 100 - tour * 30)}%, var(--fond))`;
+};
 
 const modalitesDe = (parts: readonly Part[]): readonly string[] => parts.find((p) => p.series?.length)?.series?.map((x) => x.cle) ?? [];
 
@@ -155,7 +163,7 @@ function Anneau({ parts, ecrire, nommer, choisir }: FigureProps) {
   );
 }
 
-const FIGURES: Readonly<Record<Forme, (p: FigureProps) => ReactNode>> = { colonnes: Colonnes, courbe: Courbe, barres: Barres, anneau: Anneau };
+const FIGURES: Readonly<Record<Forme, (p: FigureProps) => ReactNode>> = { colonnes: Colonnes, courbe: Courbe, aire: Aire, cumul: Cumul, cascade: Cascade, chaleur: Chaleur, tuile: Tuile, barres: Barres, anneau: Anneau, entonnoir: Entonnoir };
 
 /** La figure d'un chiffre réparti, et la légende de sa série. */
 export function Figure(props: FigureProps) {
@@ -163,7 +171,7 @@ export function Figure(props: FigureProps) {
   return (
     <div data-forme={props.forme}>
       <Dessin {...props} />
-      {props.forme !== 'anneau' ? <Legende modalites={modalitesDe(props.parts)} nommer={props.nommerLaSerie} /> : null}
+      {!['anneau', 'tuile', 'entonnoir', 'chaleur', 'cumul', 'cascade'].includes(props.forme) ? <Legende modalites={modalitesDe(props.parts)} nommer={props.nommerLaSerie} /> : null}
     </div>
   );
 }
