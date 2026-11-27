@@ -928,7 +928,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
         <a class="bouton" href="#etapes">Choisir Pro</a>
       </div>
     </div>
-    <p class="en-plus">Un projet de plus, sur n'importe quelle offre payante : <b>15 € / mois</b>. Sans engagement, résiliable à tout moment.</p>
+    <p class="en-plus">Un projet de plus, sur n'importe quelle offre payante : <b>15 € / mois</b>. Chaque offre engage 12 mois, payés chaque mois et reconduits tacitement ; après la première année, résiliable à tout moment.</p>
   </div>
 </section>
 

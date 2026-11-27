@@ -51,7 +51,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const euros = (centimes: number, devise = 'EUR') => new Intl.NumberFormat(locale, { style: 'currency', currency: devise, maximumFractionDigits: centimes % 100 ? 2 : 0 }).format(centimes / 100);
   const v = e.lu ? e.valeur : null;
   const etat = !v ? null : v.etat === 'aucun' ? t.essai
-    : v.etat === 'actif' ? (v.resilieALaFin ? t.resilieLe(OFFRES[v.offre].nom[c.langue], date(v.jusquAu)) : t.actif(OFFRES[v.offre].nom[c.langue], v.projets, date(v.jusquAu)))
+    : v.etat === 'actif' ? (v.resilieALaFin ? t.resilieLe(OFFRES[v.offre].nom[c.langue], date(v.engageJusquAu ?? v.jusquAu))
+      : `${t.actif(OFFRES[v.offre].nom[c.langue], v.projets, date(v.jusquAu))}${v.engageJusquAu ? ` ${t.engage(date(v.engageJusquAu))}` : ''}`)
       : v.etat === 'grace' ? t.grace(date(v.pauseLe)) : t.suspendu;
   const offre = v && v.etat !== 'aucun' ? v.offre : null;
   const offert = v?.etat === 'actif' && v.offert === true;
@@ -68,7 +69,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       <main className="pilote">
         <EnTeteDePilotage fil={['Console', t.titre]} titre={t.titre} sousTitre={m.sousTitre} />
         {q.fait === 'abonne' && <div className="carte" role="status">{t.merci}</div>}
-        {q.fait === 'resilie' && <div className="carte" role="status">{t.resilie}</div>}
+        {q.fait === 'resilie' && <div className="carte" role="status">{q.jusqu && !Number.isNaN(Date.parse(q.jusqu)) ? t.resilieEngage(date(q.jusqu)) : t.resilie}</div>}
         {q.erreur && <div className="carte" role="alert">{t.erreurs[q.erreur] ?? q.erreur}</div>}
 
         <section className="rangee" style={{ marginTop: 0 }}>
@@ -154,7 +155,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           ))}
         </ul>
         {v && v.etat === 'actif' && !v.resilieALaFin && !offert && (
-          <form action={resilierALaFin} className="panneau bloc-claude" style={{ marginTop: '1rem' }}><p className="attenue">{t.resilierExplication}</p><button type="submit" className="discret danger">{t.resilier}</button></form>
+          <form action={resilierALaFin} className="panneau bloc-claude" style={{ marginTop: '1rem' }}><p className="attenue">{v.engageJusquAu ? t.resilierEngage(date(v.engageJusquAu)) : t.resilierExplication}</p><button type="submit" className="discret danger">{t.resilier}</button></form>
         )}
         <p className="attenue">{t.mentions}</p>
       </main>

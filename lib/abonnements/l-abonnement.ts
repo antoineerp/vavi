@@ -9,7 +9,7 @@
  */
 import { verifierLaSignature, type AppelStripe } from '@/lib/vente/stripe';
 import type { Manifeste } from '@/lib/backend/app/manifeste';
-import { lEtat, lEtatAvecLOffert, lePeutPublier, laReductionDuPaiement, estUneOffre, PROJETS_EN_PLUS_AU_PLUS, type Abonnement, type DroitDePublier, type EtatDeLAbonnement,
+import { lEtat, lEtatAvecLOffert, lePeutPublier, laReductionDuPaiement, laFinDUneResiliation, estUneOffre, PROJETS_EN_PLUS_AU_PLUS, type Abonnement, type DroitDePublier, type EtatDeLAbonnement,
   type Grille, type Offert, type Reduction } from './les-offres';
 import { lEvenement, lesFactures, ouvrirLePaiement, ouvrirLePortail, resilier, type Facture, type MiseAJour } from './stripe-billing';
 
@@ -28,7 +28,7 @@ export interface DependancesDesAbonnements {
   laGrille(): Promise<Issue<Grille>>;
   /** Les réductions temporaires de ce compte et celles de tous. */
   lesReductions(compte: string): Promise<Issue<readonly Reduction[]>>;
-  appliquer(m: MiseAJour, le: number): Promise<Issue<{ readonly applique: boolean; readonly ancien: string | null }>>;
+  appliquer(m: MiseAJour, le: number): Promise<Issue<{ readonly applique: boolean; readonly ancien: string | null; readonly engageJusquAu?: string | null }>>;
   /** Le compte qui porte ce client ou cet abonnement Stripe ; `null` : aucun. */
   leCompteDe(client: string | null, abonnement: string | null): Promise<string | null>;
   autresEnLigne(compte: string, projet: string): Promise<Issue<number>>;
@@ -67,6 +67,13 @@ export async function recevoirUnEvenement(d: DependancesDesAbonnements, corps: s
   }
   const r = await d.appliquer(l.maj, typeof e.created === 'number' ? e.created : 0);
   if (!r.lu) { d.journal(`[abonnements] ${l.maj.compte.slice(0, 8)} — non appliqué : ${r.pourquoi}`); return { statut: 500, corps: { error: 'retry' } }; }
+  // UNE RÉSILIATION AVANT LE TERME DE L'ENGAGEMENT (la page Stripe du compte, le tableau de bord de Stripe) : l'arrêt est
+  // reporté au terme, comme le geste de la console le fait. Une seule fois : la date reportée vaut le terme.
+  const terme = laFinDUneResiliation(r.valeur.engageJusquAu, d.maintenant);
+  if (r.valeur.applique && terme && l.maj.abonnement && l.maj.statut !== 'canceled' && l.maj.arretLe && Date.parse(l.maj.arretLe) < Date.parse(terme) - 60_000 && d.cle) {
+    const f = await resilier(d.stripe, d.cle, l.maj.abonnement, terme);
+    d.journal(`[abonnements] ${l.maj.compte.slice(0, 8)} — résiliation avant le terme de l'engagement, reportée au ${terme.slice(0, 10)}${f ? ` : refusé (${f})` : ''}`);
+  }
   // L'OFFRE A CHANGÉ : l'abonnement d'avant s'arrête tout de suite (un seul abonnement par compte).
   if (r.valeur.ancien && d.cle) {
     const f = await resilier(d.stripe, d.cle, r.valeur.ancien, false);
@@ -119,15 +126,19 @@ export async function choisirUneOffre(d: DependancesDesAbonnements, compte: stri
   return { url: s.url };
 }
 
-/** La console : résilier, à la fin de la période payée ; les sites restent en ligne jusque-là. */
-export async function resilierLAbonnement(d: DependancesDesAbonnements, compte: string): Promise<{ readonly fait: true } | { readonly fait: false; readonly pourquoi: string }> {
+/**
+ * La console : résilier. Pendant l'engagement d'un an, l'arrêt est noté au terme de l'année (`jusquAu`) ; après lui,
+ * à la fin du mois payé. Les sites restent en ligne jusque-là.
+ */
+export async function resilierLAbonnement(d: DependancesDesAbonnements, compte: string): Promise<{ readonly fait: true; readonly jusquAu: string | null } | { readonly fait: false; readonly pourquoi: string }> {
   if (!d.cle) return { fait: false, pourquoi: 'non_configure' };
   const a = await d.lAbonnement(compte);
   if (!a.lu) return { fait: false, pourquoi: 'panne' };
   if (!a.valeur?.abonnement) return { fait: false, pourquoi: 'aucun_abonnement' };
-  const f = await resilier(d.stripe, d.cle, a.valeur.abonnement, true);
+  const engage = laFinDUneResiliation(a.valeur.engageJusquAu, d.maintenant);
+  const f = await resilier(d.stripe, d.cle, a.valeur.abonnement, engage ?? true);
   if (f) { d.journal(`[abonnements] ${compte.slice(0, 8)} — résiliation refusée : ${f}`); return { fait: false, pourquoi: 'stripe' }; }
-  return { fait: true };
+  return { fait: true, jusquAu: engage };
 }
 
 /** La console : les factures du compte ; aucun client Stripe encore (jamais payé) : aucune facture, ce n'est pas une panne. */
@@ -156,5 +167,6 @@ export function laVueDeLAbonnement(e: EtatDeLAbonnement, adresseDeLaPage: string
   if (e.etat === 'suspendu') return { plan: e.offre, publishing: 'paused: a payment is missing, the published sites are paused (nothing erased)', settle_at: adresseDeLaPage };
   if (e.etat === 'actif' && e.offert) return { plan: e.offre, projects_online_allowed: e.projets, publishing: `offered until ${e.jusquAu?.slice(0, 10)}: the person publishes with « Publier » in the console`, manage_at: adresseDeLaPage };
   if (e.etat === 'grace') return { plan: e.offre, projects_online_allowed: e.projets, publishing: `a payment is missing: sites pause on ${e.pauseLe.slice(0, 10)}`, settle_at: adresseDeLaPage };
-  return { plan: e.offre, projects_online_allowed: e.projets, publishing: 'the person publishes with « Publier » in the console', manage_at: adresseDeLaPage };
+  return { plan: e.offre, projects_online_allowed: e.projets, publishing: 'the person publishes with « Publier » in the console', manage_at: adresseDeLaPage,
+    ...(e.engageJusquAu ? { commitment: `one year, until ${e.engageJusquAu.slice(0, 10)}; renewed tacitly, then stoppable at any time` } : {}) };
 }

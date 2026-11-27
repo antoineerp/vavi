@@ -26,9 +26,12 @@ CREATE TABLE IF NOT EXISTS public.vavi_abonnements (
   cree_le TIMESTAMPTZ NOT NULL DEFAULT now(),
   modifie_le TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- L'ENGAGEMENT (Antoine, 27/11) : un an à partir du premier paiement d'un abonnement neuf, gardé quand l'offre change ;
+-- après lui, l'abonnement se reconduit et s'arrête quand la personne le veut. Un abonné d'avant n'en a pas.
+ALTER TABLE public.vavi_abonnements ADD COLUMN IF NOT EXISTS engage_jusqu_au TIMESTAMPTZ;
 ALTER TABLE public.vavi_abonnements ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.vavi_abonnements FROM PUBLIC, anon, authenticated;
-GRANT SELECT (compte, offre, projets_en_plus, statut, fin_de_periode, impaye_depuis, resilie_a_la_fin) ON public.vavi_abonnements TO authenticated;
+GRANT SELECT (compte, offre, projets_en_plus, statut, fin_de_periode, impaye_depuis, resilie_a_la_fin, engage_jusqu_au) ON public.vavi_abonnements TO authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.vavi_abonnements TO service_role;
 DROP POLICY IF EXISTS vavi_abonnements_le_sien ON public.vavi_abonnements;
 CREATE POLICY vavi_abonnements_le_sien ON public.vavi_abonnements FOR SELECT TO authenticated USING (compte = auth.uid());
@@ -41,6 +44,7 @@ LANGUAGE plpgsql VOLATILE SECURITY INVOKER SET search_path = '' AS $$
 DECLARE
   v public.vavi_abonnements%ROWTYPE;
   v_impaye BOOLEAN := p_statut IN ('past_due', 'unpaid');
+  v_engage TIMESTAMPTZ;
 BEGIN
   IF p_compte IS NULL OR p_le IS NULL THEN RAISE EXCEPTION 'abonnement : quel compte ?' USING ERRCODE = '22023'; END IF;
   SELECT * INTO v FROM public.vavi_abonnements WHERE compte = p_compte FOR UPDATE;
@@ -50,17 +54,25 @@ BEGIN
   IF FOUND AND v.abonnement_stripe IS NOT NULL AND p_abonnement IS DISTINCT FROM v.abonnement_stripe AND p_statut NOT IN ('active', 'trialing') THEN
     RETURN jsonb_build_object('applique', false, 'ancien', NULL);
   END IF;
-  INSERT INTO public.vavi_abonnements AS a (compte, offre, projets_en_plus, statut, fin_de_periode, impaye_depuis, resilie_a_la_fin, client_stripe, abonnement_stripe, montant_centimes, evenement_le, modifie_le)
+  -- L'engagement d'un an naît avec un abonnement NEUF qui s'ouvre ; un changement d'offre (l'ancien encore en cours) le garde.
+  IF p_statut IN ('active', 'trialing') AND p_abonnement IS NOT NULL AND (NOT FOUND OR (v.abonnement_stripe IS DISTINCT FROM p_abonnement
+      AND (v.statut NOT IN ('active', 'trialing', 'past_due', 'unpaid') OR v.abonnement_stripe IS NULL) AND (v.engage_jusqu_au IS NULL OR v.engage_jusqu_au < now()))) THEN
+    v_engage := now() + interval '1 year';
+  ELSE
+    v_engage := v.engage_jusqu_au;
+  END IF;
+  INSERT INTO public.vavi_abonnements AS a (compte, offre, projets_en_plus, statut, fin_de_periode, impaye_depuis, resilie_a_la_fin, client_stripe, abonnement_stripe, montant_centimes, evenement_le, modifie_le, engage_jusqu_au)
     VALUES (p_compte, p_offre, coalesce(p_en_plus, 0), p_statut, p_fin, CASE WHEN v_impaye THEN now() END, coalesce(p_resilie, false), p_client, p_abonnement,
-      CASE WHEN p_montant >= 0 THEN p_montant END, p_le, now())
+      CASE WHEN p_montant >= 0 THEN p_montant END, p_le, now(), v_engage)
   ON CONFLICT (compte) DO UPDATE SET
     offre = excluded.offre, projets_en_plus = excluded.projets_en_plus, statut = excluded.statut,
     fin_de_periode = coalesce(excluded.fin_de_periode, CASE WHEN a.abonnement_stripe IS NOT DISTINCT FROM excluded.abonnement_stripe THEN a.fin_de_periode END),
     impaye_depuis = CASE WHEN v_impaye THEN coalesce(a.impaye_depuis, now()) END,
     resilie_a_la_fin = excluded.resilie_a_la_fin, client_stripe = coalesce(excluded.client_stripe, a.client_stripe),
     abonnement_stripe = coalesce(excluded.abonnement_stripe, a.abonnement_stripe),
-    montant_centimes = coalesce(excluded.montant_centimes, CASE WHEN a.abonnement_stripe IS NOT DISTINCT FROM excluded.abonnement_stripe THEN a.montant_centimes END), evenement_le = excluded.evenement_le, modifie_le = now();
-  RETURN jsonb_build_object('applique', true,
+    montant_centimes = coalesce(excluded.montant_centimes, CASE WHEN a.abonnement_stripe IS NOT DISTINCT FROM excluded.abonnement_stripe THEN a.montant_centimes END), evenement_le = excluded.evenement_le, modifie_le = now(),
+    engage_jusqu_au = excluded.engage_jusqu_au;
+  RETURN jsonb_build_object('applique', true, 'engage_jusqu_au', v_engage,
     'ancien', CASE WHEN v.abonnement_stripe IS NOT NULL AND p_abonnement IS NOT NULL AND v.abonnement_stripe <> p_abonnement AND v.statut NOT IN ('canceled', 'incomplete_expired') THEN v.abonnement_stripe END);
 END $$;
 REVOKE ALL ON FUNCTION public.vavi_abonnement_recu(UUID, TEXT, INTEGER, TEXT, TIMESTAMPTZ, BOOLEAN, TEXT, TEXT, BIGINT, INTEGER) FROM PUBLIC, anon, authenticated;
@@ -111,6 +123,17 @@ NOTIFY pgrst, 'reload schema';
 export function laMigrationDesAbonnements(): string {
   return [
     '-- LES ABONNEMENTS — écrite par scripts/ecrire-la-migration-du-socle.ts depuis lib/abonnements/le-sql-des-abonnements.ts.',
+    '-- Ne pas modifier à la main : modifier la source, puis relancer le script.',
+    SQL_DES_ABONNEMENTS.trim(), '',
+  ].join('\n');
+}
+
+export const CHEMIN_DE_LA_MIGRATION_DE_L_ENGAGEMENT = 'supabase/migrations/20261127100000_l_engagement_d_un_an.sql';
+
+/** PURE — la migration de l'engagement (27/11) : le SQL des abonnements, rejoué tel quel (chaque instruction se rejoue). */
+export function laMigrationDeLEngagement(): string {
+  return [
+    "-- L'ENGAGEMENT D'UN AN — écrite par scripts/ecrire-la-migration-du-socle.ts depuis lib/abonnements/le-sql-des-abonnements.ts.",
     '-- Ne pas modifier à la main : modifier la source, puis relancer le script.',
     SQL_DES_ABONNEMENTS.trim(), '',
   ].join('\n');

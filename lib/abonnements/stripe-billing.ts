@@ -9,7 +9,7 @@
  * Neuf dans vavi (lot 8).
  */
 import type { AppelStripe } from '@/lib/vente/stripe';
-import { DEVISE_DES_OFFRES, OFFRES, estUneOffre, type Grille, type Offre } from './les-offres';
+import { DEVISE_DES_OFFRES, MOIS_D_ENGAGEMENT, OFFRES, estUneOffre, type Grille, type Offre } from './les-offres';
 
 /** Le secret du webhook des abonnements de vavi (évènements du compte de vavi, non des comptes reliés). */
 export const SECRET_DU_WEBHOOK_DES_ABONNEMENTS = 'VAVI_STRIPE_WEBHOOK_ABONNEMENTS';
@@ -45,17 +45,27 @@ export async function ouvrirLePaiement(appel: AppelStripe, cle: string, p: LePai
   const meta = { vavi_compte: p.compte, vavi_offre: p.offre, vavi_en_plus: String(p.projetsEnPlus) };
   for (const [k, v] of Object.entries(meta)) { corps.set(`metadata[${k}]`, v); corps.set(`subscription_data[metadata][${k}]`, v); }
   corps.set('client_reference_id', p.compte);
+  // L'engagement, dit sur la page de paiement, au-dessus du bouton (Antoine, 27/11).
+  corps.set('custom_text[submit][message]', p.langue === 'fr'
+    ? `Engagement de ${MOIS_D_ENGAGEMENT} mois, payé chaque mois, reconduit tacitement. Après la première année, vous l’arrêtez quand vous voulez, à la fin du mois payé.`
+    : `${MOIS_D_ENGAGEMENT}-month commitment, paid monthly, renewed tacitly. After the first year, you stop it whenever you want, at the end of the paid month.`);
   if (p.coupon && COUPON.test(p.coupon)) corps.set('discounts[0][coupon]', p.coupon);
   const r = await appel('https://api.stripe.com/v1/checkout/sessions', { method: 'POST', headers: { authorization: `Bearer ${cle}`, 'content-type': 'application/x-www-form-urlencoded' }, body: corps.toString() });
   const d = (await r.json().catch(() => ({}))) as { url?: unknown; error?: { message?: unknown } };
   return r.ok && typeof d.url === 'string' ? { ouvert: true, url: d.url } : { ouvert: false, pourquoi: String(d.error?.message ?? 'Stripe n’a rendu aucune session') };
 }
 
-/** Résilie un abonnement : à la fin de sa période (`aLaFin`), ou tout de suite. */
-export async function resilier(appel: AppelStripe, cle: string, abonnement: string, aLaFin: boolean): Promise<string | null> {
+/**
+ * Résilie un abonnement : à la fin de sa période (`aLaFin`), à une date (l'engagement : `aLaFin` donne l'instant ISO,
+ * sans prorata), ou tout de suite (`false`).
+ */
+export async function resilier(appel: AppelStripe, cle: string, abonnement: string, aLaFin: boolean | string): Promise<string | null> {
   if (!/^sub_[A-Za-z0-9]{6,64}$/.test(abonnement)) return 'abonnement inconnu';
+  const date = typeof aLaFin === 'string' ? Math.floor(Date.parse(aLaFin) / 1000) : Number.NaN;
+  if (typeof aLaFin === 'string' && !Number.isFinite(date)) return 'date d’arrêt illisible';
   const r = aLaFin
-    ? await appel(`https://api.stripe.com/v1/subscriptions/${abonnement}`, { method: 'POST', headers: { authorization: `Bearer ${cle}`, 'content-type': 'application/x-www-form-urlencoded' }, body: 'cancel_at_period_end=true' })
+    ? await appel(`https://api.stripe.com/v1/subscriptions/${abonnement}`, { method: 'POST', headers: { authorization: `Bearer ${cle}`, 'content-type': 'application/x-www-form-urlencoded' },
+      body: typeof aLaFin === 'string' ? `cancel_at=${date}&proration_behavior=none` : 'cancel_at_period_end=true' })
     : await appel(`https://api.stripe.com/v1/subscriptions/${abonnement}`, { method: 'DELETE' as never, headers: { authorization: `Bearer ${cle}` } });
   if (r.ok) return null;
   const d = (await r.json().catch(() => ({}))) as { error?: { message?: unknown } };
@@ -87,6 +97,8 @@ export async function appliquerUnCoupon(appel: AppelStripe, cle: string, abonnem
 export interface MiseAJour {
   readonly compte: string; readonly offre: Offre; readonly projetsEnPlus: number; readonly statut: string;
   readonly finDePeriode: string | null; readonly resilieALaFin: boolean;
+  /** Quand Stripe arrêtera l'abonnement (ISO) : sa date d'arrêt, ou la fin de la période d'un « à la fin » ; `null` : rien de prévu. */
+  readonly arretLe?: string | null;
   readonly client: string | null; readonly abonnement: string | null;
   /** Ce que l'abonnement facture par mois, avant réduction, en centimes ; `null` : Stripe ne l'a pas dit. */
   readonly montant: number | null;
@@ -127,7 +139,10 @@ export function lEvenement(type: string, objet: Record<string, unknown>): Lectur
     const fin = [objet.current_period_end, ...items.map((i) => i.current_period_end)].find((v): v is number => typeof v === 'number');
     return { forme: 'mise_a_jour', maj: { compte: m.compte, offre: m.offre, projetsEnPlus: m.enPlus,
       statut: type === 'customer.subscription.deleted' ? 'canceled' : String(objet.status ?? 'incomplete').replace(/[^a-z_]/g, '').slice(0, 30) || 'incomplete',
-      finDePeriode: fin ? new Date(fin * 1000).toISOString() : null, resilieALaFin: objet.cancel_at_period_end === true,
+      finDePeriode: fin ? new Date(fin * 1000).toISOString() : null,
+      // « À la fin de la période » (`cancel_at_period_end`) ou à une date (`cancel_at`, l'engagement) : les deux arrêtent.
+      resilieALaFin: objet.cancel_at_period_end === true || typeof objet.cancel_at === 'number',
+      arretLe: typeof objet.cancel_at === 'number' ? new Date(objet.cancel_at * 1000).toISOString() : objet.cancel_at_period_end === true && fin ? new Date(fin * 1000).toISOString() : null,
       client: idDe(objet.customer), abonnement: idDe(objet.id),
       montant: parLigne.length && parLigne.every(Number.isFinite) ? parLigne.reduce((a, b) => a + b, 0) : null } };
   }
