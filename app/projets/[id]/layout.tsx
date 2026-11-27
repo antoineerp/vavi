@@ -30,13 +30,14 @@ export default async function MiseEnPage({ children, params }: { children: React
   // « Utilisateurs » sert dès que l'app a des comptes, le propriétaire seul compris (Antoine, 27/11 : la gestion des
   // identifiants avait disparu d'une app personnelle, qui n'a que son rôle). Un site vitrine, sans rôle, n'en a pas.
   const comptes = m?.lu ? m.manifeste.roles.length > 0 : false;
+  const donnees = m?.lu ? m.manifeste.tables.length > 0 : false;
   const projet = p.lu ? p.valeur : null;
   const etat = projet ? lEtat(projet) : null;
   const NOMS_D_ETAT = { fr: { en_ligne: 'En ligne', a_publier: 'Changements à publier', apercu: 'Aperçu, pas encore en ligne', vide: 'Pas encore d’aperçu' }, en: { en_ligne: 'Online', a_publier: 'Changes to publish', apercu: 'Preview, not online yet', vide: 'No preview yet' } }[c.langue];
   return (
     <div className="coquille projet">
       <BarreDuCompte langue={c.langue} courriel={c.courriel} ici="projets">
-        <BarreLaterale id={id} menu={leMenu(c.langue, { vend, comptes })} />
+        <BarreLaterale id={id} menu={leMenu(c.langue, { vend, comptes, donnees })} />
       </BarreDuCompte>
       <div className="pilote">
         <header className="bandeau-projet" style={{ ['--teinte' as string]: laTeinte(id) }}>
