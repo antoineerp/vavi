@@ -14,7 +14,7 @@ export async function choisir(formulaire: FormData) {
 export async function resilierALaFin() {
   const c = await laConsole(PAGE_DE_L_ABONNEMENT);
   const r = await resilierLAbonnement(lesAbonnementsReels(), c.compte);
-  redirect(r.fait ? `${PAGE_DE_L_ABONNEMENT}?fait=resilie` : `${PAGE_DE_L_ABONNEMENT}?erreur=${r.pourquoi}`);
+  redirect(r.fait ? `${PAGE_DE_L_ABONNEMENT}?fait=resilie${r.jusquAu ? `&jusqu=${encodeURIComponent(r.jusquAu)}` : ''}` : `${PAGE_DE_L_ABONNEMENT}?erreur=${r.pourquoi}`);
 }
 
 export async function ouvrirLePortail() {

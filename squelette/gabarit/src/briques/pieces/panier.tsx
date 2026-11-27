@@ -141,7 +141,7 @@ export default function Panier() {
             <span>{L.accepterLesCgv} <Link to="/conditions-de-vente" className="underline underline-offset-4">{L.lesCgv}</Link></span>
           </label>
           {envoi.refus ? <p role="alert" className="text-sm">{envoi.refus}</p> : null}
-          <Button type="submit" disabled={envoi.enCours || chiffre?.forme !== 'donnee' || !cgv}>{L.allerAuPaiement}</Button>
+          <Button type="submit" disabled={envoi.enCours || chiffre?.forme !== 'donnee' || !cgv || Boolean(!retrait && chiffre.donnee.livraison.impossible)}>{L.allerAuPaiement}</Button>
           <p className="text-sm text-sur-fond-attenue">{L.paiementSecurise}</p>
         </form>
       </section>

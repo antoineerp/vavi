@@ -26,6 +26,7 @@ export const COLONNES_DE_LA_VENTE: ReadonlyArray<{ readonly nom: string; readonl
   { nom: 'vente_mode', sql: 'text', ts: "'expedition' | 'retrait' | null" },
   { nom: 'vente_facture', sql: 'jsonb', ts: 'Readonly<{ numero: string; rang: number; emise_le: string }> | null' },
   { nom: 'vente_jeton', sql: 'text', ts: 'string | null' },
+  { nom: 'vente_code', sql: 'text', ts: 'string | null' },
 ];
 
 type Etat = 'a_payer' | 'payee' | 'expediee' | 'livree' | 'annulee';

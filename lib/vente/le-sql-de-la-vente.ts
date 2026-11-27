@@ -22,9 +22,10 @@ const colonne = (p: string) => `CASE WHEN ${p} IS NULL THEN 'NULL' ELSE format('
 
 /** Les fonctions, avec leur signature : chacune n'est exécutable que par la plateforme. */
 export const FONCTIONS_DE_LA_VENTE = [
-  'app_articles_a_vendre(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT[])',
-  'app_remise_du_code(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT)',
-  'app_ouvrir_une_commande(TEXT, UUID, JSONB, INTEGER, INTEGER, TEXT, TEXT, TEXT, JSONB, JSONB, TEXT)',
+  'app_articles_a_vendre(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT[])',
+  'app_remise_du_code(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT)',
+  'app_commandes_du_courriel(TEXT, TEXT)',
+  'app_ouvrir_une_commande(TEXT, UUID, JSONB, INTEGER, INTEGER, TEXT, TEXT, TEXT, JSONB, JSONB, TEXT, TEXT)',
   'app_confirmer_une_vente(TEXT, TEXT, TEXT, INTEGER, TEXT)',
   'app_completer_une_commande(TEXT, TEXT, TEXT, TEXT, JSONB, TEXT)',
   'app_decompter_le_stock(TEXT, TEXT, TEXT, TEXT, INTEGER)',
@@ -48,37 +49,55 @@ GRANT SELECT, INSERT ON public.vavi_ventes_confirmees TO service_role;
 
 -- Les articles tels que la base les porte : le prix, le libellé, et chaque champ que la table déclare.
 CREATE OR REPLACE FUNCTION public.app_articles_a_vendre(p_schema TEXT, p_table TEXT, p_prix TEXT, p_libelle TEXT, p_stock TEXT, p_tva TEXT,
-  p_poids TEXT, p_options TEXT, p_ids TEXT[])
-RETURNS TABLE (id TEXT, prix NUMERIC, libelle TEXT, stock NUMERIC, tva NUMERIC, poids NUMERIC, options TEXT)
+  p_poids TEXT, p_options TEXT, p_categorie TEXT, p_ids TEXT[])
+RETURNS TABLE (id TEXT, prix NUMERIC, libelle TEXT, stock NUMERIC, tva NUMERIC, poids NUMERIC, options TEXT, categorie TEXT)
 LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path = '' AS $$
 BEGIN
   IF ${schemaRefuse()} OR ${champRefuse('p_table')} OR ${champRefuse('p_prix')} OR ${champRefuse('p_libelle')}
-     OR ${champRefuse('p_stock', true)} OR ${champRefuse('p_tva', true)} OR ${champRefuse('p_poids', true)} OR ${champRefuse('p_options', true)} THEN
+     OR ${champRefuse('p_stock', true)} OR ${champRefuse('p_tva', true)} OR ${champRefuse('p_poids', true)} OR ${champRefuse('p_options', true)} OR ${champRefuse('p_categorie', true)} THEN
     RAISE EXCEPTION 'vente : identifiant refusé' USING ERRCODE = '22023';
   END IF;
-  RETURN QUERY EXECUTE format('SELECT t.id::text, t.%I::numeric, t.%I::text, (%s)::numeric, (%s)::numeric, (%s)::numeric, (%s)::text FROM %I.%I t WHERE t.id::text = ANY($1)',
-    p_prix, p_libelle, ${colonne('p_stock')}, ${colonne('p_tva')}, ${colonne('p_poids')}, ${colonne('p_options')}, p_schema, p_table) USING p_ids;
+  RETURN QUERY EXECUTE format('SELECT t.id::text, t.%I::numeric, t.%I::text, (%s)::numeric, (%s)::numeric, (%s)::numeric, (%s)::text, (%s)::text FROM %I.%I t WHERE t.id::text = ANY($1)',
+    p_prix, p_libelle, ${colonne('p_stock')}, ${colonne('p_tva')}, ${colonne('p_poids')}, ${colonne('p_options')}, ${colonne('p_categorie')}, p_schema, p_table) USING p_ids;
 END $$;
 
--- Le code de remise saisi (sans tenir compte de la casse), encore actif et pas échu : ce qu'il retire. Aucune ligne : il ne vaut pas.
+-- Le code de remise saisi (sans tenir compte de la casse), encore actif et pas échu : ce qu'il retire, ses conditions (minimum,
+-- usages au plus, première commande, cible) et les commandes payées qui l'ont déjà employé. Aucune ligne : il ne vaut pas.
 CREATE OR REPLACE FUNCTION public.app_remise_du_code(p_schema TEXT, p_table TEXT, p_champ TEXT, p_code TEXT,
-  p_pourcentage TEXT, p_montant TEXT, p_actif TEXT, p_fin TEXT)
-RETURNS TABLE (pourcentage NUMERIC, montant NUMERIC)
+  p_pourcentage TEXT, p_montant TEXT, p_actif TEXT, p_fin TEXT, p_minimum TEXT, p_utilisations TEXT, p_premiere TEXT, p_cible TEXT)
+RETURNS TABLE (pourcentage NUMERIC, montant NUMERIC, minimum NUMERIC, utilisations NUMERIC, premiere BOOLEAN, cible TEXT, usages INTEGER)
 LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path = '' AS $$
 BEGIN
   IF ${schemaRefuse()} OR ${champRefuse('p_table')} OR ${champRefuse('p_champ')} OR ${champRefuse('p_pourcentage', true)}
-     OR ${champRefuse('p_montant', true)} OR ${champRefuse('p_actif', true)} OR ${champRefuse('p_fin', true)} OR (p_pourcentage IS NULL) = (p_montant IS NULL) THEN
+     OR ${champRefuse('p_montant', true)} OR ${champRefuse('p_actif', true)} OR ${champRefuse('p_fin', true)} OR (p_pourcentage IS NULL) = (p_montant IS NULL)
+     OR ${champRefuse('p_minimum', true)} OR ${champRefuse('p_utilisations', true)} OR ${champRefuse('p_premiere', true)} OR ${champRefuse('p_cible', true)} THEN
     RAISE EXCEPTION 'vente : remise refusée' USING ERRCODE = '22023';
   END IF;
-  RETURN QUERY EXECUTE format('SELECT (%s)::numeric, (%s)::numeric FROM %I.%I t WHERE lower(btrim(t.%I::text)) = lower(btrim($1)) %s %s LIMIT 1',
-    ${colonne('p_pourcentage')}, ${colonne('p_montant')}, p_schema, p_table, p_champ,
+  RETURN QUERY EXECUTE format('SELECT (%s)::numeric, (%s)::numeric, (%s)::numeric, (%s)::numeric, (%s)::boolean, (%s)::text, '
+    || '(SELECT count(*)::integer FROM %I.${C} c WHERE lower(btrim(c.vente_code)) = lower(btrim($1)) AND c.etat <> ALL (ARRAY[''a_payer'', ''annulee'']))'
+    || ' FROM %I.%I t WHERE lower(btrim(t.%I::text)) = lower(btrim($1)) %s %s LIMIT 1',
+    ${colonne('p_pourcentage')}, ${colonne('p_montant')}, ${colonne('p_minimum')}, ${colonne('p_utilisations')}, ${colonne('p_premiere')}, ${colonne('p_cible')},
+    p_schema, p_schema, p_table, p_champ,
     CASE WHEN p_actif IS NULL THEN '' ELSE format('AND t.%I IS TRUE', p_actif) END,
     CASE WHEN p_fin IS NULL THEN '' ELSE format('AND (t.%I IS NULL OR t.%I::date >= current_date)', p_fin, p_fin) END) USING p_code;
 END $$;
 
--- La commande que le panier ouvre, au prix lu : à ce compte (l'acheteur, ou le propriétaire pour un achat sans compte), à payer.
+-- Les commandes payées d'une adresse e-mail : un code réservé à la première commande n'en veut aucune.
+CREATE OR REPLACE FUNCTION public.app_commandes_du_courriel(p_schema TEXT, p_courriel TEXT)
+RETURNS INTEGER
+LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path = '' AS $$
+DECLARE n INTEGER;
+BEGIN
+  IF ${schemaRefuse()} THEN RAISE EXCEPTION 'vente : identifiant refusé' USING ERRCODE = '22023'; END IF;
+  EXECUTE format('SELECT count(*)::integer FROM %I.${C} c WHERE lower(btrim(c.vente_courriel)) = lower(btrim($1)) AND c.etat <> ALL (ARRAY[''a_payer'', ''annulee''])', p_schema)
+    INTO n USING p_courriel;
+  RETURN n;
+END $$;
+
+-- La commande que le panier ouvre, au prix lu : à ce compte (l'acheteur, ou le propriétaire pour un achat sans compte), à payer ;
+-- le code de remise qu'elle emploie y est gardé, pour compter ses usages.
 CREATE OR REPLACE FUNCTION public.app_ouvrir_une_commande(p_schema TEXT, p_compte UUID, p_lignes JSONB, p_montant INTEGER, p_livraison INTEGER,
-  p_devise TEXT, p_courriel TEXT, p_nom TEXT, p_adresse JSONB, p_tva JSONB, p_mode TEXT)
+  p_devise TEXT, p_courriel TEXT, p_nom TEXT, p_adresse JSONB, p_tva JSONB, p_mode TEXT, p_code TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql VOLATILE SECURITY INVOKER SET search_path = '' AS $$
 DECLARE v_id TEXT;
@@ -86,8 +105,8 @@ BEGIN
   IF ${schemaRefuse()} THEN RAISE EXCEPTION 'vente : identifiant refusé' USING ERRCODE = '22023'; END IF;
   IF p_compte IS NULL THEN RAISE EXCEPTION 'vente : une commande a son compte' USING ERRCODE = '42501'; END IF;
   EXECUTE format('INSERT INTO %I.${C} (owner_id, vente_lignes, vente_montant_centimes, vente_livraison_centimes, vente_devise, vente_courriel, vente_nom, '
-    || 'vente_adresse, vente_tva, vente_mode) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id::text', p_schema)
-    INTO v_id USING p_compte, p_lignes, p_montant, p_livraison, p_devise, p_courriel, p_nom, p_adresse, p_tva, p_mode;
+    || 'vente_adresse, vente_tva, vente_mode, vente_code) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id::text', p_schema)
+    INTO v_id USING p_compte, p_lignes, p_montant, p_livraison, p_devise, p_courriel, p_nom, p_adresse, p_tva, p_mode, p_code;
   RETURN v_id;
 END $$;
 
@@ -164,6 +183,28 @@ END $$;
 ${FONCTIONS_DE_LA_VENTE.map((f) => `REVOKE ALL ON FUNCTION public.${f} FROM PUBLIC, anon, authenticated;\nGRANT EXECUTE ON FUNCTION public.${f} TO service_role;`).join('\n')}
 NOTIFY pgrst, 'reload schema';
 `;
+
+export const CHEMIN_DE_LA_MIGRATION_DES_REMISES = 'supabase/migrations/20261127110000_les_remises_fines.sql';
+
+/**
+ * PURE — LES REMISES FINES ET LA CATÉGORIE (27/11) : la colonne `vente_code` posée sur la commande de chaque boutique déjà là,
+ * puis toute la vente rejouée (CREATE OR REPLACE) : les fonctions à leur nouvelle signature naissent à côté des anciennes,
+ * que le code déjà déployé appelle encore jusqu'à son remplacement.
+ */
+export function laMigrationDesRemises(): string {
+  return [
+    '-- LES REMISES FINES — écrite par scripts/ecrire-la-migration-du-socle.ts depuis lib/vente/le-sql-de-la-vente.ts.',
+    '-- Ne pas modifier à la main : modifier la source, puis relancer le script. Rejouable.',
+    String.raw`DO $$
+DECLARE s TEXT;
+BEGIN
+  FOR s IN SELECT table_schema FROM information_schema.tables WHERE table_name = '${C}' AND table_schema ~ '${SCHEMA_D_APP_SQL}' LOOP
+    EXECUTE format('ALTER TABLE %I.${C} ADD COLUMN IF NOT EXISTS vente_code TEXT', s);
+  END LOOP;
+END $$;`,
+    SQL_DE_LA_VENTE.trim(), '',
+  ].join('\n');
+}
 
 /** PURE — le texte de la migration. */
 export function laMigrationDeLaVente(): string {

@@ -24,7 +24,7 @@ describe.runIf(POSTGRES_PRESENT)('les abonnements, sur un PostgreSQL réel', () 
   afterAll(() => pg?.arreter());
 
   it('appliqué ; un évènement plus ancien ne revient pas en arrière', () => {
-    expect(recu('active', 'sub_UN0000001', 100)).toEqual({ applique: true, ancien: null });
+    expect(recu('active', 'sub_UN0000001', 100)).toMatchObject({ applique: true, ancien: null });
     expect(recu('incomplete', 'sub_UN0000001', 90).applique).toBe(false);
     expect(ligne()).toBe('site:active:false:sub_UN0000001');
   });
@@ -38,7 +38,7 @@ describe.runIf(POSTGRES_PRESENT)('les abonnements, sur un PostgreSQL réel', () 
     expect(ligne()).toBe('site:active:false:sub_UN0000001');
   });
   it('l’offre change : le nouvel abonnement s’applique et rend l’ancien ; la fin de l’ancien n’efface pas le nouveau', () => {
-    expect(recu('active', 'sub_DEUX00001', 140, 'pro', 1)).toEqual({ applique: true, ancien: 'sub_UN0000001' });
+    expect(recu('active', 'sub_DEUX00001', 140, 'pro', 1)).toMatchObject({ applique: true, ancien: 'sub_UN0000001' });
     expect(recu('canceled', 'sub_UN0000001', 150).applique).toBe(false);
     expect(ligne()).toBe('pro:active:false:sub_DEUX00001');
   });

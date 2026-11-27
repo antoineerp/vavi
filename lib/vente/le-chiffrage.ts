@@ -10,6 +10,7 @@
  */
 import type { Boutique, Livraison, MotsDeLaVente, RegimeDeTva } from './la-boutique';
 import { lesMots } from './la-boutique';
+import { enDevise } from './la-facture';
 import type { TauxDUnPays } from './les-taux-de-tva';
 
 export const LIGNES_AU_PLUS = 50;
@@ -59,10 +60,28 @@ export function laDestination(brut: unknown, l: Livraison): Destination {
   return { pays: l.pays.includes(pays) ? pays : null, retrait: o.retrait === true && l.retrait !== null };
 }
 
-/** Les frais d'envoi : rien sans envoi, au retrait, ou à partir du montant où il est offert. */
-export function fraisDeLivraison(l: Livraison, articlesCentimes: number, d: Destination): number {
-  if (l.pays.length === 0 || d.retrait || (l.offerteDesCentimes !== null && articlesCentimes >= l.offerteDesCentimes)) return 0;
-  return Math.max(0, l.fraisCentimes);
+/** Le colis : la somme des poids des articles, en kg ; `sansPoids` : le premier article dont la base ne dit pas le poids. */
+export interface Colis { readonly poidsKg: number; readonly sansPoids: string | null }
+export const COLIS_VIDE: Colis = { poidsKg: 0, sansPoids: null };
+/** L'envoi : son prix et sa zone, ou pourquoi aucune zone ne le prend (le panier le dit, le paiement le refuse). */
+export type Envoi = { readonly centimes: number; readonly zone: string | null } | { readonly impossible: string; readonly zone: string };
+
+const kg = (n: number): string => String(Math.round(n * 1000) / 1000);
+/**
+ * Les frais d'envoi : rien sans envoi, au retrait, ou à partir du montant où il est offert (celui de la zone) ; sinon le
+ * prix de la zone du pays, par la première tranche qui contient le poids du colis ; un pays hors zone : le prix de la
+ * livraison. Un article sans poids, un colis plus lourd que la dernière tranche : l'envoi est impossible, et dit.
+ */
+export function lEnvoi(l: Livraison, articlesCentimes: number, d: Destination, colis: Colis, mots: MotsDeLaVente): Envoi {
+  const z = d.pays && !d.retrait ? l.zones.find((x) => x.pays.includes(d.pays!)) : undefined;
+  const zone = z?.nom ?? null;
+  const offerte = z ? z.offerteDesCentimes : l.offerteDesCentimes;
+  if (l.pays.length === 0 || d.retrait || (offerte !== null && articlesCentimes >= offerte)) return { centimes: 0, zone };
+  if (!z || z.tranches.length === 0) return { centimes: Math.max(0, z ? z.fraisCentimes : l.fraisCentimes), zone };
+  if (colis.sansPoids !== null) return { impossible: mots.sansPoids.replace('{article}', colis.sansPoids), zone: z.nom };
+  const t = z.tranches.find((x) => colis.poidsKg <= x.jusquaKg + 1e-9);
+  if (!t) return { impossible: mots.tropLourd.replace('{poids}', kg(colis.poidsKg)).replace('{zone}', z.nom).replace('{max}', kg(z.tranches[z.tranches.length - 1]!.jusquaKg)), zone: z.nom };
+  return { centimes: Math.max(0, t.fraisCentimes), zone: z.nom };
 }
 
 export interface Coordonnees {
@@ -129,13 +148,20 @@ export function ceQueRetireLeCode(articlesCentimes: number, r: { readonly pource
 }
 
 /** Une ligne d'article telle que la base la rend (`app_articles_a_vendre`). */
-export interface ArticleLu { readonly id: string; readonly prix: unknown; readonly libelle: unknown; readonly stock: unknown; readonly tva: unknown; readonly poids: unknown; readonly options: unknown }
+export interface ArticleLu { readonly id: string; readonly prix: unknown; readonly libelle: unknown; readonly stock: unknown; readonly tva: unknown; readonly poids: unknown; readonly options: unknown; readonly categorie?: unknown }
 export interface LigneChiffree { readonly table: string; readonly id: string; readonly libelle: string; readonly centimes: number; readonly quantite: number; readonly taux: number | null; readonly option?: string }
 export interface Panier {
   readonly lignes: readonly LigneChiffree[]; readonly articlesCentimes: number; readonly devise: string;
-  readonly remise: { readonly code: string; readonly centimes: number } | { readonly code: string; readonly refusee: true } | null;
+  /**
+   * Le code saisi : ce qu'il retire, sur quelles lignes (leur rang), et s'il attend une première commande (vérifiée au
+   * paiement, sur l'adresse e-mail) ; ou refusé, et pourquoi quand on le sait.
+   */
+  readonly remise: { readonly code: string; readonly centimes: number; readonly sur: readonly number[]; readonly premiere: boolean }
+    | { readonly code: string; readonly refusee: true; readonly raison?: string } | null;
   /** Les lignes dont l'article n'existe plus en base : le panier les retire et le dit ; le paiement les refuse. */
   readonly retirees: readonly LigneAchetee[];
+  /** Le poids du colis, lu en base comme le prix. */
+  readonly colis: Colis;
 }
 
 const nombre = (v: unknown): number | null => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
@@ -145,9 +171,11 @@ const nombre = (v: unknown): number | null => (v === null || v === undefined || 
  * (`undefined` : aucun code saisi ; `null` : aucun code ne vaut).
  */
 export function chiffrer(b: Boutique, lignes: readonly LigneAchetee[], lues: ReadonlyMap<string, readonly ArticleLu[]>,
-  code: string | null, remise: { readonly pourcentage: unknown; readonly montant: unknown } | null | undefined): { readonly forme: 'chiffre'; readonly panier: Panier } | Refus {
+  code: string | null, remise: RemiseLue | null | undefined): { readonly forme: 'chiffre'; readonly panier: Panier } | Refus {
   const fr = b.langue === 'fr';
   const chiffrees: LigneChiffree[] = [], retirees: LigneAchetee[] = [];
+  let poidsKg = 0, sansPoids: string | null = null;
+  const categories: (string | null)[] = [];
   for (const l of lignes) {
     if (!b.articles.has(l.table)) return refus(400, fr ? `« ${l.table} » ne se vend pas.` : `“${l.table}” is not for sale.`);
     const r = lues.get(l.table)?.find((x) => String(x.id) === l.id);
@@ -165,55 +193,91 @@ export function chiffrer(b: Boutique, lignes: readonly LigneAchetee[], lues: Rea
     if (proposees.length > 0 && (!l.option || !proposees.includes(l.option))) {
       return refus(409, fr ? `« ${libelle} » : choisissez une option (${proposees.join(', ')}).` : `“${libelle}”: choose an option (${proposees.join(', ')}).`);
     }
+    if (b.articles.get(l.table)!.poids) {
+      const p = nombre(r.poids);
+      if (p === null || p < 0) sansPoids ??= libelle; else poidsKg += p * l.quantite;
+    }
+    categories.push(typeof r.categorie === 'string' && r.categorie.trim() ? r.categorie : null);
     chiffrees.push({ table: l.table, id: l.id, libelle: `${libelle}${l.option && proposees.length > 0 ? ` — ${l.option}` : ''}`.slice(0, 250), centimes,
       quantite: l.quantite, taux: b.tva.assujettie ? tauxDeLaLigne(r.tva, b.tva.taux) : null, ...(l.option && proposees.length > 0 ? { option: l.option } : {}) });
   }
   const articlesCentimes = chiffrees.reduce((t, l) => t + l.centimes * l.quantite, 0);
-  let laRemise: Panier['remise'] = null;
-  if (code && b.remise && remise !== undefined) {
-    const c = remise === null ? null : ceQueRetireLeCode(articlesCentimes, { pourcentage: nombre(remise.pourcentage), montant: nombre(remise.montant) });
-    laRemise = c === null ? { code, refusee: true } : { code, centimes: c };
-  }
-  return { forme: 'chiffre', panier: { lignes: chiffrees, articlesCentimes, devise: b.devise, remise: laRemise, retirees } };
+  const laRemise: Panier['remise'] = code && b.remise && remise !== undefined ? laRemiseDuCode(b, code, remise, chiffrees, categories, articlesCentimes) : null;
+  return { forme: 'chiffre', panier: { lignes: chiffrees, articlesCentimes, devise: b.devise, remise: laRemise, retirees, colis: { poidsKg, sansPoids } } };
 }
 
-/** Les articles au prix réellement payé : la remise répartie en proportion, pour que la TVA de chaque taux porte le vrai prix. */
+/** La ligne d'un code de remise telle que la base la rend (`app_remise_du_code`) : ce qu'il retire, ses conditions, ses usages payés. */
+export interface RemiseLue {
+  readonly pourcentage: unknown; readonly montant: unknown;
+  readonly minimum?: unknown; readonly utilisations?: unknown; readonly premiere?: unknown; readonly cible?: unknown; readonly usages?: unknown;
+}
+const norme = (t: string): string => t.trim().toLowerCase();
+
+/**
+ * Ce que vaut un code lu en base, contre le panier chiffré : épuisé (ses commandes payées atteignent son plafond), sous son
+ * minimum d'articles, pour aucun article (sa cible ne nomme ni la table ni la catégorie d'une ligne) : refusé, et dit ; sinon
+ * ce qu'il retire des seules lignes visées. PURE.
+ */
+export function laRemiseDuCode(b: Boutique, code: string, r: RemiseLue | null, lignes: readonly LigneChiffree[], categories: readonly (string | null)[],
+  articlesCentimes: number): NonNullable<Panier['remise']> {
+  if (r === null) return { code, refusee: true };
+  const M = lesMots(b.langue);
+  const non = (raison: string) => ({ code, refusee: true as const, raison: raison.replace('{code}', code) });
+  const plafond = nombre(r.utilisations);
+  if (plafond !== null && (nombre(r.usages) ?? 0) >= plafond) return non(M.remiseEpuisee);
+  const minimum = nombre(r.minimum);
+  if (minimum !== null && articlesCentimes < Math.round(minimum * 100)) return non(M.remiseMinimum.replace('{montant}', enDevise(b.langue, b.devise)(Math.round(minimum * 100))));
+  const cibles = lesOptions(typeof r.cible === 'string' ? r.cible : null).map(norme);
+  const sur = lignes.flatMap((l, i) => (cibles.length === 0 || cibles.includes(norme(l.table)) || (categories[i] && cibles.includes(norme(categories[i]!))) ? [i] : []));
+  if (sur.length === 0) return non(M.remiseSansArticle);
+  const base = sur.reduce((t, i) => t + lignes[i]!.centimes * lignes[i]!.quantite, 0);
+  const c = ceQueRetireLeCode(base, { pourcentage: nombre(r.pourcentage), montant: nombre(r.montant) });
+  return c === null ? { code, refusee: true } : { code, centimes: c, sur, premiere: r.premiere === true };
+}
+
+/** Les articles au prix réellement payé : la remise répartie en proportion sur les lignes visées, pour que la TVA de chaque taux porte le vrai prix. */
 export function lesLignesRemisees(p: Panier): readonly LigneChiffree[] {
-  if (!p.remise || !('centimes' in p.remise) || p.articlesCentimes <= 0) return p.lignes;
-  const reste = (p.articlesCentimes - p.remise.centimes) / p.articlesCentimes;
-  return p.lignes.map((l) => ({ ...l, centimes: Math.max(1, Math.round(l.centimes * reste)) }));
+  if (!p.remise || !('centimes' in p.remise)) return p.lignes;
+  const sur = new Set(p.remise.sur);
+  const base = p.lignes.reduce((t, l, i) => t + (sur.has(i) ? l.centimes * l.quantite : 0), 0);
+  if (base <= 0) return p.lignes;
+  const reste = (base - p.remise.centimes) / base;
+  return p.lignes.map((l, i) => (sur.has(i) ? { ...l, centimes: Math.max(1, Math.round(l.centimes * reste)) } : l));
 }
 
 /** Ce que la page de paiement porte : chaque article, l'envoi, le montant, la ventilation. */
 export function lesArticlesAPayer(b: Boutique, p: Panier, d: Destination) {
   const lignes = lesLignesRemisees(p);
   const articles = lignes.reduce((t, l) => t + l.centimes * l.quantite, 0);
-  const frais = fraisDeLivraison(b.livraison, articles, d);
   const mots = lesMots(b.langue);
+  const envoi = lEnvoi(b.livraison, articles, d, p.colis, mots);
+  const frais = 'centimes' in envoi ? envoi.centimes : 0;
+  const libelle = envoi.zone ? `${mots.livraison} (${envoi.zone})` : mots.livraison;
   const items = [...lignes.map((l) => ({ libelle: l.libelle, centimes: l.centimes, quantite: l.quantite })),
-    ...(frais > 0 ? [{ libelle: mots.livraison, centimes: frais, quantite: 1 }] : [])];
-  return { lignes, items, frais, montant: articles + frais, remise: p.articlesCentimes - articles, tva: laVentilation(lignes, frais, b.tva, mots) };
+    ...(frais > 0 ? [{ libelle, centimes: frais, quantite: 1 }] : [])];
+  return { lignes, items, frais, envoi, libelleDeLEnvoi: libelle, montant: articles + frais, remise: p.articlesCentimes - articles, tva: laVentilation(lignes, frais, b.tva, mots) };
 }
 
 export interface LigneDuRecapitulatif { readonly libelle: string; readonly centimes?: number | null; readonly texte?: string; readonly total?: boolean }
 
 /** Ce que le panier de l'app montre (`squelette/gabarit/src/lib/panier.ts`, `PanierChiffre`) : les lignes, l'envoi, le montant à payer, le récapitulatif écrit. */
 export function lePanierMontre(b: Boutique, p: Panier, d: Destination) {
-  const { frais, montant, tva, remise } = lesArticlesAPayer(b, p, d);
+  const { frais, montant, tva, remise, envoi, libelleDeLEnvoi } = lesArticlesAPayer(b, p, d);
   const M = lesMots(b.langue);
-  const envoi = b.livraison.pays.length > 0;
+  const expedie = b.livraison.pays.length > 0;
   const recapitulatif: LigneDuRecapitulatif[] = [
     { libelle: M.sousTotal, centimes: p.articlesCentimes },
-    ...(!p.remise ? [] : 'refusee' in p.remise ? [{ libelle: M.remiseRefusee.replace('{code}', p.remise.code), texte: '' }]
+    ...(!p.remise ? [] : 'refusee' in p.remise ? [{ libelle: p.remise.raison ?? M.remiseRefusee.replace('{code}', p.remise.code), texte: '' }]
       : [{ libelle: M.remise.replace('{code}', p.remise.code), centimes: -remise }]),
-    ...(d.retrait ? [{ libelle: M.retrait, texte: M.offerte }] : envoi ? [frais > 0 ? { libelle: M.livraison, centimes: frais } : { libelle: M.livraison, texte: M.offerte }] : []),
+    ...(d.retrait ? [{ libelle: M.retrait, texte: M.offerte }] : !expedie ? [] : 'impossible' in envoi ? [{ libelle: libelleDeLEnvoi, texte: envoi.impossible }]
+      : [frais > 0 ? { libelle: libelleDeLEnvoi, centimes: frais } : { libelle: libelleDeLEnvoi, texte: M.offerte }]),
     { libelle: M.total, centimes: montant, total: true },
     ...(tva === null ? [{ libelle: M.tvaNonCalculable, centimes: null }] : tva.nonApplicable !== null ? [{ libelle: tva.nonApplicable }]
       : tva.parTaux.map((t) => ({ libelle: M.dontTva.replace('{taux}', String(t.taux)), centimes: t.tvaCentimes }))),
   ];
   return {
     lignes: p.lignes.map(({ taux: _taux, ...l }) => l), devise: p.devise, retirees: p.retirees,
-    livraison: { adresse: envoi, pays: b.livraison.pays, centimes: frais, retrait: b.livraison.retrait },
+    livraison: { adresse: expedie, pays: b.livraison.pays, centimes: frais, retrait: b.livraison.retrait, ...('impossible' in envoi ? { impossible: envoi.impossible } : {}) },
     aPayerCentimes: montant, recapitulatif,
   };
 }

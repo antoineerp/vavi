@@ -32,6 +32,18 @@ export const CENTIMES_D_UN_PROJET_EN_PLUS = 1500;
 export const PROJETS_EN_PLUS_AU_PLUS = 50;
 export const DEVISE_DES_OFFRES = 'EUR';
 export const JOURS_DE_GRACE = 7;
+/**
+ * L'ENGAGEMENT (Antoine, 27/11) : un abonnement neuf engage un an, payé chaque mois ; il se reconduit tacitement ;
+ * après la première année, la personne l'arrête quand elle veut, à la fin du mois payé. Pendant l'engagement, une
+ * résiliation est notée et prend effet au terme de l'année.
+ */
+export const MOIS_D_ENGAGEMENT = 12;
+
+/** PURE — quand une résiliation demandée maintenant prend effet : au terme de l'engagement s'il court, sinon à la fin du mois payé (`null`). */
+export function laFinDUneResiliation(engageJusquAu: string | null | undefined, maintenant: number): string | null {
+  const fin = engageJusquAu ? Date.parse(engageJusquAu) : Number.NaN;
+  return Number.isFinite(fin) && fin > maintenant ? new Date(fin).toISOString() : null;
+}
 
 export const estUneOffre = (x: unknown): x is Offre => typeof x === 'string' && (OFFRES_PAYANTES as readonly string[]).includes(x);
 
@@ -46,11 +58,15 @@ export interface Abonnement {
   /** Depuis quand un paiement manque (ISO) ; `null` : rien ne manque. */
   readonly impayeDepuis: string | null;
   readonly resilieALaFin: boolean;
+  /** Fin de l'engagement d'un an (ISO) ; absent ou `null` : aucun (un abonné d'avant le 27/11). */
+  readonly engageJusquAu?: string | null;
 }
 
 export type EtatDeLAbonnement =
   | { readonly etat: 'aucun' }
-  | { readonly etat: 'actif'; readonly offre: Offre; readonly projets: number; readonly jusquAu: string | null; readonly resilieALaFin: boolean; readonly offert?: true }
+  | { readonly etat: 'actif'; readonly offre: Offre; readonly projets: number; readonly jusquAu: string | null; readonly resilieALaFin: boolean; readonly offert?: true;
+      /** L'engagement encore en cours (ISO) : une résiliation ne prend effet qu'à cette date. */
+      readonly engageJusquAu?: string }
   | { readonly etat: 'grace'; readonly offre: Offre; readonly projets: number; readonly pauseLe: string }
   | { readonly etat: 'suspendu'; readonly offre: Offre; readonly depuis: string };
 
@@ -64,7 +80,8 @@ export function lEtat(a: Abonnement | null, maintenant: number): EtatDeLAbonneme
   if (a.statut === 'active' || a.statut === 'trialing') {
     // Une fin de période dépassée sans renouvellement reçu se traite comme un impayé : la grâce, puis la pause.
     if (Number.isFinite(fin) && fin + JOUR_MS < maintenant) return lEtat({ ...a, statut: 'past_due', impayeDepuis: a.impayeDepuis ?? new Date(fin).toISOString() }, maintenant);
-    return { etat: 'actif', offre: a.offre, projets, jusquAu: a.finDePeriode, resilieALaFin: a.resilieALaFin };
+    const engage = a.engageJusquAu && Date.parse(a.engageJusquAu) > maintenant ? a.engageJusquAu : null;
+    return { etat: 'actif', offre: a.offre, projets, jusquAu: a.finDePeriode, resilieALaFin: a.resilieALaFin, ...(engage ? { engageJusquAu: engage } : {}) };
   }
   if (a.statut === 'past_due' || a.statut === 'unpaid') {
     const depuis = Date.parse(a.impayeDepuis ?? a.finDePeriode ?? '');
