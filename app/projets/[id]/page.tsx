@@ -8,7 +8,8 @@ import { adresseDeLApp, adresseMontreeDeLApp } from '@/app/_partage/l-adresse-de
 import { lEtatDeLaMiseEnLigne } from '@/lib/projets/la-mise-en-ligne';
 import { boiteSurSupabase, lesVisites } from '@/lib/formulaires/sur-supabase';
 import { resumerLAudience } from '@/lib/formulaires/l-audience';
-import { claudeAFini, ecrireLesNotes, publier } from './gestes';
+import { claudeAFini, deplacerLeProjet, ecrireLesNotes, publier } from './gestes';
+import { JOURS_DE_CORBEILLE } from '@/lib/projets/la-corbeille';
 import { LONGUEUR_DES_NOTES } from '@/lib/projets/le-sql-des-projets';
 import { leProjet, ERREURS } from './le-projet';
 import { Icone } from '@/app/_partage/les-icones';
@@ -46,7 +47,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const droit = etat === 'a_publier' ? await leDroitDePublier(lesAbonnementsReels(), c.compte, id, m?.lu ? m.manifeste : null).catch(() => null) : null;
   const empeche = droit?.lu && !droit.valeur.permis ? droit.valeur.pourquoi : q.erreur ?? null;
   const OFFRE = ['aucune_offre', 'suspendu', 'nature', 'quota'];
-  const message = q.fait === 'publie' ? t.publie : q.fait === 'claude_a_fini' ? t.claudeAFiniFait : q.fait === 'notes' ? (fr ? 'Notes enregistrées : Claude les relira au prochain travail.' : 'Notes saved: Claude will read them at the next work session.') : q.erreur ? `${t.erreur} ${ERREURS[q.erreur]?.[c.langue] ?? q.erreur}` : null;
+  const message = q.fait === 'publie' ? t.publie : q.fait === 'claude_a_fini' ? t.claudeAFiniFait : q.fait === 'restaure' ? (fr ? 'Projet restauré, avec son aperçu. Pour remettre le site en ligne, cliquez « Publier ».' : 'Project restored, with its preview. To put the site back online, click “Publish”.') : q.fait === 'notes' ? (fr ? 'Notes enregistrées : Claude les relira au prochain travail.' : 'Notes saved: Claude will read them at the next work session.') : q.erreur ? `${t.erreur} ${ERREURS[q.erreur]?.[c.langue] ?? q.erreur}` : null;
   const enLigne = projet.enLigneEmpreinte ? await adresseMontreeDeLApp(id, 'en_ligne').catch(() => adresseDeLApp(id, 'en_ligne')) : null;
   const recus = messages.lu ? messages.valeur.filter((m) => m.statut !== 'spam').length : null;
 
@@ -133,6 +134,14 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <p className="attenue" style={{ marginTop: '1rem', fontSize: '0.8rem' }}><a href={`/api/export/${id}`}>{t.exporter}</a> · {t.exporterExplication}</p>
         </div>
       </section>
+
+      {/* LA CORBEILLE (Antoine, 27/11) : rien n'est effacé avant 30 jours. */}
+      <details className="panneau" style={{ marginTop: '1rem' }}>
+        <summary>{fr ? 'Supprimer ce projet' : 'Delete this project'}</summary>
+        <p className="attenue">{fr ? `${projet.nom} part à la corbeille : il disparaît de vos projets et de Claude, son site en ligne s’arrête tout de suite. Vous pouvez le restaurer pendant ${JOURS_DE_CORBEILLE} jours depuis « Mes projets » ; ensuite, tout est effacé pour de bon (données, fichiers, versions).`
+          : `${projet.nom} goes to the bin: it leaves your projects and Claude, and its live site stops right away. You can restore it for ${JOURS_DE_CORBEILLE} days from “My projects”; after that, everything is erased for good (data, files, versions).`}</p>
+        <form action={deplacerLeProjet.bind(null, id, 'corbeille')}><button type="submit" className="danger">{fr ? 'Mettre à la corbeille' : 'Move to the bin'}</button></form>
+      </details>
     </main>
   );
 }

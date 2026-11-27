@@ -88,6 +88,8 @@ export interface Reglages { readonly courrielDesMessages: string | null; readonl
 
 interface LigneDeProjet { id: string; nom: string; version: number; apercu_empreinte: string | null; en_ligne_empreinte: string | null; en_ligne_le: string | null; base_posee_le: string | null; modifie_le: string }
 interface LigneDeChantier { id: string; projet: string; intention: string; version_de_depart: number; ouvert_le: string; dernier_geste_le: string; gestes: number; fait: string[]; reste: string | null }
+/** La corbeille (`la-corbeille.ts`) pas encore posée en base : la colonne manque, tout se lit comme avant. */
+const SANS_CORBEILLE = /supprime_le/;
 const COLONNES = 'id, nom, version, apercu_empreinte, en_ligne_empreinte, en_ligne_le, base_posee_le, modifie_le';
 const versChantier = (c: LigneDeChantier): Chantier => ({ id: c.id, intention: c.intention, versionDeDepart: c.version_de_depart,
   ouvertLe: c.ouvert_le, dernierGesteLe: c.dernier_geste_le, gestes: c.gestes, fait: c.fait, reste: c.reste });
@@ -102,7 +104,9 @@ export function projetsSurSupabase(base: SupabaseClient): Projets {
     return r.error ? pasLu(r.error.message) : lu(new Map(r.data.map((c) => [c.projet, c])));
   };
   const leSien = async (compte: string, id: string): Promise<Issue<Projet | null>> => {
-    const r = await base.from('vavi_projets').select(COLONNES).eq('id', id).eq('proprietaire', compte).maybeSingle<LigneDeProjet>();
+    const q = () => base.from('vavi_projets').select(COLONNES).eq('id', id).eq('proprietaire', compte);
+    let r = await q().is('supprime_le', null).maybeSingle<LigneDeProjet>();
+    if (r.error && SANS_CORBEILLE.test(r.error.message)) r = await q().maybeSingle<LigneDeProjet>();
     if (r.error) return pasLu(r.error.message);
     if (!r.data) return lu(null);
     const c = await chantiersOuverts([id]);
@@ -128,7 +132,10 @@ export function projetsSurSupabase(base: SupabaseClient): Projets {
 
   return {
     async lister(compte) {
-      const r = await base.from('vavi_projets').select(COLONNES).eq('proprietaire', compte).order('modifie_le', { ascending: false }).limit(200).returns<LigneDeProjet[]>();
+      const q = () => base.from('vavi_projets').select(COLONNES).eq('proprietaire', compte);
+      const tri = <T extends { order: (c: string, o: { ascending: boolean }) => T }>(x: T) => x.order('modifie_le', { ascending: false });
+      let r = await tri(q().is('supprime_le', null)).limit(200).returns<LigneDeProjet[]>();
+      if (r.error && SANS_CORBEILLE.test(r.error.message)) r = await tri(q()).limit(200).returns<LigneDeProjet[]>();
       if (r.error) return pasLu(r.error.message);
       const c = await chantiersOuverts(r.data.map((p) => p.id));
       return c.lu ? lu(r.data.map((p) => versProjet(p, c.valeur.get(p.id)))) : c;
