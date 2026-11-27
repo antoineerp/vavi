@@ -196,6 +196,9 @@ section{padding-block:64px}
 /* Ouverture sur une colonne, avec la capture réelle de Claude ; ce qui tourne ; l'abonnement */
 .ouverture.une-colonne .enveloppe{grid-template-columns:1fr;gap:36px}
 .ouverture.une-colonne .texte{max-width:46em}
+.ouverture.cote-a-cote .enveloppe{grid-template-columns:minmax(0,.92fr) minmax(0,1.3fr);gap:40px;align-items:center}
+.ouverture.cote-a-cote h1{font-size:clamp(2.1rem,3.3vw,3.2rem)}
+@media (max-width:980px){.ouverture.cote-a-cote .enveloppe{grid-template-columns:1fr}}
 .ecran-claude,.capture-console{margin:0;display:grid;gap:10px;min-width:0}
 .ecran-claude img,.capture-console img{width:100%;height:auto;display:block;border:1px solid var(--trait);border-radius:14px;box-shadow:0 1px 0 var(--trait),0 30px 60px -34px var(--ombre);background:var(--carte)}
 .ecran-claude figcaption,.capture-console figcaption{font-family:var(--f-mono);font-size:.8rem;color:var(--encre-douce)}
@@ -470,7 +473,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
 <main id="haut">
 
 <!-- ═════════ OUVERTURE ═════════ -->
-<div class="ouverture une-colonne">
+<div class="ouverture cote-a-cote">
   <div class="enveloppe">
     <div class="texte">
       <span class="note">votre abonnement Claude suffit : aucun crédit d'IA à acheter</span>
