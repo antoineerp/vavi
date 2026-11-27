@@ -18,7 +18,7 @@
  * la page qu'il a lue à une adresse (26/11 : une vue corrigée et déployée restait l'ancienne chez Antoine) ; une page
  * changée prend une adresse neuve, que l'hôte lit. `test/mcp/la-vue.test.ts` exige l'empreinte de la page servie.
  */
-export const EMPREINTE_DE_LA_VUE = 'c52e02a560';
+export const EMPREINTE_DE_LA_VUE = '9bbb31f27f';
 export const RESSOURCE_DE_LA_VUE = `ui://vavi/projet/${EMPREINTE_DE_LA_VUE}`;
 export const TYPE_DE_LA_VUE = 'text/html;profile=mcp-app';
 
@@ -122,25 +122,27 @@ main{padding:12px 14px;display:grid;gap:10px}
     +'font:13px/1.3 system-ui,-apple-system,sans-serif;background:#fff;color:#1c1c1c;border-top:1px solid #e3e3e3;box-shadow:0 -2px 10px rgba(0,0,0,.06)}'
     +'button{font:inherit;padding:6px 11px;border-radius:8px;border:1px solid #d6d6d6;background:#fff;color:inherit;cursor:pointer}'
     +'button.principal{background:#1f7a4a;border-color:#1f7a4a;color:#fff}button:disabled{opacity:.5;cursor:default}'
-    +'.mot{flex-basis:100%;font-weight:600}.doux{flex-basis:100%;color:#666}'
-    +'@media (prefers-color-scheme:dark){.barre{background:#1e1e1e;color:#eee;border-color:#3a3a3a}button{background:#262626;border-color:#444}.doux{color:#aaa}}';
-  function laBarre(f,message){
+    +'.mot{flex-basis:100%;font-weight:600}.alerte{font-weight:700;font-size:16px;color:#b42318}'
+    +'.doux{flex-basis:100%;color:#666}'
+    +'@media (prefers-color-scheme:dark){.alerte{color:#ff8a80}.barre{background:#1e1e1e;color:#eee;border-color:#3a3a3a}button{background:#262626;border-color:#444}.doux{color:#aaa}}';
+  function laBarre(f,message,alerte){
     if(!document.body)document.documentElement.appendChild(document.createElement('body'));
     var hote=document.getElementById('vavi-barre');if(!hote){hote=el('div',{id:'vavi-barre'});document.body.appendChild(hote);hote.attachShadow({mode:'open'});}
     var ombre=hote.shadowRoot;ombre.textContent='';ombre.appendChild(el('style',{texte:STYLE}));
     var b=el('div',{class:'barre',role:'toolbar','aria-label':'vavi'});
-    if(message)b.appendChild(el('span',{class:'mot',role:'status',texte:message}));
+    // Un refus se lit d'abord (Antoine, 27/11 : « pas assez visible ») : en gras, plus grand, en rouge.
+    if(message)b.appendChild(el('span',{class:alerte?'mot alerte':'mot',role:alerte?'alert':'status',texte:message}));
     else if(f.building)b.appendChild(el('span',{class:'mot',role:'status',texte:T.construit+' '+(f.work_session||'')}));
     if(!f.app_html&&!f.app_html_unchanged&&!f.building)b.appendChild(el('span',{class:'doux',texte:f.preview_url?T.attente:T.sansApercu}));
     // LES BOUTONS VIENNENT DE LA FICHE (lesBoutonsDeLaFiche, 26/11) : l'hôte garde cette page, le serveur décide.
     (f.buttons||[]).forEach(function(x){var t=(x.label&&(fr?x.label.fr:x.label.en))||'';
-      if(x.do==='link'&&x.url)b.appendChild(el('button',{texte:t,onclick:function(){lien(x.url);}}));
+      if(x.do==='link'&&x.url)b.appendChild(el('button',{class:x.main?'principal':'',texte:t,onclick:function(){lien(x.url);}}));
       if(x.do==='panel'&&modeCourant!=='fullscreen'&&modeCourant!=='pip')b.appendChild(el('button',{class:x.main?'principal':'',texte:t,onclick:function(){mode(modes.indexOf('fullscreen')>=0||!modes.length?'fullscreen':'pip');}}));
       // Deux clics, dans la vue : le cadre de l'hôte peut interdire window.confirm (bac à sable sans « allow-modals »).
       if(x.do==='publish')b.appendChild(el('button',{class:x.main?'principal':'',texte:t,onclick:function(e){var y=e.target;
         if(!y.dataset.sur){y.dataset.sur='1';y.textContent=T.publierQ;return;}
         y.disabled=true;outil('vavi_mettre_en_ligne',{project:f.id,geste:JETON})
-          .then(function(r){montrer(r.fiche,T.publie);}).catch(function(z){montrer(f,T.erreur+' '+z.message);});}}));});
+          .then(function(r){montrer(r.fiche,T.publie);}).catch(function(z){montrer(f,T.erreur+' '+z.message,true);});}}));});
     // Ce que l'hôte a répondu à la demande du panneau, lisible sans la console du navigateur (26/11).
     if(panneauRefuse)b.appendChild(el('span',{class:'doux',texte:'Claude: '+panneauRefuse}));
     ombre.appendChild(b);
@@ -155,11 +157,11 @@ main{padding:12px 14px;display:grid;gap:10px}
     v.appendChild(el('p',{class:'doux',texte:f.building?T.prepare:T.sansApercu}));
     var l=el('ol',{reversed:'reversed'});(f.versions||[]).forEach(function(x){l.appendChild(el('li',{texte:T.version+' '+x.version+' · '+(x.why||'')}));});
     if(l.childNodes.length)v.appendChild(l);}
-  function montrer(f,message){var avant=derniere;derniere=f;
+  function montrer(f,message,alerte){var avant=derniere;derniere=f;
     if(f.app_html)ecrire(f.app_html);
     else if(f.app_html_unchanged&&avant&&ecrite){f.app_html=avant.app_html;}
     else lAvancement(f);
-    laBarre(f,message);if(!f.app_html)setTimeout(taille,50);
+    laBarre(f,message,alerte);if(!f.app_html)setTimeout(taille,50);
     suivre(f);
   }
   var debutDuSuivi=Date.now(),minuteur=null;
