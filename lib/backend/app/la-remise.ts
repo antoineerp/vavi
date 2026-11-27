@@ -19,5 +19,9 @@ export function lireLaRemise(r: NonNullable<z.infer<typeof Boutique>['remise']>,
   for (const n of [r.pourcentage, r.montant]) if (n && !CHIFFRES.includes(type(n) as never)) dire(`${r.table}.${n} n’est pas un champ chiffré`);
   if (r.actif && type(r.actif) !== 'booleen') dire(`${r.table}.${r.actif} n’est pas un champ booléen`);
   if (r.fin && !['date', 'date_heure'].includes(type(r.fin) ?? '')) dire(`${r.table}.${r.fin} n’est pas un champ date`);
+  if (r.minimum && !CHIFFRES.includes(type(r.minimum) as never)) dire(`${r.table}.${r.minimum} n’est pas un champ chiffré`);
+  if (r.utilisations && type(r.utilisations) !== 'entier') dire(`${r.table}.${r.utilisations} n’est pas un champ entier`);
+  if (r.premiere && type(r.premiere) !== 'booleen') dire(`${r.table}.${r.premiere} n’est pas un champ booléen`);
+  if (r.cible && !['texte', 'texte_long', 'choix'].includes(type(r.cible) ?? '')) dire(`${r.table}.${r.cible} n’est pas un champ texte`);
   if (t.lecture.includes(VISITEUR)) dire(`${r.table} : les codes ne se lisent pas sans compte (retirez \`visiteur\` de sa lecture)`);
 }

@@ -10,6 +10,7 @@
  */
 import type { Boutique, Livraison, MotsDeLaVente, RegimeDeTva } from './la-boutique';
 import { lesMots } from './la-boutique';
+import { enDevise } from './la-facture';
 import type { TauxDUnPays } from './les-taux-de-tva';
 
 export const LIGNES_AU_PLUS = 50;
@@ -147,11 +148,16 @@ export function ceQueRetireLeCode(articlesCentimes: number, r: { readonly pource
 }
 
 /** Une ligne d'article telle que la base la rend (`app_articles_a_vendre`). */
-export interface ArticleLu { readonly id: string; readonly prix: unknown; readonly libelle: unknown; readonly stock: unknown; readonly tva: unknown; readonly poids: unknown; readonly options: unknown }
+export interface ArticleLu { readonly id: string; readonly prix: unknown; readonly libelle: unknown; readonly stock: unknown; readonly tva: unknown; readonly poids: unknown; readonly options: unknown; readonly categorie?: unknown }
 export interface LigneChiffree { readonly table: string; readonly id: string; readonly libelle: string; readonly centimes: number; readonly quantite: number; readonly taux: number | null; readonly option?: string }
 export interface Panier {
   readonly lignes: readonly LigneChiffree[]; readonly articlesCentimes: number; readonly devise: string;
-  readonly remise: { readonly code: string; readonly centimes: number } | { readonly code: string; readonly refusee: true } | null;
+  /**
+   * Le code saisi : ce qu'il retire, sur quelles lignes (leur rang), et s'il attend une première commande (vérifiée au
+   * paiement, sur l'adresse e-mail) ; ou refusé, et pourquoi quand on le sait.
+   */
+  readonly remise: { readonly code: string; readonly centimes: number; readonly sur: readonly number[]; readonly premiere: boolean }
+    | { readonly code: string; readonly refusee: true; readonly raison?: string } | null;
   /** Les lignes dont l'article n'existe plus en base : le panier les retire et le dit ; le paiement les refuse. */
   readonly retirees: readonly LigneAchetee[];
   /** Le poids du colis, lu en base comme le prix. */
@@ -165,10 +171,11 @@ const nombre = (v: unknown): number | null => (v === null || v === undefined || 
  * (`undefined` : aucun code saisi ; `null` : aucun code ne vaut).
  */
 export function chiffrer(b: Boutique, lignes: readonly LigneAchetee[], lues: ReadonlyMap<string, readonly ArticleLu[]>,
-  code: string | null, remise: { readonly pourcentage: unknown; readonly montant: unknown } | null | undefined): { readonly forme: 'chiffre'; readonly panier: Panier } | Refus {
+  code: string | null, remise: RemiseLue | null | undefined): { readonly forme: 'chiffre'; readonly panier: Panier } | Refus {
   const fr = b.langue === 'fr';
   const chiffrees: LigneChiffree[] = [], retirees: LigneAchetee[] = [];
   let poidsKg = 0, sansPoids: string | null = null;
+  const categories: (string | null)[] = [];
   for (const l of lignes) {
     if (!b.articles.has(l.table)) return refus(400, fr ? `« ${l.table} » ne se vend pas.` : `“${l.table}” is not for sale.`);
     const r = lues.get(l.table)?.find((x) => String(x.id) === l.id);
@@ -190,23 +197,52 @@ export function chiffrer(b: Boutique, lignes: readonly LigneAchetee[], lues: Rea
       const p = nombre(r.poids);
       if (p === null || p < 0) sansPoids ??= libelle; else poidsKg += p * l.quantite;
     }
+    categories.push(typeof r.categorie === 'string' && r.categorie.trim() ? r.categorie : null);
     chiffrees.push({ table: l.table, id: l.id, libelle: `${libelle}${l.option && proposees.length > 0 ? ` — ${l.option}` : ''}`.slice(0, 250), centimes,
       quantite: l.quantite, taux: b.tva.assujettie ? tauxDeLaLigne(r.tva, b.tva.taux) : null, ...(l.option && proposees.length > 0 ? { option: l.option } : {}) });
   }
   const articlesCentimes = chiffrees.reduce((t, l) => t + l.centimes * l.quantite, 0);
-  let laRemise: Panier['remise'] = null;
-  if (code && b.remise && remise !== undefined) {
-    const c = remise === null ? null : ceQueRetireLeCode(articlesCentimes, { pourcentage: nombre(remise.pourcentage), montant: nombre(remise.montant) });
-    laRemise = c === null ? { code, refusee: true } : { code, centimes: c };
-  }
+  const laRemise: Panier['remise'] = code && b.remise && remise !== undefined ? laRemiseDuCode(b, code, remise, chiffrees, categories, articlesCentimes) : null;
   return { forme: 'chiffre', panier: { lignes: chiffrees, articlesCentimes, devise: b.devise, remise: laRemise, retirees, colis: { poidsKg, sansPoids } } };
 }
 
-/** Les articles au prix réellement payé : la remise répartie en proportion, pour que la TVA de chaque taux porte le vrai prix. */
+/** La ligne d'un code de remise telle que la base la rend (`app_remise_du_code`) : ce qu'il retire, ses conditions, ses usages payés. */
+export interface RemiseLue {
+  readonly pourcentage: unknown; readonly montant: unknown;
+  readonly minimum?: unknown; readonly utilisations?: unknown; readonly premiere?: unknown; readonly cible?: unknown; readonly usages?: unknown;
+}
+const norme = (t: string): string => t.trim().toLowerCase();
+
+/**
+ * Ce que vaut un code lu en base, contre le panier chiffré : épuisé (ses commandes payées atteignent son plafond), sous son
+ * minimum d'articles, pour aucun article (sa cible ne nomme ni la table ni la catégorie d'une ligne) : refusé, et dit ; sinon
+ * ce qu'il retire des seules lignes visées. PURE.
+ */
+export function laRemiseDuCode(b: Boutique, code: string, r: RemiseLue | null, lignes: readonly LigneChiffree[], categories: readonly (string | null)[],
+  articlesCentimes: number): NonNullable<Panier['remise']> {
+  if (r === null) return { code, refusee: true };
+  const M = lesMots(b.langue);
+  const non = (raison: string) => ({ code, refusee: true as const, raison: raison.replace('{code}', code) });
+  const plafond = nombre(r.utilisations);
+  if (plafond !== null && (nombre(r.usages) ?? 0) >= plafond) return non(M.remiseEpuisee);
+  const minimum = nombre(r.minimum);
+  if (minimum !== null && articlesCentimes < Math.round(minimum * 100)) return non(M.remiseMinimum.replace('{montant}', enDevise(b.langue, b.devise)(Math.round(minimum * 100))));
+  const cibles = lesOptions(typeof r.cible === 'string' ? r.cible : null).map(norme);
+  const sur = lignes.flatMap((l, i) => (cibles.length === 0 || cibles.includes(norme(l.table)) || (categories[i] && cibles.includes(norme(categories[i]!))) ? [i] : []));
+  if (sur.length === 0) return non(M.remiseSansArticle);
+  const base = sur.reduce((t, i) => t + lignes[i]!.centimes * lignes[i]!.quantite, 0);
+  const c = ceQueRetireLeCode(base, { pourcentage: nombre(r.pourcentage), montant: nombre(r.montant) });
+  return c === null ? { code, refusee: true } : { code, centimes: c, sur, premiere: r.premiere === true };
+}
+
+/** Les articles au prix réellement payé : la remise répartie en proportion sur les lignes visées, pour que la TVA de chaque taux porte le vrai prix. */
 export function lesLignesRemisees(p: Panier): readonly LigneChiffree[] {
-  if (!p.remise || !('centimes' in p.remise) || p.articlesCentimes <= 0) return p.lignes;
-  const reste = (p.articlesCentimes - p.remise.centimes) / p.articlesCentimes;
-  return p.lignes.map((l) => ({ ...l, centimes: Math.max(1, Math.round(l.centimes * reste)) }));
+  if (!p.remise || !('centimes' in p.remise)) return p.lignes;
+  const sur = new Set(p.remise.sur);
+  const base = p.lignes.reduce((t, l, i) => t + (sur.has(i) ? l.centimes * l.quantite : 0), 0);
+  if (base <= 0) return p.lignes;
+  const reste = (base - p.remise.centimes) / base;
+  return p.lignes.map((l, i) => (sur.has(i) ? { ...l, centimes: Math.max(1, Math.round(l.centimes * reste)) } : l));
 }
 
 /** Ce que la page de paiement porte : chaque article, l'envoi, le montant, la ventilation. */
@@ -231,7 +267,7 @@ export function lePanierMontre(b: Boutique, p: Panier, d: Destination) {
   const expedie = b.livraison.pays.length > 0;
   const recapitulatif: LigneDuRecapitulatif[] = [
     { libelle: M.sousTotal, centimes: p.articlesCentimes },
-    ...(!p.remise ? [] : 'refusee' in p.remise ? [{ libelle: M.remiseRefusee.replace('{code}', p.remise.code), texte: '' }]
+    ...(!p.remise ? [] : 'refusee' in p.remise ? [{ libelle: p.remise.raison ?? M.remiseRefusee.replace('{code}', p.remise.code), texte: '' }]
       : [{ libelle: M.remise.replace('{code}', p.remise.code), centimes: -remise }]),
     ...(d.retrait ? [{ libelle: M.retrait, texte: M.offerte }] : !expedie ? [] : 'impossible' in envoi ? [{ libelle: libelleDeLEnvoi, texte: envoi.impossible }]
       : [frais > 0 ? { libelle: libelleDeLEnvoi, centimes: frais } : { libelle: libelleDeLEnvoi, texte: M.offerte }]),
