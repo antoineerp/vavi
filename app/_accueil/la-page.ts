@@ -1042,6 +1042,7 @@ document.querySelectorAll('[data-copier]').forEach(function(b){
     try{navigator.clipboard.writeText(t).then(ok,selectionner)}catch(e){selectionner()}
   });
 });
+try{navigator.sendBeacon('/api/audience/accueil',JSON.stringify({chemin:location.pathname,referent:document.referrer,utm:location.search}))}catch(e){}
 </script>
 
 </body>

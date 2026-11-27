@@ -7,7 +7,7 @@ import { laMigrationDesAbonnements } from '@/lib/abonnements/le-sql-des-abonneme
 import { laMigrationDeLAdministration } from '@/lib/administration/le-sql-de-l-administration';
 import type { LeTableauBrut } from '@/lib/administration/le-tableau';
 import { laMigrationDuPremierSite, type LePremierSiteBrut } from '@/lib/administration/le-premier-site';
-import { laMigrationDeLActivite, type LActiviteBrute } from '@/lib/administration/l-activite';
+import { laMigrationDeLActivite, laMigrationDesVisitesDeLAccueil, type LAccueilBrut, type LActiviteBrute } from '@/lib/administration/l-activite';
 import { demarrer, POSTGRES_PRESENT, type UnPostgres } from '../aides/un-postgres';
 
 const MOI = 'aaaaaaaa-0000-4000-8000-00000000000a';
@@ -19,7 +19,7 @@ describe.runIf(POSTGRES_PRESENT)('l’administration, sur un PostgreSQL réel', 
   beforeAll(() => {
     pg = demarrer('vavi-l-administration', 55769);
     pg.admin(`insert into auth.users (id, email, email_confirmed_at) values ('${MOI}', 'moi@a.fr', now());`);
-    for (const m of [laMigrationDesProjets(), laMigrationDeLaMiseEnLigne(), laMigrationDeLaVente(), laMigrationDesFormulaires(), laMigrationDesAbonnements(), laMigrationDeLAdministration(), laMigrationDeLAdministration(), laMigrationDuPremierSite(), laMigrationDuPremierSite(), laMigrationDeLActivite(), laMigrationDeLActivite()]) pg.admin(m);
+    for (const m of [laMigrationDesProjets(), laMigrationDeLaMiseEnLigne(), laMigrationDeLaVente(), laMigrationDesFormulaires(), laMigrationDesAbonnements(), laMigrationDeLAdministration(), laMigrationDeLAdministration(), laMigrationDuPremierSite(), laMigrationDuPremierSite(), laMigrationDeLActivite(), laMigrationDeLActivite(), laMigrationDesVisitesDeLAccueil(), laMigrationDesVisitesDeLAccueil()]) pg.admin(m);
     pg.admin(`insert into public.vavi_projets (id, proprietaire, nom, en_ligne_empreinte, en_ligne_le) values ('${P1}', '${MOI}', 'Vélos', 'e1', now()), ('${P2}', '${MOI}', 'Brouillon', null, null);
       insert into public.vavi_fichiers (projet, chemin, contenu) values ('${P1}', 'app.json', '{ "nature": "boutique", "tables": [] }'), ('${P2}', 'app.json', '{ pas du json "nature": ');
       insert into public.vavi_visites (projet, chemin, jour) values ('${P1}', '/', current_date), ('${P1}', '/a', current_date), ('${P1}', '/', current_date - 90);
@@ -68,6 +68,17 @@ describe.runIf(POSTGRES_PRESENT)('l’administration, sur un PostgreSQL réel', 
     expect(pg.comme(MOI, `select public.vavi_admin_l_activite(current_date);`).ok).toBe(false);
     expect(pg.comme(MOI, `select public.vavi_compter_un_appel('${MOI}', 'apply_changes', false);`).ok).toBe(false);
     expect(pg.comme(null, `select count(*) from public.vavi_appels_mcp;`).ok).toBe(false);
+  });
+  it('les visites de l’accueil : par jour et par provenance, la campagne d’abord ; ni la personne ni le navigateur n’y touchent', () => {
+    expect(pg.service(`insert into public.vavi_visites_de_l_accueil (chemin, referent, campagne, jour) values ('/', 'www.google.com', null, current_date), ('/fr', null, 'facebook / social', current_date), ('/en', null, null, current_date - 1), ('/', null, null, current_date - 90);`).ok).toBe(true);
+    const r = pg.service(`select public.vavi_admin_l_accueil(current_date - 29);`);
+    expect(r.ok).toBe(true);
+    const b = JSON.parse(r.sortie) as LAccueilBrut;
+    expect(b.visites.map((v) => v.visites).sort()).toEqual([1, 2]);
+    expect(b.provenances.map((p) => p.referent).sort()).toEqual(['direct', 'facebook / social', 'www.google.com']);
+    expect(pg.comme(null, `insert into public.vavi_visites_de_l_accueil (chemin) values ('/');`).ok).toBe(false);
+    expect(pg.comme(MOI, `select count(*) from public.vavi_visites_de_l_accueil;`).ok).toBe(false);
+    expect(pg.comme(MOI, `select public.vavi_admin_l_accueil(current_date);`).ok).toBe(false);
   });
   it('ni la personne ni le navigateur ne lisent le tableau, les prix, les offerts, les réductions ni le journal', () => {
     expect(pg.comme(MOI, `select public.vavi_admin_le_tableau(now());`).ok).toBe(false);

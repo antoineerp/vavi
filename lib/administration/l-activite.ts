@@ -14,6 +14,60 @@
 import type { UnCompte } from './le-tableau';
 
 export const CHEMIN_DE_LA_MIGRATION_DE_L_ACTIVITE = 'supabase/migrations/20261127130000_l_activite.sql';
+export const CHEMIN_DE_LA_MIGRATION_DES_VISITES_DE_L_ACCUEIL = 'supabase/migrations/20261127180000_les_visites_de_l_accueil.sql';
+
+/**
+ * LES VISITES DE L'ACCUEIL DE VAVI (Antoine, 27/11 : « des visiteurs se sont peut-être inscrits mais ne sont pas dans les
+ * stats ») : avant, seules les visites des sites des clients étaient comptées ; www.vavi.dev ne l'était nulle part.
+ * Comme pour un site : sans cookie, ni adresse IP, ni identifiant ; la page, l'hôte d'où l'on vient, la campagne.
+ * Envoyée par le script de la page (un robot qui n'exécute pas le JS ne compte pas).
+ */
+export const SQL_DES_VISITES_DE_L_ACCUEIL = String.raw`
+CREATE TABLE IF NOT EXISTS public.vavi_visites_de_l_accueil (
+  id BIGSERIAL PRIMARY KEY,
+  chemin TEXT NOT NULL CHECK (length(chemin) <= 300),
+  referent TEXT CHECK (length(referent) <= 200),
+  campagne TEXT CHECK (length(campagne) <= 260),
+  jour DATE NOT NULL DEFAULT current_date,
+  cree_le TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS vavi_visites_de_l_accueil_par_jour ON public.vavi_visites_de_l_accueil (jour DESC);
+ALTER TABLE public.vavi_visites_de_l_accueil ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.vavi_visites_de_l_accueil FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT ON public.vavi_visites_de_l_accueil TO service_role;
+GRANT USAGE, SELECT ON SEQUENCE public.vavi_visites_de_l_accueil_id_seq TO service_role;
+
+-- CE QUE LE TABLEAU DE BORD LIT, depuis un jour : les visites par jour, et d'où elles viennent.
+CREATE OR REPLACE FUNCTION public.vavi_admin_l_accueil(p_depuis DATE)
+RETURNS JSONB
+LANGUAGE sql STABLE SECURITY INVOKER SET search_path = '' AS $$
+  SELECT jsonb_build_object(
+    'visites', (SELECT coalesce(jsonb_agg(jsonb_build_object('jour', s.jour, 'visites', s.n)), '[]'::jsonb)
+      FROM (SELECT v.jour, count(*) AS n FROM public.vavi_visites_de_l_accueil v WHERE v.jour >= p_depuis GROUP BY v.jour) s),
+    'provenances', (SELECT coalesce(jsonb_agg(jsonb_build_object('referent', s.referent, 'visites', s.n) ORDER BY s.n DESC), '[]'::jsonb)
+      FROM (SELECT coalesce(v.campagne, v.referent, 'direct') AS referent, count(*) AS n FROM public.vavi_visites_de_l_accueil v
+        WHERE v.jour >= p_depuis GROUP BY 1 ORDER BY 2 DESC LIMIT 8) s)
+  );
+$$;
+REVOKE ALL ON FUNCTION public.vavi_admin_l_accueil(DATE) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.vavi_admin_l_accueil(DATE) TO service_role;
+NOTIFY pgrst, 'reload schema';
+`;
+
+/** PURE — le texte de la migration des visites de l'accueil. */
+export function laMigrationDesVisitesDeLAccueil(): string {
+  return [
+    '-- LES VISITES DE L\'ACCUEIL — écrite par scripts/ecrire-la-migration-du-socle.ts depuis lib/administration/l-activite.ts.',
+    '-- Ne pas modifier à la main : modifier la source, puis relancer le script.',
+    SQL_DES_VISITES_DE_L_ACCUEIL.trim(), '',
+  ].join('\n');
+}
+
+/** Ce que `vavi_admin_l_accueil` rend. */
+export interface LAccueilBrut {
+  readonly visites: readonly { readonly jour: string; readonly visites: number }[];
+  readonly provenances: readonly { readonly referent: string; readonly visites: number }[];
+}
 
 export const SQL_DE_L_ACTIVITE = String.raw`
 -- LES APPELS DU CONNECTEUR : un compteur par jour, par compte et par outil ; aucun contenu.
@@ -88,6 +142,8 @@ export interface LActivite {
   readonly builds: { readonly verts: Mesure; readonly rouges: number } | null;
   readonly misesEnLigne: Mesure & { readonly enLigne: number };
   readonly visites: Mesure | null;
+  /** Les visites de www.vavi.dev ; `null` : elles ne se lisent pas (migration à coller). */
+  readonly accueil: (Mesure & { readonly provenances: LAccueilBrut['provenances'] }) | null;
   /** Des comptes à l'usage : part de ceux qui ont un projet, et un site en ligne. */
   readonly conversion: { readonly comptes: number; readonly avecUnProjet: number; readonly avecUnSiteEnLigne: number };
 }
@@ -102,7 +158,7 @@ const leJour = (iso: string | null | undefined): string | null => {
 
 /** PURE — les courbes et les chiffres de la période, sans les comptes de `exclus` (les administrateurs). `b` absent : la mesure ne se lit pas. */
 export function lActivite(b: LActiviteBrute | null, comptes: readonly UnCompte[], projetsBruts: readonly ProjetDeLActivite[],
-  exclus: ReadonlySet<string>, maintenant: number, nbJours = 30): LActivite {
+  exclus: ReadonlySet<string>, maintenant: number, nbJours = 30, accueil: LAccueilBrut | null = null): LActivite {
   const jours = Array.from({ length: nbJours }, (_, i) => new Date(maintenant - (nbJours - 1 - i) * JOUR_MS).toISOString().slice(0, 10));
   const rang = new Map(jours.map((j, i) => [j, i]));
   const semaine = new Set(jours.slice(-7));
@@ -148,6 +204,7 @@ export function lActivite(b: LActiviteBrute | null, comptes: readonly UnCompte[]
       rouges: mesure(builds.map((x) => ({ jour: leJour(x.jour), n: Number(x.rouges) }))).periode } : null,
     misesEnLigne: { ...mesure(projets.map((p) => ({ jour: leJour(p.en_ligne_le), n: 1 }))), enLigne: projets.filter((p) => p.en_ligne).length },
     visites: b ? mesure(b.visites.map((v) => ({ jour: leJour(v.jour), n: Number(v.visites) }))) : null,
+    accueil: accueil ? { ...mesure(accueil.visites.map((v) => ({ jour: leJour(v.jour), n: Number(v.visites) }))), provenances: accueil.provenances.map((p) => ({ referent: p.referent, visites: Number(p.visites) })) } : null,
     conversion: { comptes: gens.length, avecUnProjet: gens.filter((c) => proprietaires.has(c.id)).length, avecUnSiteEnLigne: gens.filter((c) => enLigne.has(c.id)).length },
   };
 }

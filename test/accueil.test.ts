@@ -31,6 +31,10 @@ describe('la page d’accueil', () => {
     expect(page).toContain('Votre nom de domaine (bientôt)');
   });
 
+  it('la page compte sa visite, sans cookie : une seule balise vers /api/audience/accueil', () => {
+    expect(page.match(/sendBeacon\('\/api\/audience\/accueil'/g)).toHaveLength(1);
+    expect(page).not.toMatch(/document\.cookie|localStorage/);
+  });
   it('les prix sont ceux de la grille', () => {
     for (const o of Object.values(OFFRES)) expect(page).toContain(`${o.centimes / 100} € <small>/ mois</small>`);
     expect(page).toContain(`<b>${CENTIMES_D_UN_PROJET_EN_PLUS / 100} € / mois</b>`);

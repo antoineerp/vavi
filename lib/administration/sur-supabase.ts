@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DependancesDeLAdministration } from './les-gestes';
 import type { LeTableauBrut, UnCompte } from './le-tableau';
 import type { LePremierSiteBrut } from './le-premier-site';
-import type { LActiviteBrute } from './l-activite';
+import type { LAccueilBrut, LActiviteBrute } from './l-activite';
 
 type Base = Pick<SupabaseClient, 'from' | 'rpc' | 'auth'>;
 type Issue<T> = { readonly lu: true; readonly valeur: T } | { readonly lu: false; readonly pourquoi: string };
@@ -11,7 +11,7 @@ type Issue<T> = { readonly lu: true; readonly valeur: T } | { readonly lu: false
 const dit = (r: { error: { message: string } | null }): string | null => r.error?.message ?? null;
 
 export function administrationSurSupabase(base: Base, admin: string):
-  Omit<DependancesDeLAdministration, 'admin' | 'cle' | 'stripe' | 'maintenant'> & { leTableauBrut(depuis: string): Promise<Issue<LeTableauBrut>>; lePremierSiteBrut(): Promise<Issue<LePremierSiteBrut>>; lActiviteBrute(depuis: string): Promise<Issue<LActiviteBrute>>; lesComptes(): Promise<Issue<readonly UnCompte[]>> } {
+  Omit<DependancesDeLAdministration, 'admin' | 'cle' | 'stripe' | 'maintenant'> & { leTableauBrut(depuis: string): Promise<Issue<LeTableauBrut>>; lePremierSiteBrut(): Promise<Issue<LePremierSiteBrut>>; lActiviteBrute(depuis: string): Promise<Issue<LActiviteBrute>>; lAccueilBrut(depuis: string): Promise<Issue<LAccueilBrut>>; lesComptes(): Promise<Issue<readonly UnCompte[]>> } {
   return {
     async leTableauBrut(depuis) {
       const r = await base.rpc('vavi_admin_le_tableau', { p_depuis: depuis });
@@ -24,6 +24,10 @@ export function administrationSurSupabase(base: Base, admin: string):
     async lActiviteBrute(depuis) {
       const r = await base.rpc('vavi_admin_l_activite', { p_depuis: depuis.slice(0, 10) });
       return r.error ? { lu: false, pourquoi: r.error.message } : { lu: true, valeur: r.data as LActiviteBrute };
+    },
+    async lAccueilBrut(depuis) {
+      const r = await base.rpc('vavi_admin_l_accueil', { p_depuis: depuis.slice(0, 10) });
+      return r.error ? { lu: false, pourquoi: r.error.message } : { lu: true, valeur: r.data as LAccueilBrut };
     },
     async lesComptes() {
       const comptes: UnCompte[] = [];
@@ -67,4 +71,10 @@ export function administrationSurSupabase(base: Base, admin: string):
       if (r.error) console.error(`[admin] le geste ${geste} n'est pas noté : ${r.error.message}`);
     },
   };
+}
+
+/** Une visite de l'accueil de vavi (`SQL_DES_VISITES_DE_L_ACCUEIL`), déjà relue par `lireLaVisite`. Sans erreur rendue :
+ * une visite qui ne s'écrit pas ne gêne jamais la page. */
+export async function noterUneVisiteDeLAccueil(base: Pick<SupabaseClient, 'from'>, v: { readonly chemin: string; readonly referent: string | null; readonly campagne: string | null }): Promise<void> {
+  await base.from('vavi_visites_de_l_accueil').insert({ chemin: v.chemin, referent: v.referent, campagne: v.campagne });
 }
