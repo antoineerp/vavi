@@ -18,7 +18,7 @@
  * la page qu'il a lue à une adresse (26/11 : une vue corrigée et déployée restait l'ancienne chez Antoine) ; une page
  * changée prend une adresse neuve, que l'hôte lit. `test/mcp/la-vue.test.ts` exige l'empreinte de la page servie.
  */
-export const EMPREINTE_DE_LA_VUE = 'a3798d540f';
+export const EMPREINTE_DE_LA_VUE = '0af2096f73';
 export const RESSOURCE_DE_LA_VUE = `ui://vavi/projet/${EMPREINTE_DE_LA_VUE}`;
 /**
  * Une adresse de la vue d'une version passée : une conversation ouverte avant un déploiement garde la liste des outils
@@ -124,13 +124,28 @@ main{padding:12px 14px;display:grid;gap:10px}
     envoyer('ui/notifications/size-changed',{width:document.body?document.body.scrollWidth:640,height:720},true);}
   function mode(m){noter('panneau demandé',m);var repondu=false;setTimeout(function(){if(repondu)return;noter('panneau : pas de réponse de l’hôte');panneauRefuse='no answer to '+m;if(derniere)laBarre(derniere);},5000);
     return envoyer('ui/request-display-mode',{mode:m}).then(function(r){repondu=true;modeCourant=(r&&r.mode)||modeCourant;noter('mode accordé',r&&r.mode);if(derniere)laBarre(derniere);},function(x){repondu=true;noter('mode refusé',x&&x.message);panneauRefuse=(x&&x.message)||'refused';if(derniere)laBarre(derniere);});}
-  var STYLE=':host{all:initial}.barre{position:fixed;left:0;right:0;bottom:0;z-index:2147483647;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px;'
-    +'font:13px/1.3 system-ui,-apple-system,sans-serif;background:#fff;color:#1c1c1c;border-top:1px solid #e3e3e3;box-shadow:0 -2px 10px rgba(0,0,0,.06)}'
-    +'button{font:inherit;padding:6px 11px;border-radius:8px;border:1px solid #d6d6d6;background:#fff;color:inherit;cursor:pointer}'
-    +'button.principal{background:#1f7a4a;border-color:#1f7a4a;color:#fff}button:disabled{opacity:.5;cursor:default}'
+  // LES BOUTONS SE VOIENT (Antoine, 27/11, « comme l'image jointe ») : plus grands, une icône devant le mot ; « Publier »
+  // (et le choix d'une offre qui le remplace) plein, orange ; « Afficher à droite » plein, sarcelle ; les autres bordés.
+  var STYLE=':host{all:initial}.barre{position:fixed;left:0;right:0;bottom:0;z-index:2147483647;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;'
+    +'font:14px/1.3 system-ui,-apple-system,sans-serif;background:#fff;color:#1c1c1c;border-top:1px solid #e3e3e3;box-shadow:0 -2px 12px rgba(0,0,0,.07)}'
+    +'button{font:inherit;font-weight:600;display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:10px;border:1.5px solid #d4d8de;background:#fff;color:#1c2430;cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s}'
+    +'button:hover{border-color:#9aa3af;background:#f6f7f9}button svg{flex:none;width:17px;height:17px}'
+    +'button.principal{background:#0f766e;border-color:#0f766e;color:#fff;box-shadow:0 2px 8px rgba(15,118,110,.3)}button.principal:hover{background:#115e59;border-color:#115e59}'
+    +'button.publier{background:#f97316;border-color:#f97316;color:#fff;box-shadow:0 2px 10px rgba(249,115,22,.35)}button.publier:hover{background:#ea580c;border-color:#ea580c}'
+    +'button:disabled{opacity:.5;cursor:default}'
     +'.mot{flex-basis:100%;font-weight:600}.alerte{font-weight:700;font-size:16px;color:#b42318}'
     +'.doux{flex-basis:100%;color:#666}'
-    +'@media (prefers-color-scheme:dark){.alerte{color:#ff8a80}.barre{background:#1e1e1e;color:#eee;border-color:#3a3a3a}button{background:#262626;border-color:#444}.doux{color:#aaa}}';
+    +'@media (prefers-color-scheme:dark){.alerte{color:#ff8a80}.barre{background:#1e1e1e;color:#eee;border-color:#3a3a3a}button{background:#262626;border-color:#4a4a4a;color:#eee}button:hover{background:#303030;border-color:#666}.doux{color:#aaa}}';
+  // Les icônes (traits 24×24, sans dépendance), une par sorte de bouton (IconeDuBouton).
+  var ICONES={panneau:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/>',apercu:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    publier:'<path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/>',offre:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+    site:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18"/>',domaine:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+    console:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>'};
+  function bouton(x,t,clic){var c=x.do==='publish'||x.icon==='offre'?'publier':x.main?'principal':'';
+    var y=el('button',{class:c,onclick:clic});var d=ICONES[x.icon];
+    if(d){var g=document.createElementNS('http://www.w3.org/2000/svg','svg');g.setAttribute('viewBox','0 0 24 24');g.setAttribute('fill','none');g.setAttribute('stroke','currentColor');
+      g.setAttribute('stroke-width','2');g.setAttribute('stroke-linecap','round');g.setAttribute('stroke-linejoin','round');g.setAttribute('aria-hidden','true');g.innerHTML=d;y.appendChild(g);}
+    y.appendChild(el('span',{texte:t}));return y;}
   function laBarre(f,message,alerte){
     if(!document.body)document.documentElement.appendChild(document.createElement('body'));
     var hote=document.getElementById('vavi-barre');if(!hote){hote=el('div',{id:'vavi-barre'});document.body.appendChild(hote);hote.attachShadow({mode:'open'});}
@@ -144,13 +159,13 @@ main{padding:12px 14px;display:grid;gap:10px}
     if(!f.app_html&&!f.app_html_unchanged&&!f.building)b.appendChild(el('span',{class:'doux',texte:f.preview_url?T.attente:T.sansApercu}));
     // LES BOUTONS VIENNENT DE LA FICHE (lesBoutonsDeLaFiche, 26/11) : l'hôte garde cette page, le serveur décide.
     (f.buttons||[]).forEach(function(x){var t=(x.label&&(fr?x.label.fr:x.label.en))||'';
-      if(x.do==='link'&&x.url)b.appendChild(el('button',{class:x.main?'principal':'',texte:t,onclick:function(){lien(x.url);}}));
-      if(x.do==='panel'&&modeCourant!=='fullscreen'&&modeCourant!=='pip')b.appendChild(el('button',{class:x.main?'principal':'',texte:t,onclick:function(){mode(modes.indexOf('fullscreen')>=0||!modes.length?'fullscreen':'pip');}}));
+      if(x.do==='link'&&x.url)b.appendChild(bouton(x,t,function(){lien(x.url);}));
+      if(x.do==='panel'&&modeCourant!=='fullscreen'&&modeCourant!=='pip')b.appendChild(bouton(x,t,function(){mode(modes.indexOf('fullscreen')>=0||!modes.length?'fullscreen':'pip');}));
       // Deux clics, dans la vue : le cadre de l'hôte peut interdire window.confirm (bac à sable sans « allow-modals »).
-      if(x.do==='publish')b.appendChild(el('button',{class:x.main?'principal':'',texte:t,onclick:function(e){var y=e.target;
-        if(!y.dataset.sur){y.dataset.sur='1';y.textContent=T.publierQ;return;}
+      if(x.do==='publish')b.appendChild(bouton(x,t,function(e){var y=e.currentTarget;
+        if(!y.dataset.sur){y.dataset.sur='1';y.lastChild.textContent=T.publierQ;return;}
         y.disabled=true;outil('vavi_mettre_en_ligne',{project:f.id,geste:JETON})
-          .then(function(r){garde={texte:T.publie,jusqua:Date.now()+120000};montrer(r.fiche,T.publie);}).catch(function(z){montrer(f,T.erreur+' '+z.message,true);});}}));});
+          .then(function(r){garde={texte:T.publie,jusqua:Date.now()+120000};montrer(r.fiche,T.publie);}).catch(function(z){montrer(f,T.erreur+' '+z.message,true);});}));});
     // Ce que l'hôte a répondu à la demande du panneau, lisible sans la console du navigateur (26/11).
     if(panneauRefuse)b.appendChild(el('span',{class:'doux',texte:'Claude: '+panneauRefuse}));
     ombre.appendChild(b);

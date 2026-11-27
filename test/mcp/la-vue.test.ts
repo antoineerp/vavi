@@ -197,7 +197,7 @@ describe('les boutons de la fiche viennent du serveur (26/11 : Claude.ai gardait
     expect(lesBoutonsDeLaFiche({ preview_url: null, state: 'en_ligne', console_url: 'https://c' }).map((x) => x.do)).toEqual(['panel', 'link']);
     // INCIDENT 27/11 (Antoine : le refus « Publishing needs a plan » passait inaperçu) : sans offre, le bouton mène à l'offre.
     const sans = lesBoutonsDeLaFiche({ preview_url: 'https://a/p', state: 'a_publier', console_url: 'https://c/projets/x', can_publish: false, plan_url: 'https://c/abonnement' });
-    expect(sans.find((x) => x.main && x.do !== 'panel')).toEqual({ do: 'link', label: { fr: 'Publier : choisir une offre', en: 'Publish: choose a plan' }, url: 'https://c/abonnement', main: true });
+    expect(sans.find((x) => x.main && x.do !== 'panel')).toEqual({ do: 'link', label: { fr: 'Publier : choisir une offre', en: 'Publish: choose a plan' }, url: 'https://c/abonnement', main: true, icon: 'offre' });
     expect(sans.some((x) => x.do === 'publish')).toBe(false);
     // Et la raison, dans le bouton même (27/11) : une app sur l'offre Site.
     expect(lesBoutonsDeLaFiche({ preview_url: 'https://a/p', state: 'a_publier', console_url: 'https://c/projets/x', can_publish: false, plan_url: 'https://c/abonnement', raison: 'nature' })
