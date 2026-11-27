@@ -119,6 +119,12 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         if (r.error) console.error(`[premier-site] ${etape} non notée : ${r.error.message}`); else PREMIERES_FOIS_NOTEES.add(cle);
       }, (e: unknown) => console.error(`[premier-site] ${etape} non notée : ${String(e)}`));
     },
+    compter(outil, refus) {
+      if (!/^[a-z_]{1,40}$/.test(outil)) return;
+      void Promise.resolve(base.rpc('vavi_compter_un_appel', { p_compte: compte, p_outil: outil, p_refus: refus })).then((r) => {
+        if (r.error) console.error(`[activité] ${outil} non compté : ${r.error.message}`);
+      }, (e: unknown) => console.error(`[activité] ${outil} non compté : ${String(e)}`));
+    },
     gabaritPackageJson: leGabarit(),
     async noteDuChantier(id) {
       const p = await projets.lire(compte, id);

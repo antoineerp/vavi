@@ -1,7 +1,9 @@
-/** /admin — la page de l'administrateur de vavi : comptes, abonnements et revenus, projets, visites, ventes, services, journal ; et ses gestes. */
+/** /admin — la page de l'administrateur de vavi : d'abord le tableau de bord (`le-tableau-de-bord.tsx`), puis comptes, abonnements et revenus, projets, visites, ventes, services, journal ; et ses gestes. Les projets des comptes administrateurs (leurs essais) n'y figurent pas : ils restent dans « Mes projets ». */
 import type { Metadata } from 'next';
 import { lAdministrateur } from '@/app/_partage/l-administration-reelle';
-import { leTableau, lesTableauxDeBord, lEtatDesServices } from '@/lib/administration/le-tableau';
+import { estAdministrateur, leTableau, lesTableauxDeBord, lEtatDesServices, VARIABLE_DES_ADMINISTRATEURS, type LeTableauBrut } from '@/lib/administration/le-tableau';
+import { lActivite } from '@/lib/administration/l-activite';
+import { TableauDeBord } from './le-tableau-de-bord';
 import { BarreDuCompte } from '@/app/_partage/la-barre-du-compte';
 import { enClair, lePremierSite } from '@/lib/administration/le-premier-site';
 import { OFFRES, OFFRES_PAYANTES, type EtatDeLAbonnement } from '@/lib/abonnements/les-offres';
@@ -23,7 +25,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const q = await searchParams;
   const { sur, courriel: moi } = await lAdministrateur();
   const maintenant = Date.now();
-  const [brut, comptes, premier] = await Promise.all([sur.leTableauBrut(new Date(maintenant - JOURS * 24 * 3600 * 1000).toISOString()), sur.lesComptes(), sur.lePremierSiteBrut()]);
+  const depuis = new Date(maintenant - JOURS * 24 * 3600 * 1000).toISOString();
+  const [lu, comptesLus, premier, activite] = await Promise.all([sur.leTableauBrut(depuis), sur.lesComptes(), sur.lePremierSiteBrut(), sur.lActiviteBrute(new Date(maintenant - (JOURS - 1) * 24 * 3600 * 1000).toISOString())]);
+  // Les comptes administrateurs (leurs projets d'essai) : hors de cette page, qui ne parle que des clients.
+  const admins = new Set(comptesLus.lu ? comptesLus.valeur.filter((c) => estAdministrateur(process.env[VARIABLE_DES_ADMINISTRATEURS], { id: c.id, courriel: c.courriel, confirme: true })).map((c) => c.id) : []);
+  const masques = lu.lu ? lu.valeur.projets.filter((p) => admins.has(p.proprietaire)).length : 0;
+  const brut = lu.lu ? { lu: true as const, valeur: { ...lu.valeur, projets: lu.valeur.projets.filter((p) => !admins.has(p.proprietaire)) } satisfies LeTableauBrut } : lu;
+  const comptes = comptesLus.lu ? { lu: true as const, valeur: comptesLus.valeur.filter((c) => !admins.has(c.id)) } : comptesLus;
   const services = lEtatDesServices(process.env);
   if (!brut.lu || !comptes.lu) {
     return <div className="coquille"><BarreDuCompte langue="fr" courriel={moi} ici="admin" /><main className="pilote"><div className="console"><h1>Administration</h1><p role="alert">Je n’ai pas pu lire la base : {!brut.lu ? brut.pourquoi : !comptes.lu ? comptes.pourquoi : ''}</p></div></main></div>;
@@ -41,6 +49,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       {q.fait && <div className="carte" role="status">Fait : {q.fait}</div>}
       {q.refus && <div className="carte" role="alert">Refusé : {q.refus}</div>}
       {services.some((s) => s.malFormes.length) && <div className="carte" role="alert">Un secret de Fly est mal posé : {services.flatMap((s) => s.malFormes).join(' ; ')}. Corrige-le dans Fly (Secrets), puis Deploy.</div>}
+
+      <TableauDeBord a={lActivite(activite.lu ? activite.valeur : null, comptes.valeur, brut.valeur.projets, admins, maintenant, JOURS)} jours={JOURS}
+        revenu={euros(t.revenus.mensuel)} abonnes={t.revenus.abonnes} essais={t.comptes.filter((c) => c.etat.etat === 'aucun').length} masques={masques}
+        migration={activite.lu ? null : activite.pourquoi} />
 
       <h2>Hébergement</h2>
       {outils.length === 0 ? <p className="carte attenue">Les adresses de Supabase, Fly et Stripe ne se lisent pas dans la configuration du serveur.</p> : (

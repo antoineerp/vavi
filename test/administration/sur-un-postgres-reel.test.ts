@@ -7,6 +7,7 @@ import { laMigrationDesAbonnements } from '@/lib/abonnements/le-sql-des-abonneme
 import { laMigrationDeLAdministration } from '@/lib/administration/le-sql-de-l-administration';
 import type { LeTableauBrut } from '@/lib/administration/le-tableau';
 import { laMigrationDuPremierSite, type LePremierSiteBrut } from '@/lib/administration/le-premier-site';
+import { laMigrationDeLActivite, type LActiviteBrute } from '@/lib/administration/l-activite';
 import { demarrer, POSTGRES_PRESENT, type UnPostgres } from '../aides/un-postgres';
 
 const MOI = 'aaaaaaaa-0000-4000-8000-00000000000a';
@@ -18,7 +19,7 @@ describe.runIf(POSTGRES_PRESENT)('l’administration, sur un PostgreSQL réel', 
   beforeAll(() => {
     pg = demarrer('vavi-l-administration', 55769);
     pg.admin(`insert into auth.users (id, email, email_confirmed_at) values ('${MOI}', 'moi@a.fr', now());`);
-    for (const m of [laMigrationDesProjets(), laMigrationDeLaMiseEnLigne(), laMigrationDeLaVente(), laMigrationDesFormulaires(), laMigrationDesAbonnements(), laMigrationDeLAdministration(), laMigrationDeLAdministration(), laMigrationDuPremierSite(), laMigrationDuPremierSite()]) pg.admin(m);
+    for (const m of [laMigrationDesProjets(), laMigrationDeLaMiseEnLigne(), laMigrationDeLaVente(), laMigrationDesFormulaires(), laMigrationDesAbonnements(), laMigrationDeLAdministration(), laMigrationDeLAdministration(), laMigrationDuPremierSite(), laMigrationDuPremierSite(), laMigrationDeLActivite(), laMigrationDeLActivite()]) pg.admin(m);
     pg.admin(`insert into public.vavi_projets (id, proprietaire, nom, en_ligne_empreinte, en_ligne_le) values ('${P1}', '${MOI}', 'Vélos', 'e1', now()), ('${P2}', '${MOI}', 'Brouillon', null, null);
       insert into public.vavi_fichiers (projet, chemin, contenu) values ('${P1}', 'app.json', '{ "nature": "boutique", "tables": [] }'), ('${P2}', 'app.json', '{ pas du json "nature": ');
       insert into public.vavi_visites (projet, chemin, jour) values ('${P1}', '/', current_date), ('${P1}', '/a', current_date), ('${P1}', '/', current_date - 90);
@@ -54,6 +55,19 @@ describe.runIf(POSTGRES_PRESENT)('l’administration, sur un PostgreSQL réel', 
     expect(pg.comme(MOI, `select public.vavi_admin_le_premier_site();`).ok).toBe(false);
     expect(pg.comme(MOI, `select public.vavi_noter_une_premiere_fois('${MOI}', 'en_ligne');`).ok).toBe(false);
     expect(pg.comme(null, `select count(*) from public.vavi_premieres_fois;`).ok).toBe(false);
+  });
+  it('l’activité : un appel se compte par jour, par compte et par outil, refus compris ; builds et visites par jour ; rien pour la personne', () => {
+    expect(pg.service(`select public.vavi_compter_un_appel('${MOI}', 'apply_changes', false); select public.vavi_compter_un_appel('${MOI}', 'apply_changes', true); select public.vavi_compter_un_appel('${MOI}', 'build_preview', false);`).ok).toBe(true);
+    expect(pg.service(`select public.vavi_compter_un_appel('${MOI}', 'Pas Un Outil', false);`).ok).toBe(false);
+    const r = pg.service(`select public.vavi_admin_l_activite(current_date - 29);`);
+    expect(r.ok).toBe(true);
+    const b = JSON.parse(r.sortie) as LActiviteBrute;
+    expect([...b.appels].sort((x, y) => x.outil.localeCompare(y.outil))).toMatchObject([{ compte: MOI, outil: 'apply_changes', appels: 2, refus: 1 }, { compte: MOI, outil: 'build_preview', appels: 1, refus: 0 }]);
+    expect(b.builds).toMatchObject([{ compte: MOI, verts: 0, rouges: 1 }]);
+    expect(b.visites).toMatchObject([{ visites: 2 }]);
+    expect(pg.comme(MOI, `select public.vavi_admin_l_activite(current_date);`).ok).toBe(false);
+    expect(pg.comme(MOI, `select public.vavi_compter_un_appel('${MOI}', 'apply_changes', false);`).ok).toBe(false);
+    expect(pg.comme(null, `select count(*) from public.vavi_appels_mcp;`).ok).toBe(false);
   });
   it('ni la personne ni le navigateur ne lisent le tableau, les prix, les offerts, les réductions ni le journal', () => {
     expect(pg.comme(MOI, `select public.vavi_admin_le_tableau(now());`).ok).toBe(false);
