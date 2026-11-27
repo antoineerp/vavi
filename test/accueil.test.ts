@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { laPageDAccueil, lesTextesSansTraduction } from '@/app/_accueil/la-page';
 import { laLangueDuNavigateur } from '@/app/_partage/la-langue-du-navigateur';
 import { lienDInstallation } from '@/lib/mcp/l-adresse';
-import { CENTIMES_D_UN_PROJET_EN_PLUS, OFFRES } from '@/lib/abonnements/les-offres';
+import { CENTIMES_D_UN_PROJET_EN_PLUS, GRILLE_DU_CODE, OFFRES } from '@/lib/abonnements/les-offres';
 import { TEXTES } from '@/app/_partage/textes';
 
 const ADRESSE = 'https://vavi.test/api/mcp';
@@ -33,6 +33,23 @@ describe('la page d’accueil', () => {
   it('les prix sont ceux de la grille', () => {
     for (const o of Object.values(OFFRES)) expect(page).toContain(`${o.centimes / 100} € <small>/ mois</small>`);
     expect(page).toContain(`<b>${CENTIMES_D_UN_PROJET_EN_PLUS / 100} € / mois</b>`);
+  });
+
+  it('les prix et la promotion sont ceux de l’administration : un prix changé s’affiche, une réduction pour tous barre l’ancien prix et dit sa durée et sa fin', () => {
+    const grille = { ...GRILLE_DU_CODE, site: 2400 };
+    const reduction = { id: 'r', compte: null, pourcent: 20, mois: 3, coupon: 'c', valableJusquAu: '2026-12-31T12:00:00Z', retireeLe: null };
+    const sans = laPageDAccueil(T, ADRESSE, 'https://vavi.test', 'fr', { grille, reduction: null });
+    expect(sans).toContain('24 € <small>/ mois</small>');
+    expect(sans).not.toMatch(/<s>|Offre en cours|class="promo"/);
+    const avec = laPageDAccueil(T, ADRESSE, 'https://vavi.test', 'fr', { grille, reduction });
+    expect(avec).toContain('<s>24 €</s> <span class="promo-prix">19,20 €</span> <small>/ mois</small>');
+    expect(avec).toContain('<s>49 €</s> <span class="promo-prix">39,20 €</span>');
+    expect(avec).toContain('−20 % les 3 premiers mois');
+    expect(avec).toContain('pour un abonnement pris avant le 31 décembre 2026');
+    const en = laPageDAccueil(T, ADRESSE, 'https://vavi.test', 'en', { grille, reduction });
+    expect(en).toContain('<s>24 €</s> <span class="promo-prix">19.20 €</span>');
+    expect(en).toContain('−20 % for the first 3 months on every plan, for a subscription taken before 31 December 2026');
+    expect(en).not.toMatch(/__[A-Z_]+__/);
   });
 
   it('les liens mènent aux pages de la console, à son adresse (la page servie sous un autre nom y envoie), et le script se lit', () => {
