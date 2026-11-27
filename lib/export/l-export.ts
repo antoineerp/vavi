@@ -7,6 +7,9 @@
  *     base dérivé d'app.json, le socle de vavi qu'elle appelle (le relais sous la RLS), les données, et un LISEZ-MOI qui
  *     dit honnêtement ce qui part et ce qui reste chez vavi ;
  *   · `leZip` — l'archive en zip (deflate, `node:zlib`).
+ * Les fichiers déposés (pièces jointes des lignes, coffre) partent aussi, octet pour octet, sous `fichiers/` (Antoine,
+ * 27/11 : avant, ils restaient chez vavi) ; au-delà de `OCTETS_DES_FICHIERS_EXPORTES`, ceux qui ne tiennent pas sont
+ * comptés et dits dans le LISEZ-MOI, jamais tus.
  *
  * Remplace, pour vavi, `lib/bascule/exporter-l-arbre.ts` de constructor-v13 (le zip de l'arbre seul, jsZip) et l'export
  * Docker Compose de l'ancien générateur (`lib/export/monorepo-generator.ts`), qui réécrivait les fichiers.
@@ -26,24 +29,38 @@ export interface CeQuiSExporte {
   readonly socle: string;
   /** Les lignes de chaque table ; `null` : je n'ai pas pu les lire (dit dans le LISEZ-MOI, jamais un tableau vide). */
   readonly donnees: Readonly<Record<string, readonly unknown[]>> | null;
+  /** Les fichiers déposés, à leur chemin dans le stockage (`pieces/…`, `coffres/…`) ; `null` : je n'ai pas pu les lire. */
+  readonly fichiers?: ReadonlyMap<string, Uint8Array> | null;
+  /** Les fichiers laissés hors de l'archive faute de place. */
+  readonly fichiersLaisses?: number;
   readonly le: string;
 }
+
+/** Ce que l'archive emporte de fichiers déposés, au plus (l'archive se fait en mémoire du serveur). */
+export const OCTETS_DES_FICHIERS_EXPORTES = 500 * 1024 * 1024;
 
 const net = (n: string) => n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase().slice(0, 40) || 'app';
 
 /** PURE — les fichiers de l'archive, chacun à son chemin. */
-export function lArchive(x: CeQuiSExporte): Map<string, string> {
-  const f = new Map<string, string>();
+export function lArchive(x: CeQuiSExporte): Map<string, string | Uint8Array> {
+  const f = new Map<string, string | Uint8Array>();
   for (const [chemin, texte] of x.code) f.set(`code/${chemin.replace(/^\/+/, '')}`, texte);
   f.set('base/00-le-socle-de-vavi.sql', x.socle);
   x.base.forEach((g, i) => f.set(`base/${String(i + 1).padStart(2, '0')}-${net(g.nom)}.sql`, `-- ${g.nom}\n${g.sql}\n`));
   if (x.donnees) for (const [table, lignes] of Object.entries(x.donnees)) f.set(`donnees/${net(table)}.json`, `${JSON.stringify(lignes, null, 2)}\n`);
+  for (const [chemin, octets] of x.fichiers ?? []) {
+    const propre = chemin.split('/').filter((m) => m && m !== '.' && m !== '..').join('/');
+    if (propre) f.set(`fichiers/${propre}`, octets);
+  }
   f.set('LISEZ-MOI.md', [
     `# ${x.nom}, exporté de vavi le ${x.le.slice(0, 10)}`, '',
     'Ce dossier contient tout ce qu’il faut pour faire tourner cette app chez un autre hébergeur.', '',
     '- `code/` : le code de l’app, tel qu’il est construit sur vavi, sans rien de réécrit. `npm install` puis `npm run build` donnent le site dans `code/dist`.',
     `- \`base/\` : la base, à poser dans l’ordre sur un projet Supabase (éditeur SQL). \`00\` est le socle que l’app appelle ; avant la suite, exécute \`create schema ${x.schema}; grant all on schema ${x.schema} to service_role;\`, puis pose les autres fichiers dans l’ordre.`,
-    x.donnees ? '- `donnees/` : les lignes de chaque table, en JSON.' : '- `donnees/` : ABSENT. Les données n’ont pas pu être lues au moment de l’export. Relance l’export.', '',
+    x.donnees ? '- `donnees/` : les lignes de chaque table, en JSON.' : '- `donnees/` : ABSENT. Les données n’ont pas pu être lues au moment de l’export. Relance l’export.',
+    x.fichiers === null ? '- `fichiers/` : ABSENT. Les fichiers déposés n’ont pas pu être lus au moment de l’export. Relance l’export.'
+      : x.fichiers && x.fichiers.size > 0 ? `- \`fichiers/\` : les ${x.fichiers.size} fichier(s) déposé(s) (pièces jointes des lignes, coffre), à leur chemin de stockage, celui que la colonne \`fichier\` d’une ligne nomme. Recopie-les dans des seaux privés \`pieces\` et \`coffres\` de ton projet Supabase, au même chemin.${x.fichiersLaisses ? ` ATTENTION : ${x.fichiersLaisses} fichier(s) n’ont pas tenu dans l’archive ; demande-les à info@vavi.dev.` : ''}`
+        : '- `fichiers/` : aucun fichier déposé dans ce projet.', '',
     '## Brancher l’app sur sa base', '',
     'Ajoute dans `code/dist/index.html`, au début de `<head>` :', '',
     '```html',
@@ -51,7 +68,6 @@ export function lArchive(x: CeQuiSExporte): Map<string, string> {
     '```', '',
     '## Ce qui reste chez vavi', '',
     '- Les comptes des utilisateurs : ils devront se réinscrire (les mots de passe ne s’exportent jamais).',
-    '- Les fichiers déposés (pièces jointes, coffre) : ils restent dans le stockage de vavi.',
     '- Les paiements Stripe, les formulaires jugés, les courriels et SMS envoyés par la plateforme : ils passent par vavi et ne fonctionnent plus hors de vavi sans un serveur qui les remplace.',
     '- Les secrets (clés API) : jamais dans un export. Repose-les chez le nouvel hébergeur.', '',
   ].join('\n'));
@@ -59,11 +75,11 @@ export function lArchive(x: CeQuiSExporte): Map<string, string> {
 }
 
 /** Le zip des fichiers (méthode deflate), sans dépendance. */
-export function leZip(fichiers: ReadonlyMap<string, string>): Uint8Array {
+export function leZip(fichiers: ReadonlyMap<string, string | Uint8Array>): Uint8Array {
   const locaux: Buffer[] = []; const centraux: Buffer[] = [];
   let decalage = 0;
-  for (const [chemin, texte] of fichiers) {
-    const nom = Buffer.from(chemin, 'utf8'); const brut = Buffer.from(texte, 'utf8'); const serre = deflateRawSync(brut);
+  for (const [chemin, contenu] of fichiers) {
+    const nom = Buffer.from(chemin, 'utf8'); const brut = typeof contenu === 'string' ? Buffer.from(contenu, 'utf8') : Buffer.from(contenu); const serre = deflateRawSync(brut);
     const crc = crc32(brut);
     const entete = Buffer.alloc(30); entete.writeUInt32LE(0x04034b50, 0); entete.writeUInt16LE(20, 4); entete.writeUInt16LE(0x0800, 6); entete.writeUInt16LE(8, 8);
     entete.writeUInt32LE(0, 10); entete.writeUInt32LE(crc, 14); entete.writeUInt32LE(serre.length, 18); entete.writeUInt32LE(brut.length, 22); entete.writeUInt16LE(nom.length, 26); entete.writeUInt16LE(0, 28);
