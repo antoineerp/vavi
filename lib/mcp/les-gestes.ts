@@ -542,8 +542,17 @@ export async function configurerLeBackend(c: Contexte, a: { project: string; wor
     ...recu.valeur.dit,
     version: r.valeur.version, app_json: { fingerprint: empreinteDuFichier(texte) }, database: `laid out (${pose.groupes} steps); the access rules come from app.json`,
     next: 'The types of the tables changed: read src/donnees/types.ts again with `read_files` before using them.',
+    ...(onSInscrit(m) ? { tell_the_person: CE_QU_IL_FAUT_DIRE_DE_L_INSCRIPTION } : {}),
   });
 }
+
+/**
+ * Une app où l'on s'inscrit seul (un rôle obtenu par inscription ou par paiement) : par défaut, l'inscrit confirme son
+ * adresse avant d'entrer ; la personne le règle dans la console. Antoine, 27/11 : bloqué à l'entrée de sa propre app
+ * (« ce courriel n'est pas encore confirmé ») sans savoir que le réglage existe ; Claude doit le lui dire.
+ */
+export const onSInscrit = (m: Pick<Manifeste, 'roles'>): boolean => m.roles.some((r) => r.obtenu === 'inscription' || r.obtenu === 'paiement');
+export const CE_QU_IL_FAUT_DIRE_DE_L_INSCRIPTION = 'Tell the person, in their language, once: people who sign up to this app confirm their e-mail address with a link before entering (the default). They can switch e-mail validation off or on in the vavi console, Settings > Functions ("Réglages > Fonctions"), for this project.';
 
 /**
  * Le guide de design de l'app (`lib/design/le-guide`) : ce que les pages doivent être et les règles qui la concernent, en
