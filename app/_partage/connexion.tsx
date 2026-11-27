@@ -8,6 +8,7 @@
  */
 import { useEffect, useState, type ReactNode } from 'react';
 import { clientDuNavigateur } from '@/lib/supabase/navigateur';
+import { leJetonDuLien } from './le-lien-de-connexion';
 
 export interface Session { readonly jeton: string; readonly courriel: string }
 
@@ -26,7 +27,12 @@ export function Connexion({ langue, connecte }: { langue: 'fr' | 'en'; connecte:
     const s = clientDuNavigateur();
     const lire = () => s.auth.getSession().then(({ data }) =>
       setSession(data.session ? { jeton: data.session.access_token, courriel: data.session.user.email ?? '' } : null));
-    void lire();
+    // Arrivé par le lien du courriel : l'empreinte est dans le fragment ; on la vérifie, puis on l'efface de l'adresse.
+    const jeton = leJetonDuLien(window.location.hash);
+    if (jeton) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      void s.auth.verifyOtp({ token_hash: jeton, type: 'email' }).then(({ error }) => { if (error) setMessage(error.message); void lire(); });
+    } else void lire();
     const { data } = s.auth.onAuthStateChange(() => { void lire(); });
     return () => data.subscription.unsubscribe();
   }, []);
