@@ -4,7 +4,7 @@
  * (`la-navigation.ts`).
  */
 import Link from 'next/link';
-import { adresseDeLApp } from '@/app/_partage/l-adresse-des-apps';
+import { adresseDeLApp, adresseMontreeDeLApp } from '@/app/_partage/l-adresse-des-apps';
 import { lEtatDeLaMiseEnLigne } from '@/lib/projets/la-mise-en-ligne';
 import { boiteSurSupabase, lesVisites } from '@/lib/formulaires/sur-supabase';
 import { resumerLAudience } from '@/lib/formulaires/l-audience';
@@ -47,6 +47,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const empeche = droit?.lu && !droit.valeur.permis ? droit.valeur.pourquoi : q.erreur ?? null;
   const OFFRE = ['aucune_offre', 'suspendu', 'nature', 'quota'];
   const message = q.fait === 'publie' ? t.publie : q.fait === 'claude_a_fini' ? t.claudeAFiniFait : q.fait === 'notes' ? (fr ? 'Notes enregistrées : Claude les relira au prochain travail.' : 'Notes saved: Claude will read them at the next work session.') : q.erreur ? `${t.erreur} ${ERREURS[q.erreur]?.[c.langue] ?? q.erreur}` : null;
+  const enLigne = projet.enLigneEmpreinte ? await adresseMontreeDeLApp(id, 'en_ligne').catch(() => adresseDeLApp(id, 'en_ligne')) : null;
   const recus = messages.lu ? messages.valeur.filter((m) => m.statut !== 'spam').length : null;
 
   const marche = (fait: boolean, ici: boolean) => (fait ? 'fait' : ici ? 'ici' : '');
@@ -54,7 +55,15 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     <main className="console">
       <p className="fil"><span>{fr ? 'Projet' : 'Project'}</span><span>{fr ? 'Vue d’ensemble' : 'Overview'}</span></p>
       <h1>{fr ? 'Vue d’ensemble' : 'Overview'}</h1>
-      {message && <div className="carte" role="status">{message}{q.erreur && ['aucune_offre', 'suspendu', 'nature', 'quota', 'export_reserve'].includes(q.erreur) && <> <Link href="/abonnement">{t.abonnement.titre}</Link></>}</div>}
+      {/* PUBLIÉ : où, et le nom de domaine (Antoine, 27/11 : « à aucun moment je n'ai eu de message si je voulais publier
+          sur mon nom de domaine ou sur celui de vavi »). */}
+      {q.fait === 'publie' && enLigne ? (
+        <div className="carte" role="status" style={{ fontSize: '1.05rem' }}>
+          <strong>{fr ? 'C’est en ligne' : 'It is online'}</strong>{fr ? ', à l’adresse ' : ', at '}<a href={enLigne} target="_blank" rel="noreferrer">{enLigne.replace(/^https?:\/\//, '').replace(/\/$/, '')}</a>.
+          <br />{fr ? 'Vous pouvez le garder à cette adresse vavi, ou le mettre sur votre propre nom de domaine (www.votre-nom.fr).' : 'You can keep it at this vavi address, or put it on your own domain name (www.your-name.com).'}{' '}
+          <Link href={`/projets/${id}/domaine`}>{fr ? 'Brancher mon nom de domaine' : 'Plug in my domain name'}</Link>
+        </div>
+      ) : message && <div className="carte" role="status">{message}{q.erreur && ['aucune_offre', 'suspendu', 'nature', 'quota', 'export_reserve'].includes(q.erreur) && <> <Link href="/abonnement">{t.abonnement.titre}</Link></>}</div>}
 
       <section className="indicateurs">
         <div className={`indicateur ${etat === 'en_ligne' ? 'vert' : ''}`}><span className="indicateur-icone"><Icone nom="globe" /></span><span className="indicateur-nom">{fr ? 'Site' : 'Site'}</span>
@@ -100,7 +109,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
               {projet.apercuEmpreinte ? <a href={`/projets/${id}/entrer`} target="_blank" rel="noreferrer">{t.voirLApercu}</a> : <span>{t.rienAPublier}</span>}</li>
             <li className={marche(etat === 'en_ligne', etat === 'a_publier')}><span className="chaine-pastille"><Icone nom="envoi" taille={16} /></span><strong>{t.publier}</strong><span>{etat === 'a_publier' ? (fr ? 'changements prêts' : 'changes ready') : etat === 'en_ligne' ? (fr ? 'à jour' : 'up to date') : '—'}</span></li>
             <li className={marche(projet.enLigneEmpreinte !== null, false)}><span className="chaine-pastille"><Icone nom="globe" taille={16} /></span><strong>{t.siteEnLigne}</strong>
-              {projet.enLigneEmpreinte ? <a href={adresseDeLApp(id, 'en_ligne')} target="_blank" rel="noreferrer">{t.voirLeSite}</a> : <span>—</span>}</li>
+              {enLigne ? <a href={enLigne} target="_blank" rel="noreferrer">{t.voirLeSite}</a> : <span>—</span>}</li>
+            <li><span className="chaine-pastille"><Icone nom="globe" taille={16} /></span><strong>{fr ? 'Nom de domaine' : 'Domain name'}</strong>
+              {enLigne ? <Link href={`/projets/${id}/domaine`}>{fr ? 'Garder l’adresse vavi ou brancher le vôtre' : 'Keep the vavi address or plug in yours'}</Link> : <span>{fr ? 'après la publication' : 'after publishing'}</span>}</li>
           </ol>
           <form action={publier.bind(null, id)}>
             <p className="attenue" style={{ fontSize: '0.85rem', margin: '0 0 0.75rem' }}>{etat === 'en_ligne' ? t.dejaEnLigne : etat === 'rien_a_publier' ? t.pasDApercu : t.publierExplication}</p>

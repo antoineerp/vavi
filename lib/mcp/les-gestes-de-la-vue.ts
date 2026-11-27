@@ -67,7 +67,7 @@ export async function mettreEnLigneDepuisLaVue(c: Contexte, a: { project: string
 export interface BoutonDeLaFiche { readonly do: 'link' | 'publish' | 'panel'; readonly label: { readonly fr: string; readonly en: string }; readonly url?: string; readonly main?: boolean }
 
 export function lesBoutonsDeLaFiche(f: { readonly preview_url: string | null; readonly state: string; readonly console_url: string;
-  readonly can_publish?: boolean | null; readonly plan_url?: string; readonly raison?: string | null }): BoutonDeLaFiche[] {
+  readonly can_publish?: boolean | null; readonly plan_url?: string; readonly raison?: string | null; readonly online_url?: string | null }): BoutonDeLaFiche[] {
   // Sans offre, « Publier » ne pourrait que refuser (Antoine, 27/11 : le refus passait inaperçu) : le bouton mène à l'offre,
   // et dit pourquoi (« est-ce que l'utilisateur aura un message lui donnant la raison ? », 27/11).
   const sansOffre = f.state === 'a_publier' && f.can_publish === false && f.plan_url;
@@ -83,8 +83,25 @@ export function lesBoutonsDeLaFiche(f: { readonly preview_url: string | null; re
     ...(f.preview_url ? [{ do: 'link' as const, label: { fr: 'Voir l’aperçu', en: 'See the preview' }, url: `${f.console_url}/entrer` }] : []),
     ...(sansOffre ? [{ do: 'link' as const, label: POURQUOI[f.raison ?? ''] ?? { fr: 'Publier : choisir une offre', en: 'Publish: choose a plan' }, url: f.plan_url, main: true }]
       : f.state === 'a_publier' ? [{ do: 'publish' as const, label: { fr: 'Publier', en: 'Publish' }, main: true }] : []),
+    // EN LIGNE, CE QUI SUIT (Antoine, 27/11 : « je n'ai aucun message confirmant la publication », « à aucun moment je n'ai
+    // eu de message si je voulais publier sur mon nom de domaine ») : le site lui-même, et son nom de domaine.
+    ...(f.online_url ? [{ do: 'link' as const, label: { fr: 'Voir le site en ligne', en: 'See the online site' }, url: f.online_url },
+      { do: 'link' as const, label: { fr: 'Mon nom de domaine', en: 'My domain name' }, url: `${f.console_url}/domaine` }] : []),
     { do: 'link', label: { fr: 'Console vavi', en: 'vavi console' }, url: f.console_url },
   ];
+}
+
+/**
+ * Ce que la barre dit du site en ligne, à chaque lecture de la fiche (Antoine, 27/11 : le « C'est en ligne » du clic
+ * disparaissait à la relecture suivante, et rien ne disait l'adresse ni le nom de domaine). PUR.
+ */
+export function laNoteEnLigne(f: { readonly online_url: string | null; readonly state: string }): { readonly fr: string; readonly en: string } | null {
+  if (!f.online_url) return null;
+  const adresse = f.online_url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  return f.state === 'a_publier'
+    ? { fr: `En ligne à ${adresse}. Des changements ne sont pas encore publiés.`, en: `Online at ${adresse}. Some changes are not published yet.` }
+    : { fr: `En ligne à ${adresse}. Votre propre nom de domaine (www.votre-nom.fr) se branche avec « Mon nom de domaine ».`,
+      en: `Online at ${adresse}. Your own domain name (www.your-name.com) is plugged in with “My domain name”.` };
 }
 
 async function laFiche(c: Contexte, id: string, connue?: string): Promise<Rendu> {
@@ -97,13 +114,15 @@ async function laFiche(c: Contexte, id: string, connue?: string): Promise<Rendu>
   const etat = lEtatDeLaMiseEnLigne(projet);
   const adresses = { console: c.adresse, domaine: c.domaineDesApps ?? null };
   const preview_url = projet.apercuEmpreinte ? lAdresseDeLApp(id, 'apercu', adresses) : null, console_url = `${c.adresse}/projets/${id}`;
+  const online_url = projet.enLigneEmpreinte
+    ? lAdresseDeLApp(id, 'en_ligne', { ...adresses, nom: await c.nommerLeSite?.(id, projet.nom).catch(() => null) ?? null }) : null;
   return {
-    buttons: lesBoutonsDeLaFiche({ preview_url, state: etat, console_url, can_publish: droit ? droit.permis : null, raison: droit && !droit.permis ? droit.raison ?? null : null, plan_url: `${c.adresse}/abonnement?projet=${id}#offres` }),
+    buttons: lesBoutonsDeLaFiche({ preview_url, state: etat, console_url, online_url, can_publish: droit ? droit.permis : null, raison: droit && !droit.permis ? droit.raison ?? null : null, plan_url: `${c.adresse}/abonnement?projet=${id}#offres` }),
+    online_note: laNoteEnLigne({ online_url, state: etat }),
     ok: true, id, project: id, name: projet.nom, version: projet.version, state: etat,
     work_session: projet.chantier?.intention ?? null,
     preview_url,
-    online_url: projet.enLigneEmpreinte
-      ? lAdresseDeLApp(id, 'en_ligne', { ...adresses, nom: await c.nommerLeSite?.(id, projet.nom).catch(() => null) ?? null }) : null,
+    online_url,
     console_url, plan_url: `${c.adresse}/abonnement`,
     can_publish: droit ? droit.permis : null,
     versions: versions.lu ? versions.valeur.map((v) => ({ version: v.numero, why: v.pourquoi, at: v.creeLe })) : null,
