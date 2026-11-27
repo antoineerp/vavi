@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { generateKeyPairSync, randomUUID } from 'node:crypto';
-import { echangerUnCode, entrer, envoyerUnLien, rafraichir, sInscrire, type CompteDApp, type MagasinDesComptes, type Nature } from '@/lib/comptes/les-comptes';
+import { echangerUnCode, entrer, envoyerUnLien, rafraichir, sInscrire, unCodeDuProprietaire, type CompteDApp, type MagasinDesComptes, type Nature } from '@/lib/comptes/les-comptes';
 import { laCleDesComptes, lireUnJeton } from '@/lib/comptes/les-jetons';
 
 const { privateKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
@@ -138,5 +138,37 @@ describe('pourquoi la clé est illisible, sans la montrer (25/11)', () => {
     const casse = laRaisonDeLaCle('{crv:P-256,d:' + jwk.d + '}');
     expect(casse).toMatch(/^not JSON \(\d+ characters, starts with "\{", ends with "\}"\)$/);
     for (const r of [sansD, casse]) expect(r).not.toContain(jwk.d!.slice(0, 8));
+  });
+});
+
+describe('le propriétaire entre dans son app sans rien saisir (Antoine, 27/11)', () => {
+  it('INCIDENT — sans compte à son adresse, un compte confirmé est créé et le code ouvre sa session', async () => {
+    const { m, comptes } = enMemoire();
+    const d = { magasin: m, cle, courrier: null, maintenant: () => 1_000_000 };
+    const code = await unCodeDuProprietaire(d, { app: 'app_a', email: 'Antoine@X.fr' });
+    if (!code.ok) throw new Error(code.refus);
+    expect(code.valeur).toMatch(/^entrer\./);
+    expect([...comptes.values()]).toMatchObject([{ app: 'app_a', email: 'antoine@x.fr', motDePasse: null }]);
+    const s = await echangerUnCode(d, { app: 'app_a', code: code.valeur });
+    expect(s.ok && lireUnJeton(cle, s.valeur.jeton, 1000)?.app).toBe('app_a');
+    expect((await echangerUnCode(d, { app: 'app_a', code: code.valeur })).ok).toBe(false); // une fois
+  });
+  it('un compte non confirmé déjà ouvert à son adresse perd mot de passe et sessions avant d’être le sien', async () => {
+    const { m, comptes, sessions } = enMemoire();
+    const d = { magasin: m, cle, courrier: null, maintenant: () => 1_000_000 };
+    const r = await sInscrire(d, { ...ctx('app_a'), email: 'antoine@x.fr', motDePasse: 'cheval-batterie', sansValidation: true });
+    expect(r.ok && sessions.size).toBe(1);
+    // L'inscription sans validation ne confirme pas l'adresse : quelqu'un a pu la prendre.
+    const avant = [...comptes.values()][0]!;
+    comptes.set(avant.id, { ...avant, confirmeLe: null });
+    const code = await unCodeDuProprietaire(d, { app: 'app_a', email: 'antoine@x.fr' });
+    expect(code.ok).toBe(true);
+    expect(sessions.size).toBe(0);
+    expect(comptes.get(avant.id)).toMatchObject({ confirmeLe: 'x' });
+    expect((await entrer(d, { app: 'app_a', email: 'antoine@x.fr', motDePasse: 'cheval-batterie', sansValidation: true })).ok).toBe(false);
+  });
+  it('une adresse illisible est refusée', async () => {
+    const { m } = enMemoire();
+    expect(await unCodeDuProprietaire({ magasin: m, cle, courrier: null, maintenant: () => 0 }, { app: 'app_a', email: 'pas une adresse' })).toEqual({ ok: false, refus: 'adresse_invalide' });
   });
 });

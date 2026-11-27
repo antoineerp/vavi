@@ -27,9 +27,9 @@ export default async function MiseEnPage({ children, params }: { children: React
   if (p.lu && !p.valeur) notFound();
   const m = f.lu ? leManifesteStocke(f.valeur.get('app.json')) : null;
   const vend = m?.lu ? laBoutique(m.manifeste) !== null : false;
-  // « Utilisateurs » sert dès que d'autres que le propriétaire ont un compte : un rôle s'obtient autrement qu'en étant
-  // propriétaire (inscription, invitation, habilitation, paiement). Un site vitrine n'a que le sien.
-  const comptes = m?.lu ? m.manifeste.roles.some((r) => r.obtenu !== 'proprietaire') : false;
+  // « Utilisateurs » sert dès que l'app a des comptes, le propriétaire seul compris (Antoine, 27/11 : la gestion des
+  // identifiants avait disparu d'une app personnelle, qui n'a que son rôle). Un site vitrine, sans rôle, n'en a pas.
+  const comptes = m?.lu ? m.manifeste.roles.length > 0 : false;
   const projet = p.lu ? p.valeur : null;
   const etat = projet ? lEtat(projet) : null;
   const NOMS_D_ETAT = { fr: { en_ligne: 'En ligne', a_publier: 'Changements à publier', apercu: 'Aperçu, pas encore en ligne', vide: 'Pas encore d’aperçu' }, en: { en_ligne: 'Online', a_publier: 'Changes to publish', apercu: 'Preview, not online yet', vide: 'No preview yet' } }[c.langue];
@@ -47,7 +47,7 @@ export default async function MiseEnPage({ children, params }: { children: React
             {projet && etat && <span className="bandeau-etat"><span className={`diode ${etat}`} aria-hidden="true" />{NOMS_D_ETAT[etat]}<span className="mono attenue">· v{projet.version}</span></span>}
           </div>
           <span className="projet-haut-droite">
-            {projet?.apercuEmpreinte && <a className="bouton discret petit" href={adresseDeLApp(id, 'apercu')} target="_blank" rel="noreferrer"><Icone nom="oeil" taille={16} />{t.voirLApercu}</a>}
+            {projet?.apercuEmpreinte && <a className="bouton discret petit" href={`/projets/${id}/entrer`} target="_blank" rel="noreferrer"><Icone nom="oeil" taille={16} />{t.voirLApercu}</a>}
             {projet?.enLigneEmpreinte && <a className="bouton discret petit" href={adresseDeLApp(id, 'en_ligne')} target="_blank" rel="noreferrer"><Icone nom="globe" taille={16} />{t.voirLeSite}</a>}
             <Link className="bouton pastille petit" href={`/projets/${id}/gerer`}>{c.langue === 'fr' ? 'Gérer le contenu' : 'Manage content'}</Link>
           </span>

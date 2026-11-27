@@ -125,7 +125,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ c
                       <div className="tuile-actions">
                         <Link className="bouton petit" href={`/projets/${p.id}`}>{m.ouvrir}<Icone nom="fleche" taille={16} /></Link>
                         {p.enLigneEmpreinte ? <a className="bouton discret petit" href={adresseDeLApp(p.id, 'en_ligne')} target="_blank" rel="noreferrer"><Icone nom="globe" taille={16} />{m.voirLeSite}</a>
-                          : p.apercuEmpreinte ? <a className="bouton discret petit" href={adresseDeLApp(p.id, 'apercu')} target="_blank" rel="noreferrer"><Icone nom="oeil" taille={16} />{m.voirLApercu}</a> : null}
+                          : p.apercuEmpreinte ? <a className="bouton discret petit" href={`/projets/${p.id}/entrer`} target="_blank" rel="noreferrer"><Icone nom="oeil" taille={16} />{m.voirLApercu}</a> : null}
                       </div>
                     </div>
                   </li>

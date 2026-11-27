@@ -167,6 +167,35 @@ export async function echangerUnCode(d: Dependances, x: { readonly app: string; 
   return { ok: true, valeur: await ouvrir(d, c, true) };
 }
 
+/**
+ * LE PROPRIÉTAIRE ENTRE SANS RIEN SAISIR (Antoine, 27/11 : « le compte admin d'une app est celui du compte vavi » ; il
+ * restait bloqué sur la porte de sa propre app). Son adresse est prouvée par la console (il y est connecté) : son compte
+ * d'app est créé à cette adresse, confirmé, sans mot de passe, et un code d'entrée d'une heure lui est rendu, que l'app
+ * échange contre une session (`#vavi=entrer.<code>`), comme un lien reçu. Un compte non confirmé déjà ouvert à son adresse
+ * (par quelqu'un d'autre, peut-être) perd son mot de passe et ses sessions avant d'être confirmé : seul le propriétaire
+ * y entre. CE QU'IL REMPLACE : l'inscription du propriétaire dans sa propre app, avec un courriel à confirmer.
+ */
+export async function unCodeDuProprietaire(d: Dependances, x: { readonly app: string; readonly email: string }): Promise<Issue<string>> {
+  const email = adresseLue(x.email);
+  if (!email) return refus('adresse_invalide');
+  let c = await d.magasin.trouver(x.app, email);
+  if (c && !c.confirmeLe) {
+    await d.magasin.oublierLesSessions(c.id);
+    if (c.motDePasse) await d.magasin.changerLeMotDePasse(c.id, SANS_MOT_DE_PASSE);
+    await d.magasin.confirmer(c.id);
+  }
+  if (!c) {
+    const cree = await d.magasin.creer(x.app, email, null, true);
+    c = cree === 'existe' ? await d.magasin.trouver(x.app, email) : cree;
+    if (!c) return refus('panne');
+  }
+  const code = aleatoire();
+  await d.magasin.poserUnCode(empreinte(code), c.id, 'entrer', new Date(d.maintenant() + DUREE_DES_CODES_MS.entrer).toISOString());
+  return { ok: true, valeur: `entrer.${code}` };
+}
+/** Une empreinte qu'aucun mot de passe ne donne (`motDePasseJuste` ne lit que `scrypt$sel$hachage`). */
+const SANS_MOT_DE_PASSE = 'aucun';
+
 /** Une session neuve contre l'ancienne (qui ne sert plus) : un vol de jeton de rafraîchissement ne vit qu'une fois. */
 export async function rafraichir(d: Dependances, x: { readonly app: string; readonly rafraichir: string }): Promise<Issue<Session>> {
   const id = await d.magasin.prendreUneSession(empreinte(x.rafraichir), new Date(d.maintenant()).toISOString());
