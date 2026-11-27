@@ -7,7 +7,7 @@ import { lesAbonnementsReels, PAGE_DE_L_ABONNEMENT } from '@/app/_partage/les-ab
 
 export async function choisir(formulaire: FormData) {
   const c = await laConsole(PAGE_DE_L_ABONNEMENT);
-  const r = await choisirUneOffre(lesAbonnementsReels(), c.compte, formulaire.get('offre'), formulaire.get('en_plus') || 0);
+  const r = await choisirUneOffre(lesAbonnementsReels(), c.compte, formulaire.get('offre'), formulaire.get('en_plus') || 0, formulaire.get('projet'));
   redirect('url' in r ? r.url : `${PAGE_DE_L_ABONNEMENT}?erreur=${r.refus}`);
 }
 

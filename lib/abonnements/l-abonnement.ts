@@ -141,7 +141,10 @@ export async function leDroitDePublier(d: Pick<DependancesDesAbonnements, 'lAbon
 }
 
 /** La console : choisir une offre (ou en changer) ouvre la page d'abonnement de Stripe. */
-export async function choisirUneOffre(d: DependancesDesAbonnements, compte: string, offre: unknown, enPlusBrut: unknown):
+/** Le projet d'où l'on vient (« Publier : choisir une offre »), ramené après le paiement pour être publié (27/11). */
+const UUID_DU_PROJET = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+export async function choisirUneOffre(d: DependancesDesAbonnements, compte: string, offre: unknown, enPlusBrut: unknown, projetBrut?: unknown):
   Promise<{ readonly url: string } | { readonly refus: 'offre_inconnue' | 'non_configure' | 'panne' | 'stripe' }> {
   const enPlus = Number(enPlusBrut ?? 0);
   if (!estUneOffre(offre) || !Number.isInteger(enPlus) || enPlus < 0 || enPlus > PROJETS_EN_PLUS_AU_PLUS) return { refus: 'offre_inconnue' };
@@ -150,7 +153,7 @@ export async function choisirUneOffre(d: DependancesDesAbonnements, compte: stri
   if (!a.lu || !g.lu || !r.lu) return { refus: 'panne' };
   const p = await d.laPersonne(compte);
   const s = await ouvrirLePaiement(d.stripe, d.cle, { compte, courriel: p?.courriel ?? null, client: a.valeur?.client ?? null, offre, projetsEnPlus: enPlus,
-    langue: p?.langue ?? 'fr', retourOk: `${d.adresseDeLaPage}?fait=abonne&session={CHECKOUT_SESSION_ID}`, retourAnnule: d.adresseDeLaPage,
+    langue: p?.langue ?? 'fr', retourOk: `${d.adresseDeLaPage}?fait=abonne${typeof projetBrut === 'string' && UUID_DU_PROJET.test(projetBrut) ? `&projet=${projetBrut}` : ''}&session={CHECKOUT_SESSION_ID}`, retourAnnule: d.adresseDeLaPage,
     grille: g.valeur, coupon: laReductionDuPaiement(r.valeur, compte, d.maintenant)?.coupon ?? null });
   if (!s.ouvert) { d.journal(`[abonnements] ${compte.slice(0, 8)} — Stripe a refusé la session : ${s.pourquoi}`); return { refus: 'stripe' }; }
   return { url: s.url };
