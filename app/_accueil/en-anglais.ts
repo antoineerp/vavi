@@ -287,7 +287,7 @@ export const EN: Readonly<Record<string, string>> = {
   'Construisez votre site avec Claude, dans votre abonnement Claude. vavi apporte moins de jetons dépensés, des designs plus riches, un vrai backend et une console pour piloter votre site.': 'Build your site with Claude, in your Claude subscription. vavi brings fewer tokens spent, richer designs, a real backend and a console to steer your site.',
   'vavi, accueil': 'vavi, home',
   'Sections': 'Sections',
-  'Claude.ai : la conversation à gauche, le site de la coiffeuse dans le panneau vavi à droite, avec le bouton Publier': 'Claude.ai: the conversation on the left, the hairdresser’s site in the vavi panel on the right, with the Publish button',
+  "Claude.ai : la conversation à gauche, l'app de planning de chantiers dans le panneau vavi à droite, avec le bouton Publier": 'Claude.ai: the conversation on the left, the job-site scheduling app in the vavi panel on the right, with the Publish button',
   "La console vavi : vue d'ensemble d'un projet, son état, ses visites, ses messages et le travail en cours avec Claude": 'The vavi console: overview of a project, its status, visits, messages and the work in progress with Claude',
   'Ce qui protège votre site': 'What protects your site',
   'Animation : les trois étapes pour brancher vavi dans Claude': 'Animation: the three steps to plug vavi into Claude',
