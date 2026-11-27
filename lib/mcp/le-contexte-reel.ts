@@ -239,7 +239,7 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
           const f = await projets.fichiers(compte, projet);
           const m = f.lu ? leManifesteStocke(f.valeur.get('app.json')) : null;
           const d = await leDroitDePublier({ ...abonnementsSurSupabase(base), maintenant: Date.now() }, compte, projet, m?.lu ? m.manifeste : null);
-          return !d.lu ? null : d.valeur.permis ? { permis: true } : { permis: false, pourquoi: d.valeur.detail };
+          return !d.lu ? null : d.valeur.permis ? { permis: true } : { permis: false, pourquoi: d.valeur.detail, raison: d.valeur.pourquoi };
         },
       },
     },

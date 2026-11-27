@@ -188,6 +188,9 @@ describe('les boutons de la fiche viennent du serveur (26/11 : Claude.ai gardait
     const sans = lesBoutonsDeLaFiche({ preview_url: 'https://a/p', state: 'a_publier', console_url: 'https://c/projets/x', can_publish: false, plan_url: 'https://c/abonnement' });
     expect(sans.find((x) => x.main && x.do !== 'panel')).toEqual({ do: 'link', label: { fr: 'Publier : choisir une offre', en: 'Publish: choose a plan' }, url: 'https://c/abonnement', main: true });
     expect(sans.some((x) => x.do === 'publish')).toBe(false);
+    // Et la raison, dans le bouton même (27/11) : une app sur l'offre Site.
+    expect(lesBoutonsDeLaFiche({ preview_url: 'https://a/p', state: 'a_publier', console_url: 'https://c/projets/x', can_publish: false, plan_url: 'https://c/abonnement', raison: 'nature' })
+      .find((x) => x.main && x.do === 'link')?.label.fr).toBe('Publier : une app demande l’offre Boutique ou app');
     const { laRessourceDeLaVue } = await import('@/lib/mcp/la-vue');
     const page = laRessourceDeLaVue({ jeton: 'JETON', cadres: [] }).contents[0]!.text;
     expect(page).not.toMatch(/Console vavi|Choisir une offre|Ouvrir l’app en grand/);
