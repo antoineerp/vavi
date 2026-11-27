@@ -12,6 +12,7 @@ import { racineDuBuild } from '@/lib/publication/publier';
 import { poserLEnvironnement, servirUnDist } from '@/lib/publication/servir';
 import { leDomaineDesApps } from '@/lib/publication/les-adresses-des-apps';
 import { construireLApp } from '@/lib/atelier/construire';
+import { enFile } from '@/lib/atelier/la-file';
 import { DOSSIER_DU_GABARIT } from '@/squelette/registre';
 import { lesPaquetsDuGabarit, type Refus } from '@/lib/consignes';
 import { adresseDeLaPlateforme } from './l-adresse';
@@ -128,8 +129,8 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
     },
     outils: {
       compte, projets, base, magasin: magasin.lu ? magasin.magasin : null,
-      construire: (arbre, b) => construireLApp(arbre, b),
-      async preRendre(projet, dist, m) {
+      construire: (arbre, b) => enFile('build', () => construireLApp(arbre, b)),
+      preRendre: (projet, dist, m) => enFile('pré-rendu', async () => {
         const publique = configurationPublique(process.env);
         const schema = schemaDuProjet(projet);
         if (!publique.lue || !schema) return null;
@@ -138,8 +139,8 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         if ('raison' in o) throw new Error(`no browser: ${o.raison}`);
         return preRendre(o.navigateur, dist, { env: { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet },
           app: { nom: m.nom, description: m.description, langue: m.langues.principale, autres: m.langues.autres, editeur: m.editeur ?? null } });
-      },
-      async capturer(projet, dist, m) {
+      }),
+      capturer: (projet, dist, m) => enFile('captures', async () => {
         const publique = configurationPublique(process.env);
         const schema = schemaDuProjet(projet);
         if (!publique.lue || !schema) return null;
@@ -148,8 +149,8 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         if ('raison' in o) return { captures: [], manquees: [o.raison] };
         return capturer(o.navigateur as unknown as NavigateurAPhotographier, dist, {
           env: { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet }, langue: m.langues.principale, hotesDesImages: images });
-      },
-      async jouer(projet, empreinte, m, etapes, { copie: surCopie, role }) {
+      }),
+      jouer: (projet, empreinte, m, etapes, { copie: surCopie, role }) => enFile('parcours', async () => {
         const publique = configurationPublique(process.env);
         const schema = schemaDuProjet(projet);
         if (!publique.lue || !schema) return { raison: 'the database of the app is not configured' };
@@ -179,7 +180,7 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         });
         if (!r.ok) await o.navigateur.close().catch(() => undefined);
         return r.ok ? r.valeur : { raison: r.raison };
-      },
+      }),
       async essayerUnAgent(projet, empreinte, m, nom, entree) {
         if (!magasin.lu) return { raison: 'the storage of the builds is not configured' };
         const agent = m.agents.find((a) => a.nom === nom);
