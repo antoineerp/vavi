@@ -634,22 +634,10 @@ details p{margin-top:10px;color:var(--encre-douce)}
       <g class="curseur v26"><path d="M0 0l12 30 6-12 14 12 5-5-13-13 13-5z" fill="var(--carte)"/></g>
     </g>
     <g class="scene v30">
-      <text x="124" y="34" font-size="12.6">claude.ai · nouvelle conversation</text>
       <g class="v28">
-        <g><rect x="250" y="66" width="360" height="74" rx="14" fill="var(--surligne-fond)"/></g>
-        <text x="266" y="96" font-size="16">Avec vavi, fais le site</text>
-        <text x="266" y="122" font-size="16">de ma boulangerie…</text>
-      </g>
-      <g class="v29">
-        <g>
-          <rect x="40" y="160" width="400" height="170" rx="14" fill="var(--carte)"/>
-          <path d="M40 188h400M62 216h150M62 236h110"/>
-          <rect x="62" y="262" width="100" height="32" rx="9" fill="var(--vert)"/>
-          <path d="M300 300c-6-34 22-52 56-52s62 18 56 52z" fill="url(#hachures)"/>
-        </g>
-        <text x="56" y="181" font-size="13.4" font-weight="700">Aperçu · Le Fournil</text>
-        <text x="78" y="284" font-size="14.3" style="fill:#fff">Commander</text>
-        <text x="462" y="250" font-size="20.2" style="fill:var(--vert)" transform="rotate(-6 462 250)">votre aperçu !</text>
+        <clipPath id="capture-arrondie"><rect x="8" y="10" width="624" height="331" rx="12"/></clipPath>
+        <image href="__IMAGES__/claude-et-planning.png" x="8" y="10" width="624" height="331" clip-path="url(#capture-arrondie)" preserveAspectRatio="xMidYMid slice"/>
+        <rect x="8" y="10" width="624" height="331" rx="12"/>
       </g>
     </g>
   </svg>
