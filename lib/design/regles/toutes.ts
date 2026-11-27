@@ -152,7 +152,7 @@ export const REGLES: readonly Regle[] = [
     porte: 'reservations', tenuePar: { fige: 'src/lib/occupations.ts' } }),
 
   regle({ id: 'regles-de-gestion', sujet: 'formulaires',
-    texte: 'Les règles de gestion d’`app.json` (`regles`, `uniques`) sont tenues par la base, sur chaque écran : ne les recopiez pas en code de page. Un formulaire peut prévenir avant l’envoi (un champ requis, une borne), mais le refus de la base rend la phrase `dit` de la règle comme `raison`, avec son `geste` : montrez-les près du formulaire, sans rien effacer de la saisie.',
+    texte: 'Les règles de gestion d’`app.json` (`regles`, `uniques`, `plafonds`, les gestes `reservee`) sont tenues par la base, sur chaque écran : ne les recopiez pas en code de page. Un formulaire peut prévenir avant l’envoi (un champ requis, une borne), mais le refus de la base rend la phrase `dit` de la règle comme `raison`, avec son `geste` : montrez-les près du formulaire, sans rien effacer de la saisie.',
     porte: 'regles' }),
 
   // ── Textes

@@ -18,7 +18,7 @@ import { lesLiensRepares } from './les-liens';
 import { lesCyclesRepares, lireLesCycles } from './les-cycles';
 import { lireLaLigneVendueUneFois } from './la-ligne-vendue-une-fois';
 import { avecSesEtatsOuverts, Bornes, lireLIntegrite } from './l-integrite';
-import { lireLesRegles, Regle, Unique } from './les-regles';
+import { lireLesRegles, Plafond, Regle, Reserve, Unique } from './les-regles';
 import { CHIFFRES, Indicateur, lireLesIndicateurs } from './les-indicateurs';
 import { Cumul, lireUnCumul } from './les-cumuls';
 import { lireUneValeurLue, ValeurLue } from './les-valeurs-lues';
@@ -115,6 +115,7 @@ export const Transition = z.object({
   pasParLAuteur: z.boolean().optional().describe('la base refuse ce geste à qui a créé la ligne, tant qu’un autre membre de son organisation peut le faire'),
   date: Identifiant.optional().describe('un champ `date` ou `date_heure` de cette table que la base pose au moment où la transition a lieu, faite par un rôle ou entraînée ; personne d’autre ne l’écrit'),
   motif: z.literal('exige').optional().describe('le geste ne se fait pas sans motif (un refus, un renvoi) ; le motif va au journal de la ligne, où l’écran le lit : aucun champ ne le recopie'),
+  reservee: z.array(Reserve).max(5).optional(),
 });
 
 /** Les lignes d'exemple d'une table ; celles d'une table `contenu`, qui les porte toutes. */
@@ -170,6 +171,8 @@ export const Table = z.object({
     .describe('ses lignes sont fixées d’avance, par la demande ou par un texte public qu’elle nomme (une liste d’exigences, un barème, une nomenclature) : `exemples` les porte TOUTES, en entier, telles que ce texte les écrit, et la base les garde'),
   regles: z.array(Regle).max(30).optional()
     .describe('les règles de gestion de ses lignes, que la base tient quel que soit l’écran : « si … alors … » (une dépense de plus de 50 € porte son justificatif ; une date de fin au moins la date de début ; un motif rempli quand l’état est refusé) ; la personne lit `dit` quand elle les rompt'),
+  plafonds: z.array(Plafond).max(10).optional()
+    .describe('les plafonds d’un ensemble de lignes (une somme ou un nombre, par personne, par champ, par période), que la base tient'),
   uniques: z.array(Unique).max(10).optional()
     .describe('les champs qui ne se répètent pas d’une ligne à l’autre dans une organisation (un courriel de client, une référence d’article, un numéro de dossier), chaque jeu avec sa phrase `dit`'),
   exemples: z.array(z.record(z.unknown())).max(LIGNES_D_UN_CONTENU).default([])
@@ -418,7 +421,7 @@ export const Manifeste = z.object({
     if (t.vente && !m.fonctions.panier) ctx.addIssue({ code: 'custom', message: `${t.nom} se vend : l'app a un panier` });
     lireLaLigneVendueUneFois(t, ctx);
     lireLIntegrite(t, ctx);
-    lireLesRegles(t, ctx);
+    lireLesRegles(t, ctx, roles);
     if (t.exemples.length > EXEMPLES_AU_PLUS && !t.contenu && !estAnalysee(m, t.nom)) ctx.addIssue({ code: 'custom', message: `${t.nom} : au plus ${EXEMPLES_AU_PLUS} exemples ; une table dont les lignes sont fixées d’avance se déclare \`contenu\` et les porte toutes` });
     if (t.contenu && t.exemples.length === 0) ctx.addIssue({ code: 'custom', message: `${t.nom} est un \`contenu\` : \`exemples\` porte chacune de ses lignes` });
     if (t.contenu && !['organisation', 'publique'].includes(t.appartenance)) ctx.addIssue({ code: 'custom', message: `${t.nom} est un \`contenu\`, lu de tous ceux qui lisent la table : \`organisation\` ou \`publique\`` });

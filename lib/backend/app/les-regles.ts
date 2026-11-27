@@ -63,12 +63,36 @@ export const Unique = z.object({
 });
 export type Unique = z.infer<typeof Unique>;
 
+export const PERIODES = ['jour', 'semaine', 'mois', 'annee'] as const;
+/** Celui qui écrit la ligne, pour un plafond compté par personne. */
+export const AUTEUR = 'auteur';
+
+export const Plafond = z.object({
+  nom: Identifiant,
+  dit: z.string().trim().min(1).max(200).describe('la phrase que la personne lit quand le plafond serait dépassé'),
+  champ: Identifiant.optional().describe('le champ chiffré dont la somme est plafonnée ; absent : le nombre de lignes'),
+  au_plus: z.number().finite().min(0).describe('la somme (ou le nombre de lignes) que l’ensemble ne dépasse jamais'),
+  par: z.array(Identifiant).max(2).default([]).describe('ce qui sépare les ensembles : `auteur` (chaque personne qui écrit), ou un champ de la ligne (une référence vers le projet, un choix) ; absent : toute l’organisation'),
+  periode: z.object({ champ: Identifiant.describe('un champ date de la ligne'), sur: z.enum(PERIODES) }).optional()
+    .describe('l’ensemble se compte par jour, semaine, mois ou année de ce champ date'),
+  si: z.array(Condition).max(5).default([]).describe('seules les lignes où chacune tient comptent (une catégorie, un état)'),
+}).describe('un plafond sur un ensemble de lignes, tenu par la base : 500 € de dépenses par personne et par mois, 3 congés en cours');
+export type Plafond = z.infer<typeof Plafond>;
+
+export const Reserve = z.object({
+  si: z.array(Condition).min(1).max(5).describe('quand chacune tient sur la ligne, seuls les rôles `par` font ce geste'),
+  par: z.array(Identifiant).min(1).describe('les rôles qui font alors ce geste'),
+  dit: z.string().trim().min(1).max(200).describe('la phrase que lit une personne d’un autre rôle'),
+}).describe('ce geste se réserve sous condition : au-delà de 500 €, seul un responsable valide');
+export type Reserve = z.infer<typeof Reserve>;
+
 interface ChampLu { readonly nom: string; readonly type: string; readonly valeurs?: readonly string[] }
 interface TableLue {
   readonly nom: string; readonly champs: readonly ChampLu[]; readonly parent?: string; readonly appartenance?: string;
   readonly cycle?: { readonly etats: readonly string[] };
-  readonly regles?: readonly Regle[]; readonly uniques?: readonly Unique[];
+  readonly regles?: readonly Regle[]; readonly uniques?: readonly Unique[]; readonly plafonds?: readonly Plafond[];
 }
+interface CycleAReserves { readonly transitions: readonly { readonly nom: string; readonly reservee?: readonly Reserve[] }[] }
 
 const DATES = ['date', 'date_heure'];
 /** La famille d'un champ, pour comparer deux champs entre eux ou à une valeur. PUR. */
@@ -87,45 +111,47 @@ export function champDeLaCondition(t: Pick<TableLue, 'champs' | 'cycle'>, nom: s
   return t.champs.find((c) => c.nom === nom);
 }
 
-/** Les règles et l'unicité nomment des champs de leur table, comparés à ce qui leur ressemble. */
-export function lireLesRegles(t: TableLue, ctx: z.RefinementCtx): void {
+/** Une condition nomme un champ de sa table, comparé à ce qui lui ressemble. */
+function lireUneCondition(t: TableLue, c: Condition, ici: string, dire: (m: string) => void): void {
+  const champ = champDeLaCondition(t, c.champ);
+  if (!champ) { dire(`${ici} n’est pas un champ de ${t.nom}${c.champ === 'etat' ? ' (elle n’a pas de cycle)' : ''}`); return; }
+  const f = familleDe(champ.type);
+  if (SANS_VALEUR.includes(c.est)) {
+    if (c.valeur !== undefined || c.autre) dire(`${ici} : \`${c.est}\` ne prend ni \`valeur\` ni \`autre\``);
+    return;
+  }
+  if (f === 'piece') { dire(`${ici} : un fichier se dit seulement \`rempli\` ou \`vide\``); return; }
+  if ((c.valeur === undefined) === !c.autre) { dire(`${ici} : \`${c.est}\` se compare à une \`valeur\` ou à un \`autre\` champ, l’un des deux`); return; }
+  if (ORDONNEES.includes(c.est) && f !== 'chiffre' && f !== 'date') dire(`${ici} : \`${c.est}\` compare un chiffre ou une date`);
+  if (c.autre) {
+    const autre = champDeLaCondition(t, c.autre);
+    if (!autre) dire(`${ici} : \`autre\` nomme ${c.autre}, qui n’est pas un champ de ${t.nom}`);
+    else if (familleDe(autre.type) !== f || c.est === 'parmi') dire(`${ici} : \`autre\` nomme un champ de la même sorte (${c.autre} ne se compare pas à ${c.champ})`);
+    return;
+  }
+  const v = c.valeur!;
+  if (c.est === 'parmi') {
+    if (!Array.isArray(v)) dire(`${ici} : \`parmi\` prend une liste de valeurs`);
+    else if (champ.valeurs && v.some((x) => !champ.valeurs!.includes(String(x)))) dire(`${ici} : ${v.filter((x) => !champ.valeurs!.includes(String(x))).join(', ')} n’est pas une valeur de ${c.champ} (${champ.valeurs.join(', ')})`);
+    else if (f === 'chiffre' && v.some((x) => typeof x !== 'number')) dire(`${ici} : \`parmi\` liste des nombres`);
+    return;
+  }
+  if (Array.isArray(v)) { dire(`${ici} : une liste de valeurs se compare par \`parmi\``); return; }
+  if ((f === 'chiffre' || f === 'date') && typeof v !== 'number') dire(`${ici} : la valeur est un nombre${f === 'date' ? ' de jours depuis aujourd’hui' : ''}`);
+  if (f === 'booleen' && typeof v !== 'boolean') dire(`${ici} : la valeur est true ou false`);
+  if (f === 'reference') dire(`${ici} : une référence se compare à un \`autre\` champ, ou se dit \`rempli\` ou \`vide\``);
+  if (f === 'texte' && typeof v !== 'string') dire(`${ici} : la valeur est un texte`);
+  if (f === 'texte' && champ.valeurs && typeof v === 'string' && !champ.valeurs.includes(v)) dire(`${ici} : ${v} n’est pas une valeur de ${c.champ} (${champ.valeurs.join(', ')})`);
+}
+
+/** Les règles, l'unicité, les plafonds et les gestes réservés nomment des champs de leur table et des rôles de l'app. */
+export function lireLesRegles(t: TableLue, ctx: z.RefinementCtx, roles?: ReadonlySet<string>): void {
   const dire = (message: string): void => { ctx.addIssue({ code: 'custom', message: `${t.nom}.${message}` }); };
   const noms = new Set<string>();
   for (const r of t.regles ?? []) {
     if (noms.has(r.nom)) dire(`regles : deux règles se nomment ${r.nom}`);
     noms.add(r.nom);
-    for (const c of [...r.si, ...r.alors]) {
-      const ici = `regles.${r.nom} : ${c.champ}`;
-      const champ = champDeLaCondition(t, c.champ);
-      if (!champ) { dire(`${ici} n’est pas un champ de ${t.nom}${c.champ === 'etat' ? ' (elle n’a pas de cycle)' : ''}`); continue; }
-      const f = familleDe(champ.type);
-      if (SANS_VALEUR.includes(c.est)) {
-        if (c.valeur !== undefined || c.autre) dire(`${ici} : \`${c.est}\` ne prend ni \`valeur\` ni \`autre\``);
-        continue;
-      }
-      if (f === 'piece') { dire(`${ici} : un fichier se dit seulement \`rempli\` ou \`vide\``); continue; }
-      if ((c.valeur === undefined) === !c.autre) { dire(`${ici} : \`${c.est}\` se compare à une \`valeur\` ou à un \`autre\` champ, l’un des deux`); continue; }
-      if (ORDONNEES.includes(c.est) && f !== 'chiffre' && f !== 'date') dire(`${ici} : \`${c.est}\` compare un chiffre ou une date`);
-      if (c.autre) {
-        const autre = champDeLaCondition(t, c.autre);
-        if (!autre) dire(`${ici} : \`autre\` nomme ${c.autre}, qui n’est pas un champ de ${t.nom}`);
-        else if (familleDe(autre.type) !== f || c.est === 'parmi') dire(`${ici} : \`autre\` nomme un champ de la même sorte (${c.autre} ne se compare pas à ${c.champ})`);
-        continue;
-      }
-      const v = c.valeur!;
-      if (c.est === 'parmi') {
-        if (!Array.isArray(v)) dire(`${ici} : \`parmi\` prend une liste de valeurs`);
-        else if (champ.valeurs && v.some((x) => !champ.valeurs!.includes(String(x)))) dire(`${ici} : ${v.filter((x) => !champ.valeurs!.includes(String(x))).join(', ')} n’est pas une valeur de ${c.champ} (${champ.valeurs.join(', ')})`);
-        else if (f === 'chiffre' && v.some((x) => typeof x !== 'number')) dire(`${ici} : \`parmi\` liste des nombres`);
-        continue;
-      }
-      if (Array.isArray(v)) { dire(`${ici} : une liste de valeurs se compare par \`parmi\``); continue; }
-      if ((f === 'chiffre' || f === 'date') && typeof v !== 'number') dire(`${ici} : la valeur est un nombre${f === 'date' ? ' de jours depuis aujourd’hui' : ''}`);
-      if (f === 'booleen' && typeof v !== 'boolean') dire(`${ici} : la valeur est true ou false`);
-      if (f === 'reference') dire(`${ici} : une référence se compare à un \`autre\` champ, ou se dit \`rempli\` ou \`vide\``);
-      if (f === 'texte' && typeof v !== 'string') dire(`${ici} : la valeur est un texte`);
-      if (f === 'texte' && champ.valeurs && typeof v === 'string' && !champ.valeurs.includes(v)) dire(`${ici} : ${v} n’est pas une valeur de ${c.champ} (${champ.valeurs.join(', ')})`);
-    }
+    for (const c of [...r.si, ...r.alors]) lireUneCondition(t, c, `regles.${r.nom} : ${c.champ}`, dire);
   }
   const mere = t.parent ? `${t.parent}_id` : null;
   for (const u of t.uniques ?? []) {
@@ -137,8 +163,23 @@ export function lireLesRegles(t: TableLue, ctx: z.RefinementCtx): void {
     }
     if (new Set(u.champs).size !== u.champs.length) dire(`uniques : ${u.champs.join(', ')} nomme deux fois le même champ`);
   }
+  for (const p of t.plafonds ?? []) {
+    if (noms.has(p.nom)) dire(`plafonds : ${p.nom} nomme déjà une règle ou un plafond`);
+    noms.add(p.nom);
+    const ici = `plafonds.${p.nom}`;
+    const type = (n: string): string | undefined => t.champs.find((c) => c.nom === n)?.type;
+    if (p.champ && !CHIFFRES.includes(type(p.champ) ?? '')) dire(`${ici} : ${p.champ} n’est pas un champ chiffré de ${t.nom}`);
+    for (const n of p.par) if (n !== AUTEUR && n !== mere && (!type(n) || familleDe(type(n)!) === 'piece')) dire(`${ici} : \`par\` nomme ${n}, qui n’est ni \`${AUTEUR}\` ni un champ de ${t.nom}`);
+    if (p.periode && !DATES.includes(type(p.periode.champ) ?? '')) dire(`${ici} : la période se compte sur un champ date (${p.periode.champ})`);
+    for (const c of p.si) lireUneCondition(t, c, `${ici} : ${c.champ}`, dire);
+  }
+  for (const x of (t.cycle as CycleAReserves | undefined)?.transitions ?? []) for (const r of x.reservee ?? []) {
+    const ici = `cycle.${x.nom}.reservee`;
+    for (const c of r.si) lireUneCondition(t, c, `${ici} : ${c.champ}`, dire);
+    for (const n of r.par.filter((y) => roles && !roles.has(y))) dire(`${ici} : le rôle ${n} n’est pas déclaré`);
+  }
 }
 
 /** Les champs qu'une règle lit : elle se relit quand l'un d'eux change. PUR. */
-export const champsDeLaRegle = (r: Pick<Regle, 'si' | 'alors'>): string[] =>
-  [...new Set([...r.si, ...r.alors].flatMap((c) => [c.champ, ...(c.autre ? [c.autre] : [])]))];
+export const champsDeLaRegle = (r: { readonly si: readonly Condition[]; readonly alors?: readonly Condition[] }): string[] =>
+  [...new Set([...r.si, ...(r.alors ?? [])].flatMap((c) => [c.champ, ...(c.autre ? [c.autre] : [])]))];

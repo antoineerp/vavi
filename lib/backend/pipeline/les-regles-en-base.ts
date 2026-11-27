@@ -14,7 +14,7 @@
  * Ce qu'il remplace : rien (une règle n'existait que dans la page qui la vérifiait).
  */
 import type { TableDeLaBase } from '../app/la-commande';
-import { champDeLaCondition, champsDeLaRegle, familleDe, type Condition, type Regle } from '../app/les-regles';
+import { AUTEUR, champDeLaCondition, champsDeLaRegle, familleDe, type Condition, type Plafond, type Regle, type Reserve } from '../app/les-regles';
 import { cite, tableau, valeurSql } from './sql';
 
 type Table = TableDeLaBase;
@@ -44,8 +44,38 @@ export function sqlDeLaCondition(t: Table, c: Condition, l = 'new'): string {
   return `(${x} ${op} ${valeur(champ, c.valeur)})`;
 }
 
-const ensemble = (t: Table, cs: readonly Condition[], inconnu: 'false' | 'true'): string =>
-  (cs.length === 0 ? 'true' : cs.map((c) => `coalesce(${sqlDeLaCondition(t, c)}, ${inconnu})`).join(' and '));
+export const ensemble = (t: Table, cs: readonly Condition[], inconnu: 'false' | 'true', l = 'new'): string =>
+  (cs.length === 0 ? 'true' : cs.map((c) => `coalesce(${sqlDeLaCondition(t, c, l)}, ${inconnu})`).join(' and '));
+
+const TRONC = { jour: 'day', semaine: 'week', mois: 'month', annee: 'year' } as const;
+
+/** Un plafond : l'ensemble de la ligne écrite (même organisation, même `par`, même période, mêmes conditions) ne le dépasse pas. PUR. */
+export function sqlDUnPlafond(T: string, t: Table, p: Plafond): string {
+  const col = (n: string): string => (n === AUTEUR ? 'owner_id' : n);
+  const par = p.par.map(col);
+  const d = p.periode?.champ;
+  const lus = [...new Set([...(p.champ ? [p.champ] : []), ...par, ...(d ? [d] : []), ...champsDeLaRegle({ si: p.si }), 'organisation_id'])];
+  const tronc = (l: string): string => `date_trunc('${TRONC[p.periode!.sur]}', ${l}.${d}::timestamp)`;
+  const meme = [
+    'x.organisation_id = new.organisation_id',
+    ...par.map((n) => `x.${n} is not distinct from new.${n}`),
+    ...(d ? [`${tronc('x')} = ${tronc('new')}`] : []),
+    ensemble(t, p.si, 'false', 'x'),
+  ];
+  const cle = [`${cite(`${T}:plafond:${p.nom}:`)} || new.organisation_id::text`, ...par.map((n) => `coalesce(new.${n}::text, '')`), ...(d ? [`${tronc('new')}::text`] : [])].join(` || ':' || `);
+  return [
+    `  if ${change(lus)}${d ? ` and new.${d} is not null` : ''} and (${ensemble(t, p.si, 'false')}) then`,
+    `    perform pg_advisory_xact_lock(hashtextextended(${cle}, 0));`,
+    `    select ${p.champ ? `coalesce(sum(x.${p.champ}), 0)` : 'count(*)'} into v_total from ${T} x where ${meme.join(' and ')};`,
+    `    if v_total > ${p.au_plus} then ${refus(p.dit, '23514')} end if;`,
+    '  end if;'].join('\n');
+}
+
+/** Un geste réservé sous condition, sur la ligne `l` : vrai quand ce compte peut le faire. PUR. */
+export function sqlDUnGesteReserve(s: string, t: Table, r: Reserve, l: string): string {
+  return `(${s}.a_un_role(${tableau(r.par)}) or not (${ensemble(t, r.si, 'false', l)}))`;
+}
+export const refusDUnGesteReserve = (r: Reserve): string => refus(r.dit, '42501');
 
 const change = (champs: readonly string[]): string =>
   `(tg_op = 'INSERT' or ${champs.map((n) => `new.${n} is distinct from old.${n}`).join(' or ')})`;
@@ -63,13 +93,15 @@ export function sqlDesRegles(s: string, t: Table): string[] {
   const retrait = [`drop trigger if exists ${t.nom}_regles on ${T};`];
   const regles = t.regles ?? [];
   const uniques = t.uniques ?? [];
-  if (regles.length === 0 && uniques.length === 0) return [...retrait, `drop function if exists ${s}.${t.nom}_regles();`];
+  const plafonds = t.plafonds ?? [];
+  if (regles.length === 0 && uniques.length === 0 && plafonds.length === 0) return [...retrait, `drop function if exists ${s}.${t.nom}_regles();`];
   const norme = (n: string, l: string): string => {
     const type = t.champs.find((c) => c.nom === n)?.type;
     return type === 'texte' || type === 'texte_long' ? `lower(btrim(${l}.${n}))` : `${l}.${n}`;
   };
   const corps = [
     ...regles.map((r) => sqlDUneRegle(t, r)),
+    ...plafonds.map((p) => sqlDUnPlafond(T, t, p)),
     ...uniques.map((u, i) => [
       `  if ${change([...u.champs, 'organisation_id'])} and ${u.champs.map((n) => `${n === 'etat' ? `new.${n}` : `nullif(btrim(new.${n}::text), '')`} is not null`).join(' and ')} then`,
       `    perform pg_advisory_xact_lock(hashtextextended(${cite(`${T}:unique:${i}:`)} || new.organisation_id::text${u.champs.map((n) => ` || ':' || ${norme(n, 'new')}::text`).join('')}, 0));`,
@@ -80,6 +112,7 @@ export function sqlDesRegles(s: string, t: Table): string[] {
   ];
   return [...retrait,
     [`create or replace function ${s}.${t.nom}_regles() returns trigger language plpgsql security definer set search_path = '' as $fn$`,
+      ...(plafonds.length > 0 ? ['declare v_total numeric;'] : []),
       'begin',
       // Ce que la plateforme pose (exemples, import) reprend un existant tel qu'il est.
       "  if coalesce(current_setting('vavi.pose', true), '') = 'oui' then return null; end if;",

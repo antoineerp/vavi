@@ -28,7 +28,7 @@ const REFUS: Readonly<Record<string, readonly [keyof Libelles, keyof Libelles]>>
   'trop-de-lignes': ['refusTropDeLignes', 'gestePrevenir'],
 };
 
-/** Une règle de gestion d'app.json porte sa phrase, écrite pour la personne, après ce préfixe (23514, 23505). */
+/** Une règle de gestion d'app.json porte sa phrase, écrite pour la personne, après ce préfixe (23514, 23505 ; 42501 pour un geste réservé). */
 const PREFIXE_D_UNE_REGLE = 'règle : ';
 
 /** Le refus d'un code SQLSTATE, dit par les libellés de l'app ; celui d'une règle de gestion, par sa phrase. */
@@ -36,6 +36,8 @@ export function refusDit(code: string | null, message?: string | null): Omit<Err
   const L = libellesPour(langueCourante());
   const regle = message?.startsWith(PREFIXE_D_UNE_REGLE) ? message.slice(PREFIXE_D_UNE_REGLE.length).trim() : '';
   if (regle && /^23/.test(code ?? '')) return { message: regle, geste: L.gesteCorriger };
+  // Un geste réservé sous condition : la phrase dit qui le fait.
+  if (regle && code === '42501') return { message: regle, geste: L.gesteAcces };
   const valeur = /^(23|22P02)/.test(code ?? '') ? (['refusValeur', 'gesteCorriger'] as const) : (['refusAutre', 'gesteReessayer'] as const);
   const [raison, geste] = REFUS[code ?? ''] ?? valeur;
   return { message: L[raison], geste: L[geste] };
