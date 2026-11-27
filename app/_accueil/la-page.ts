@@ -7,6 +7,8 @@
  */
 import { adresseDeLaPlateforme, adresseMcp, lienDInstallation } from '@/lib/mcp/l-adresse';
 import { EN, NEUTRES } from './en-anglais';
+import { lesPrixDeLAccueil } from './les-prix';
+import { GRILLE_DU_CODE, type Grille, type Reduction } from '@/lib/abonnements/les-offres';
 
 const GABARIT = String.raw`<!doctype html>
 <html lang="fr">
@@ -322,7 +324,12 @@ details.bloque-d>summary{display:inline-flex;gap:10px;align-items:center;font-fa
 .offre.vedette{box-shadow:0 1px 0 var(--trait),0 22px 44px -28px var(--ombre)}
 .offre .etiquette{position:absolute;top:-16px;right:14px;background:var(--surligneur);color:#1c2944;font-family:var(--f-main);font-weight:700;font-size:1.2rem;padding:0 10px;border:1.5px solid var(--encre);border-radius:8px;}
 .prix{font-family:var(--f-titre);font-weight:800;font-size:2.6rem;line-height:1;font-variant-numeric:tabular-nums}
-.prix small{font-family:var(--f-texte);font-size:1rem;font-weight:400;color:var(--encre-douce)}
+.prix s{display:block;width:max-content;margin-bottom:6px;font-size:.5em;font-weight:600;color:var(--encre-douce);text-decoration-thickness:2px}
+.prix .promo-prix{color:var(--vert);white-space:nowrap}
+.promo{display:inline-block;align-self:flex-start;margin:-4px 0 0;padding:3px 10px;border-radius:999px;background:var(--vert-fond);color:var(--vert);font-weight:700;font-size:.9rem}
+.bandeau-promo{margin:0 0 30px;padding:14px 18px;border-radius:14px;border:1px solid var(--vert);background:var(--vert-fond);color:var(--encre)}
+.bandeau-promo b{color:var(--vert)}
+.prix small{white-space:nowrap;font-family:var(--f-texte);font-size:1rem;font-weight:400;color:var(--encre-douce)}
 .offre ul{margin:0;padding-left:1.1em;display:grid;gap:4px;font-size:.96rem}
 .offre .pour{color:var(--encre-douce);font-size:.96rem}
 .en-plus{margin-top:22px;text-align:center;font-size:1.05rem}
@@ -907,11 +914,11 @@ details p{margin-top:10px;color:var(--encre-douce)}
     <div class="addition">
       <div class="ticket" aria-label="Exemple de facture mensuelle pour une boutique">
         <p class="main" style="font-size:1.4rem;margin-bottom:6px">Exemple : une boutique, un mois</p>
-        <div class="ligne"><span>Abonnement vavi Boutique</span><span>49 €</span></div>
+        <div class="ligne"><span>Abonnement vavi Boutique</span><span>__PRIX_BOUTIQUE_SEUL__</span></div>
         <div class="ligne"><span>Messages à Claude, corrections, essais</span><span class="zero">0 € chez vavi</span></div>
         <div class="ligne"><span>Hébergement, base, aperçu, publication</span><span class="zero">inclus</span></div>
         <div class="ligne"><span>Votre nom de domaine branché (bientôt)</span><span class="zero">inclus</span></div>
-        <div class="ligne"><span>Total vavi</span><span>49 € / mois</span></div>
+        <div class="ligne"><span>Total vavi</span><span>__PRIX_BOUTIQUE_SEUL__ / mois</span></div>
       </div>
       <div style="display:grid;gap:14px">
         <h3>Ce qui ne passe pas par vavi</h3>
@@ -920,6 +927,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
       </div>
     </div>
 
+    __BANDEAU_PROMO__
     <div class="offres">
       <div class="offre">
         <h3>Essai</h3>
@@ -930,7 +938,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
       </div>
       <div class="offre">
         <h3>Site</h3>
-        <p class="prix">19 € <small>/ mois</small></p>
+        <p class="prix">__PRIX_SITE__ <small>/ mois</small></p>__PROMO_OFFRE__
         <p class="pour">Un site vitrine pour présenter votre activité.</p>
         <ul><li>1 site publié</li><li>Votre nom de domaine (bientôt)</li><li>Design à vos couleurs</li><li>Pages RGPD et formulaire protégé du spam</li><li>Référencement et nombre de visites</li><li>Export du code et des données</li></ul>
         <a class="bouton" href="#etapes">Choisir Site</a>
@@ -938,20 +946,20 @@ details p{margin-top:10px;color:var(--encre-douce)}
       <div class="offre vedette">
         <span class="etiquette">pour vendre</span>
         <h3>Boutique ou app</h3>
-        <p class="prix">49 € <small>/ mois</small></p>
+        <p class="prix">__PRIX_BOUTIQUE__ <small>/ mois</small></p>__PROMO_OFFRE__
         <p class="pour">Pour vendre en ligne ou gérer clients et dossiers.</p>
         <ul><li>Tout de l'offre Site</li><li>Compte Stripe ouvert depuis la console</li><li>Agents IA (bientôt)</li><li>TVA par article, factures numérotées</li><li>Comptes clients et rôles</li><li>Commandes et clients dans la console</li></ul>
         <a class="bouton plein" href="#etapes">Choisir Boutique</a>
       </div>
       <div class="offre">
         <h3>Pro</h3>
-        <p class="prix">129 € <small>/ mois</small></p>
+        <p class="prix">__PRIX_PRO__ <small>/ mois</small></p>__PROMO_OFFRE__
         <p class="pour">Pour plusieurs projets, ou pour vos clients.</p>
         <ul><li>5 projets, sites ou apps</li><li>Tout de l'offre Boutique</li><li>Export de chaque projet, code et données</li></ul>
         <a class="bouton" href="#etapes">Choisir Pro</a>
       </div>
     </div>
-    <p class="en-plus">Un projet de plus, sur n'importe quelle offre payante : <b>15 € / mois</b>. Chaque offre engage 12 mois, payés chaque mois et reconduits tacitement ; après la première année, résiliable à tout moment.</p>
+    <p class="en-plus">Un projet de plus, sur n'importe quelle offre payante : <b>__PRIX_EN_PLUS__ / mois</b>. Chaque offre engage 12 mois, payés chaque mois et reconduits tacitement ; après la première année, résiliable à tout moment.</p>
   </div>
 </section>
 
@@ -1062,8 +1070,11 @@ const enHtml = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&l
 
 /** PURE : la page, l'adresse du connecteur, le premier message et la phrase des préférences posés (ceux de la page Commencer).
  * Les liens vers la console sont absolus : servie sous vavi.dev, la page envoie à la console, là où la connexion est réglée. */
-export function laPageDAccueil(t: { readonly premier: string; readonly preference: string }, adresse: string = adresseMcp(), console: string = adresseDeLaPlateforme(), langue: LangueDeLAccueil = 'fr'): string {
-  return GABARITS[langue].split('__AUTRE_LANGUE__').join(AUTRE_LANGUE[langue]).split('__LANGUE__').join(langue).split('__CONSOLE__').join(enHtml(console))
+export function laPageDAccueil(t: { readonly premier: string; readonly preference: string }, adresse: string = adresseMcp(), console: string = adresseDeLaPlateforme(), langue: LangueDeLAccueil = 'fr',
+  prix: { readonly grille: Grille; readonly reduction: Reduction | null } = { grille: GRILLE_DU_CODE, reduction: null }): string {
+  let html = GABARITS[langue];
+  for (const [repere, morceau] of Object.entries(lesPrixDeLAccueil(prix.grille, prix.reduction, langue))) html = html.split(repere).join(morceau);
+  return html.split('__AUTRE_LANGUE__').join(AUTRE_LANGUE[langue]).split('__LANGUE__').join(langue).split('__CONSOLE__').join(enHtml(console))
     .split('__LIEN_D_INSTALLATION__').join(enHtml(lienDInstallation(adresse)))
     .split('__ADRESSE_MCP__').join(enHtml(adresse))
     .split('__PREMIER_MESSAGE__').join(enHtml(t.premier.trim()))
