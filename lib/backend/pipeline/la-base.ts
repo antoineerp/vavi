@@ -259,7 +259,7 @@ function sqlDeLaTable(m: Manifeste, s: string, t: Table): string[] {
     ...colonnes.map((c) => `alter table ${T} add column if not exists ${c.replace(' not null', '')};`),
     ...colonnes.filter((c) => c.includes(' not null')).map((c) => `do $nn$ begin if not exists (select 1 from ${T}) then alter table ${T} alter column ${c.split(' ')[0]} set not null; end if; end $nn$;`),
     ...sqlDesBornes(s, t),
-    ...sqlDeLaPeriode(s, t),
+    ...sqlDeLaPeriode(s, m.tables, t),
     // La fiche d'un compte : la console la relie (`lib/donnees/les-fiches`) ; le navigateur ne l'écrit jamais, un compte a une fiche.
     ...(t.personnes ? [`alter table ${T} add column if not exists ${COLONNE_DE_LA_FICHE} uuid;`,
       `create unique index if not exists ${t.nom}_${COLONNE_DE_LA_FICHE}_unique on ${T} (${COLONNE_DE_LA_FICHE});`] : []),

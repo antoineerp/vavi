@@ -537,7 +537,7 @@ NOTIFY pgrst, 'reload schema';
 
 -- ── la plateforme pour un compte
 -- ============================================================================
--- LA PLATEFORME POUR UN COMPTE — les fonctions d'une app que SEULE la plateforme appelle (coffre, quotas, propositions de l'IA, pièces jointes, imports)
+-- LA PLATEFORME POUR UN COMPTE — les fonctions d'une app que SEULE la plateforme appelle (coffre, quotas, propositions de l'IA, pièces jointes, imports, occupations d'une période)
 -- ============================================================================
 GRANT authenticated TO service_role;
 
@@ -560,7 +560,7 @@ BEGIN
   IF p_schema IS NULL OR p_schema !~ '^app_[a-z0-9_]{1,59}$' THEN
     RAISE EXCEPTION 'plateforme : schéma refusé (%)', p_schema USING ERRCODE = '22023';
   END IF;
-  IF p_fonction IS NULL OR p_fonction !~ '^(coffre_preparer|coffre_poser_le_dossier|coffre_enregistrer|coffre_le_fichier|coffre_retirer|coffre_vider|quotas_consommer|quotas_peut_consommer|piece_joindre|piece_de_la_ligne|[a-z][a-z0-9_]{0,40}_proposer|[a-z][a-z0-9_]{0,40}_importer)$' THEN
+  IF p_fonction IS NULL OR p_fonction !~ '^(coffre_preparer|coffre_poser_le_dossier|coffre_enregistrer|coffre_le_fichier|coffre_retirer|coffre_vider|quotas_consommer|quotas_peut_consommer|piece_joindre|piece_de_la_ligne|[a-z][a-z0-9_]{0,40}_proposer|[a-z][a-z0-9_]{0,40}_importer|[a-z][a-z0-9_]{0,40}_occupations)$' THEN
     RAISE EXCEPTION 'plateforme : fonction non offerte (%)', coalesce(p_fonction, 'vide') USING ERRCODE = '42501';
   END IF;
   IF p_arguments IS NOT NULL AND jsonb_typeof(p_arguments) <> 'object' THEN

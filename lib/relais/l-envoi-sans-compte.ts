@@ -12,7 +12,7 @@
 import { ceQueLEnvoiRend, preparerUnEnvoi } from '@/lib/backend/app/l-envoi-sans-compte';
 import type { Manifeste } from '@/lib/backend/app/manifeste';
 
-type Issue<T> = { readonly lu: true; readonly valeur: T } | { readonly lu: false; readonly pourquoi: string };
+type Issue<T> = { readonly lu: true; readonly valeur: T } | { readonly lu: false; readonly pourquoi: string; readonly code?: string | null };
 const objet = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : {});
 
 export interface PieceEnvoyee { readonly colonne: string; readonly nom: string; readonly octets: Uint8Array; readonly type: string | null }
@@ -35,6 +35,8 @@ export async function envoyerSansCompte(m: Pick<Manifeste, 'tables'>, schema: st
   const cible = { p_schema: schema, p_table: p.table };
   const cree = await d.relais('voie_neuve_creer', { ...cible, p_valeurs: p.ligne });
   const id = cree.lu ? objet(cree.valeur).id : null;
+  // La place est prise (`periode.exclusive`) : dit comme tel, la page propose une autre période.
+  if (!cree.lu && cree.code === '23P01') return { statut: 409, corps: { error: 'Cette période est déjà prise : choisissez une autre date ou un autre créneau.', code: '23P01' } };
   if (!cree.lu || typeof id !== 'string') {
     return { statut: 422, corps: { error: 'L’envoi est refusé par l’app : un champ manque ou n’a pas la bonne forme.', ...(cree.lu ? {} : { detail: cree.pourquoi }) } };
   }

@@ -55,7 +55,9 @@ async function envoyer(chemin: string, corps: unknown): Promise<Resultat<Respons
 
 function refusDe(statut: number, lu: unknown): { readonly forme: 'refus'; readonly raison: string; readonly geste: string } {
   const L = libellesPour(langueCourante());
-  const e = (lu ?? {}) as { error?: unknown; detail?: unknown };
+  const e = (lu ?? {}) as { error?: unknown; detail?: unknown; code?: unknown };
+  // La place est prise (une période exclusive) : dit dans la langue de l'app, avec le geste qui le lève.
+  if (e.code === '23P01') return { forme: 'refus', raison: L.refusOccupe, geste: L.gesteAutrePeriode };
   const raison = typeof e.error === 'string' ? e.error : `${statut}`;
   return { forme: 'refus', raison: typeof e.detail === 'string' ? `${raison} (${e.detail})` : raison, geste: L.reessayerDansUnInstant };
 }

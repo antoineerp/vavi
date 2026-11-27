@@ -155,6 +155,7 @@ export const Table = z.object({
     exclusive: z.boolean().default(false).describe('deux lignes ne se chevauchent jamais (une réservation, un rendez-vous, une location, un planning) : la base refuse la seconde, quel que soit qui l’écrit'),
     ressource: Identifiant.optional().describe('avec `exclusive` : le champ qui nomme ce que la ligne occupe (une référence vers la salle, la personne, le véhicule ; un choix) ; deux lignes de ressources différentes peuvent se chevaucher'),
     libre: z.array(Identifiant).default([]).describe('avec `exclusive` et un cycle : les états où la ligne ne tient plus sa place (annulée, refusée)'),
+    capacite: z.union([z.number().int().min(1).max(100000), Identifiant]).optional().describe('avec `exclusive` : combien de lignes tiennent en même temps sur une ressource (les places d’un cours, les tables d’un restaurant) : un nombre, ou le champ entier de la table de la `ressource` qui le dit (salles.places) ; absente : une seule'),
   }).optional().describe('chaque ligne occupe une période, de son début à sa fin (la base refuse une fin avant le début) : elle se montre aussi sur une frise'),
   personnes: Identifiant.optional()
     .describe('le rôle dont chaque compte a SA ligne dans cette table, sa fiche (un technicien, un salarié, un client suivi) : la base pose la colonne `compte_id`, que le propriétaire relie à un compte dans la console (Utilisateurs) ; la page lit la fiche du compte connecté par `useMaFiche`, jamais en comparant une adresse recopiée dans un champ'),
@@ -368,6 +369,13 @@ export const Manifeste = z.object({
       if (!['texte', 'choix'].includes(type(t.periode.libelle) ?? '')) ctx.addIssue({ code: 'custom', message: `${t.nom}.${t.periode.libelle} : une ligne de la frise se nomme par un champ texte` });
       const r = t.periode.ressource;
       if (r && !['reference', 'choix', 'texte', 'entier'].includes(type(r) ?? '')) ctx.addIssue({ code: 'custom', message: `${t.nom}.${r} : la ressource d’une période est un champ référence, choix, texte ou entier` });
+      const cap = t.periode.capacite;
+      if (typeof cap === 'string') {
+        const ref = r ? t.champs.find((c) => c.nom === r) : undefined;
+        const cible = ref?.type === 'reference' ? m.tables.find((x) => x.nom === ref.table) : undefined;
+        if (!cible) ctx.addIssue({ code: 'custom', message: `${t.nom}.periode.capacite : un champ de capacité se lit sur la table de la \`ressource\`, qui est alors une référence` });
+        else if (cible.champs.find((c) => c.nom === cap)?.type !== 'entier') ctx.addIssue({ code: 'custom', message: `${t.nom}.periode.capacite : ${cible.nom}.${cap} n’est pas un champ entier` });
+      }
       for (const e of t.periode.libre.filter((x) => !t.cycle?.etats.includes(x))) ctx.addIssue({ code: 'custom', message: `${t.nom}.periode.libre : ${e} n’est pas un état du cycle de ${t.nom}` });
     }
     for (const c of [...(t.identite ?? []), ...(t.vente ? [t.vente.prix, t.vente.libelle, t.vente.stock, t.vente.tva, t.vente.poids, t.vente.options] : [])]) {

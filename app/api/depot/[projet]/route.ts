@@ -3,7 +3,7 @@
  * du gabarit, `lib/relais/l-envoi-sans-compte.ts`).
  *   multipart : `depot` = JSON `{ table, ligne }` ; chaque fichier sous le nom de sa colonne.
  *   réponse : 201 `{ id, ligne }` (la ligne gardée, ce que la base a calculé) ; 400 forme, 404 projet, 413 fichier trop lourd,
- *   422 refusé (table fermée au visiteur, champ inconnu, envoi jugé machinal), 429 débit, 503.
+ *   409 la période est déjà prise (`periode.exclusive`), 422 refusé (table fermée au visiteur, champ inconnu, envoi jugé machinal), 429 débit, 503.
  * La porte d'un visiteur : débit borné par projet et par adresse, envoi jugé comme un formulaire (le leurre, le texte tiré
  * au hasard, la visite servie) ; la plateforme écrit au nom du propriétaire, sous la sécurité des lignes de l'app.
  *

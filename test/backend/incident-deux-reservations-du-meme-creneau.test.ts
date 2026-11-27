@@ -8,7 +8,9 @@
  * PAR LA BASE, POUR TOUTE APP :
  *   · la fin ne précède jamais le début ;
  *   · une période `exclusive` ne chevauche aucune ligne de la même `ressource`, même invisible à qui écrit ;
- *   · une ligne dans un état `libre` (annulée) rend sa place ; une date seule occupe sa journée.
+ *   · une ligne dans un état `libre` (annulée) rend sa place ; une date seule occupe sa journée ;
+ *   · une `capacite` (un nombre, ou le champ entier de la ressource) tient N lignes à la fois, comptées instant par instant ;
+ *   · `<table>_occupations` rend les places prises, sans qui ni quoi, à qui ne voit pas les lignes.
  *
  * ⚠️ ROUGE AVANT (ca2e13e) : chaque écriture refusée ci-dessous était acceptée, et `exclusive` n'existait pas.
  */
@@ -35,6 +37,16 @@ const SALLES = {
       periode: { debut: 'debut', fin: 'fin', libelle: 'objet', exclusive: true, ressource: 'salle', libre: ['annulee'] },
       cycle: { etats: ['confirmee', 'annulee'], initial: 'confirmee', modifiable: ['confirmee'], libelles: { confirmee: 'Confirmée', annulee: 'Annulée' },
         transitions: [{ nom: 'annuler', libelle: 'Annuler', de: ['confirmee'], vers: 'annulee', par: ['gerant', 'membre'] }] } },
+    { nom: 'ateliers', libelle: 'Ateliers', appartenance: 'organisation', lecture: ['gerant', 'membre'], ecriture: ['gerant'],
+      champs: [{ nom: 'titre', libelle: 'Titre', type: 'texte', obligatoire: true }, { nom: 'places', libelle: 'Places', type: 'entier' }] },
+    { nom: 'inscriptions', libelle: 'Inscriptions', appartenance: 'personnelle', lecture: ['gerant', 'membre'], ecriture: ['gerant', 'membre'],
+      champs: [
+        { nom: 'nom', libelle: 'Nom', type: 'texte', obligatoire: true },
+        { nom: 'atelier', libelle: 'Atelier', type: 'reference', table: 'ateliers', obligatoire: true },
+        { nom: 'debut', libelle: 'Début', type: 'date_heure', obligatoire: true },
+        { nom: 'fin', libelle: 'Fin', type: 'date_heure', obligatoire: true },
+      ],
+      periode: { debut: 'debut', fin: 'fin', libelle: 'nom', exclusive: true, ressource: 'atelier', capacite: 'places' } },
     { nom: 'conges', libelle: 'Congés', appartenance: 'personnelle', lecture: ['gerant', 'membre'], ecriture: ['gerant', 'membre'],
       champs: [
         { nom: 'motif', libelle: 'Motif', type: 'texte', obligatoire: true },
@@ -61,9 +73,17 @@ describe('1 — app.json déclare la période exclusive, et le cadrage la vérif
     expect(!r.ok && r.erreurs.join('\n')).toMatch(/reservations\.debut : la ressource d’une période/);
     expect(!r.ok && r.erreurs.join('\n')).toMatch(/periode\.libre : archivee n’est pas un état du cycle/);
   });
+  it('une capacité lue sur un champ qui n’est pas l’entier de la table de la ressource : refusée, nommée', () => {
+    const faux = structuredClone(SALLES) as unknown as { tables: { periode?: Record<string, unknown> }[] };
+    faux.tables[3]!.periode!.capacite = 'titre';
+    faux.tables[1]!.periode!.capacite = 'places';
+    const r = lireLeManifeste(faux);
+    expect(!r.ok && r.erreurs.join('\n')).toMatch(/inscriptions\.periode\.capacite : ateliers\.titre n’est pas un champ entier/);
+    expect(!r.ok && r.erreurs.join('\n')).toMatch(/reservations\.periode\.capacite : salles\.places n’est pas un champ entier/);
+  });
   it('une période sans `exclusive` reste une frise : aucune règle de chevauchement posée', () => {
     const libre = structuredClone(SALLES);
-    delete (libre.tables[2]!.periode as { exclusive?: boolean }).exclusive;
+    delete (libre.tables[4]!.periode as { exclusive?: boolean }).exclusive;
     const sql = sqlDeLaBase(lu(libre), { schema: 'app_x', proprietaire: '11111111-1111-1111-1111-111111111111' }).map((g) => g.sql).join('\n');
     expect(sql).not.toMatch(/conges_occupe\(\)/);
     expect(sql).toMatch(/conges_periode_ordonnee check/);
@@ -120,5 +140,31 @@ describe.runIf(POSTGRES_PRESENT)('2 — la base réelle refuse la double réserv
     expect(conge(BRUNO, '2027-02-03', '2027-02-03').sortie).toMatch(/cette période est déjà prise/);
     expect(conge(BRUNO, '2027-02-04', '2027-02-05').ok).toBe(true);
     expect(conge(BRUNO, '2027-02-07', '2027-02-06').ok).toBe(false);
+  });
+
+  it('une capacité de deux places : deux inscrits à la fois, pas trois ; deux qui se suivent ne s’additionnent pas', () => {
+    const at = premier(pg.comme(GERANT, `insert into ${S}.ateliers (titre, places) values ('Poterie', 2) returning id;`));
+    const inscrire = (compte: string, debut: string, fin: string) =>
+      pg.comme(compte, `insert into ${S}.inscriptions (nom, atelier, debut, fin) values ('X', '${at}', '2027-03-01 ${debut}+01', '2027-03-01 ${fin}+01');`);
+    expect(inscrire(ANNE, '09:00', '10:00').ok).toBe(true);
+    expect(inscrire(BRUNO, '10:00', '11:00').ok).toBe(true);
+    // 09:30-10:30 ne croise qu'une inscription à chaque instant : la foule ne dépasse jamais deux.
+    expect(inscrire(BRUNO, '09:30', '10:30').ok).toBe(true);
+    expect(inscrire(ANNE, '09:45', '10:15').sortie).toMatch(/cette période est déjà prise/);
+    expect(inscrire(ANNE, '10:15', '10:45').sortie).toMatch(/cette période est déjà prise/);
+    // À 10:30, la séance de 09:30 vient de finir : une place est libre.
+    expect(inscrire(ANNE, '10:30', '11:00').ok).toBe(true);
+    expect(inscrire(ANNE, '10:40', '10:50').sortie).toMatch(/cette période est déjà prise/);
+    expect(inscrire(ANNE, '11:00', '12:00').ok).toBe(true);
+  });
+
+  it('les occupations : les places prises de tous, à qui ne voit que les siennes, sans qui ni quoi', () => {
+    const lu = JSON.parse(pg.comme(BRUNO, `select ${S}.reservations_occupations('2027-01-05 00:00+01', '2027-01-06 00:00+01', '${a}');`).sortie) as
+      { capacite: number; occupations: { debut: string; fin: string; ressource: string }[] };
+    expect(lu.capacite).toBe(1);
+    expect(lu.occupations.length).toBe(2);
+    expect(Object.keys(lu.occupations[0]!).sort()).toEqual(['debut', 'fin', 'ressource']);
+    expect(lu.occupations.every((o) => o.ressource === a)).toBe(true);
+    expect(pg.comme(BRUNO, `select ${S}.reservations_occupations('2027-01-05', '2028-06-01', null);`).sortie).toMatch(/400 jours/);
   });
 });

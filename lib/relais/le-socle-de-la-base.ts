@@ -44,3 +44,14 @@ export function laMigrationDesComptesDesApps(): string {
     "NOTIFY pgrst, 'reload schema';", '',
   ].join('\n');
 }
+
+export const CHEMIN_DE_LA_MIGRATION_DES_OCCUPATIONS = 'supabase/migrations/20261127070000_les_occupations.sql';
+
+/** PURE — la migration des occupations (27/11) : la porte de la plateforme ouvre `<table>_occupations`, ce qu'une période exclusive tient. */
+export function laMigrationDesOccupations(): string {
+  return [
+    '-- LES OCCUPATIONS — écrit par scripts/ecrire-la-migration-du-socle.ts depuis lib/relais/la-plateforme-pour-un-compte.ts.',
+    '-- Ne pas modifier à la main : modifier la source, puis relancer le script.',
+    SQL_DE_LA_PLATEFORME_POUR_UN_COMPTE.trim(), '',
+  ].join('\n');
+}

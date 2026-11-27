@@ -73,9 +73,9 @@ export type FonctionDuRelais = (typeof FONCTIONS_DU_RELAIS)[number]['nom'];
 /** L'appel côté serveur — `client` est celui de la plateforme (clé de service). Ne lève pas. */
 export async function agirPourUnCompte(
   client: SupabaseClient, compte: string, fonction: FonctionDuRelais, args: Record<string, unknown>,
-): Promise<{ readonly lu: true; readonly valeur: unknown } | { readonly lu: false; readonly pourquoi: string }> {
+): Promise<{ readonly lu: true; readonly valeur: unknown } | { readonly lu: false; readonly pourquoi: string; readonly code?: string | null }> {
   const { data, error } = await client.rpc('voie_neuve_pour', { p_compte: compte, p_fonction: fonction, p_arguments: args });
-  return error ? { lu: false, pourquoi: error.message } : { lu: true, valeur: data };
+  return error ? { lu: false, pourquoi: error.message, code: error.code ?? null } : { lu: true, valeur: data };
 }
 
 /**
@@ -84,7 +84,7 @@ export async function agirPourUnCompte(
  */
 export async function plateformePour(
   client: SupabaseClient, compte: string, schema: string, fonction: string, args: Record<string, unknown>,
-): Promise<{ readonly lu: true; readonly valeur: unknown } | { readonly lu: false; readonly pourquoi: string }> {
+): Promise<{ readonly lu: true; readonly valeur: unknown } | { readonly lu: false; readonly pourquoi: string; readonly code?: string | null }> {
   const { data, error } = await client.rpc('plateforme_pour', { p_compte: compte, p_schema: schema, p_fonction: fonction, p_arguments: args });
-  return error ? { lu: false, pourquoi: error.message } : { lu: true, valeur: data };
+  return error ? { lu: false, pourquoi: error.message, code: error.code ?? null } : { lu: true, valeur: data };
 }

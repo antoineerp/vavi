@@ -98,7 +98,7 @@ const ECRITURES = /\/rest\/v1\/rpc\/(voie_neuve_(?:creer|modifier|supprimer|appe
 export function leSortDeLaRequete(url: string, methode: string, sorte: string, o: { readonly site: string; readonly base: string; readonly images: readonly string[]; readonly copie?: boolean }):
   | { readonly sort: 'servie' }
   | { readonly sort: 'bloquee' }
-  | { readonly sort: 'simulee'; readonly quoi: 'base' | 'formulaire' | 'depot'; readonly fonction?: string }
+  | { readonly sort: 'simulee'; readonly quoi: 'base' | 'formulaire' | 'depot' | 'occupations'; readonly fonction?: string }
   | { readonly sort: 'indisponible'; readonly chemin: string } {
   let u: URL;
   try { u = new URL(url); } catch { return { sort: 'bloquee' }; }
@@ -108,6 +108,8 @@ export function leSortDeLaRequete(url: string, methode: string, sorte: string, o
     if (api && api[1] === 'forms/submit') return { sort: 'simulee', quoi: 'formulaire' };
     // L'envoi sans compte : joué dans la copie (`la-plateforme-de-la-copie`), simulé sans elle.
     if (api && /^depot\/[^/]+$/.test(api[1]!) && !o.copie) return { sort: 'simulee', quoi: 'depot' };
+    // Les places prises d'une période exclusive : aucune dans un parcours (les écritures n'y restent pas).
+    if (api && /^occupations\/[^/]+$/.test(api[1]!)) return { sort: 'simulee', quoi: 'occupations' };
     if (api) return { sort: 'indisponible', chemin: `/api/${api[1]}` };
     return { sort: 'servie' };
   }
@@ -121,7 +123,8 @@ export function leSortDeLaRequete(url: string, methode: string, sorte: string, o
 }
 
 /** La réponse simulée d'une écriture, et ce qu'elle dit au rapport. PUR. */
-export function laReponseSimulee(quoi: 'base' | 'formulaire' | 'depot', fonction: string | undefined, corps: string | null): { readonly corps: unknown; readonly dit: string } {
+export function laReponseSimulee(quoi: 'base' | 'formulaire' | 'depot' | 'occupations', fonction: string | undefined, corps: string | null): { readonly corps: unknown; readonly dit: string } {
+  if (quoi === 'occupations') return { corps: { capacite: null, occupations: [] }, dit: 'the taken slots were read: none during a journey' };
   if (quoi === 'depot') {
     const d = leDepotDuCorps(corps) as { table?: unknown; ligne?: unknown } | null;
     return { corps: { id: randomUUID(), ligne: d?.ligne ?? {} }, dit: `a visitor's row would be saved without an account in « ${String(d?.table ?? '?')} »: ${JSON.stringify(d?.ligne ?? {}).slice(0, 300)}` };
