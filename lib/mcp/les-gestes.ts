@@ -105,6 +105,9 @@ const MAX_ECRIT = 2_000_000;
 const MAX_LU = 400_000;
 
 const urlDeLApercu = (c: Contexte, id: string): string => lAdresseDeLApp(id, 'apercu', { console: c.adresse, domaine: c.domaineDesApps ?? null });
+/** L'aperçu ouvert par la console, où le propriétaire entre dans son app déjà connecté (`/projets/<id>/entrer`) : le lien que
+ * Claude donne à la personne (27/11, Antoine : l'adresse nue de l'aperçu l'arrêtait sur la porte de sa propre app). */
+const urlDuProprietaire = (c: Contexte, id: string): string => `${c.adresse}/projets/${id}/entrer`;
 const urlDuBrouillon = (c: Contexte, id: string, e: string): string => `${urlDeLApercu(c, id)}?brouillon=${e}`;
 
 /* ── Ce que chaque geste vérifie d'abord ───────────────────────────────── */
@@ -219,7 +222,7 @@ function leManifesteEnvoye(brut: unknown): Etape<Recu> {
 
 const vueDuProjet = (c: Contexte, p: Projet) => ({
   id: p.id, name: p.nom, version: p.version, modified_at: p.modifieLe,
-  preview_url: p.apercuEmpreinte ? urlDeLApercu(c, p.id) : null,
+  preview_url: p.apercuEmpreinte ? urlDeLApercu(c, p.id) : null, owner_url: p.apercuEmpreinte ? urlDuProprietaire(c, p.id) : null,
   work_session: p.chantier ? { id: p.chantier.id, intention: p.chantier.intention, opened_at: p.chantier.ouvertLe, last_change_at: p.chantier.dernierGesteLe } : null,
 });
 
@@ -710,7 +713,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   if (deja.lu && deja.valeur?.vert) {
     compterLeBuild(c, a.project, true);
     const designe = await c.projets.publierLApercu(c.compte, a.project, arbre.empreinte);
-    return fait({ project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, rebuilt: false,
+    return fait({ project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), owner_url: urlDuProprietaire(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, rebuilt: false,
       preview_updated: designe.lu, note: 'Nothing changed since the last green build.' });
   }
   // Des chemins relatifs : le même build sert l'aperçu, le brouillon et le site public (`poserLEnvironnement`).
@@ -782,7 +785,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   const droits = lesEcartsDeDroit(arbre.manifeste, siens);
   const sansDescription = lesPagesSansDescription(siens, f.valeur.get('src/referencement.json'));
   return fait({
-    project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree, timings_ms: temps,
+    project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), owner_url: urlDuProprietaire(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree, timings_ms: temps,
     preview_updated: designe.lu,
     ...(vues ? { screens: vues.captures.length ? `the home page on ${vues.captures.map((x) => x.ecran === 'bureau' ? 'a desktop screen (1280×800)' : 'a phone (390×844)').join(' and ')}, as images below: look at them and fix what is visibly wrong (empty or broken section, unreadable text, overflowing menu) before showing the person`
       : `not taken: ${vues.manquees.join(' | ')}` } : {}),

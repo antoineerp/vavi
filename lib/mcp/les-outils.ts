@@ -154,7 +154,7 @@ export const DEFINITIONS = {
   }),
   build_preview: def({
     title: 'Build the preview', lecture: false, entree: z.object({ project: projet }),
-    description: 'Type-checks and builds the current version. Green: the preview now shows it (give the person `preview_url`). Red: each error with its file and line; the preview keeps the last green version.',
+    description: 'Type-checks and builds the current version. Green: the preview now shows it (give the person `owner_url`: it opens the preview signed in as them; `preview_url` is the address for others). Red: each error with its file and line; the preview keeps the last green version.',
     geste: (c, a) => g.construireLApercu(c, a),
   }),
   try_journey: def({
