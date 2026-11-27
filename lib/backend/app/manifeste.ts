@@ -27,6 +27,7 @@ import { Agent, lireLesAgents } from './les-agents';
 import { Demande, Ecran, lesDemandesReparees, lireLesEcrans, Parcours } from './les-ecrans';
 import { Analyse, estAnalysee, lireLAnalyse } from './l-analyse';
 import { lireLaRemise } from './la-remise';
+import { lesZonesReparees, lireLesZones, Zone, ZONES_AU_PLUS } from './la-livraison';
 import { lireLesEnvois } from './l-envoi-sans-compte';
 import { INSCRITS, lesAccesTraduits, TOUS } from './les-acces';
 import { lesFormesReparees } from './les-formes-reparees';
@@ -145,6 +146,7 @@ export const Table = z.object({
     stock: Identifiant.optional().describe('le champ des unités disponibles : ce qui dépasse ne se paie pas, le paiement le décompte'),
     tva: Identifiant.optional().describe('le champ du taux de TVA de l’article, en % ; absent : le taux normal du pays'),
     poids: Identifiant.optional().describe('le champ du poids d’une unité, en kg'),
+    categorie: Identifiant.optional().describe('le champ (texte ou choix) de la catégorie de l’article, qu’un code de remise peut viser (`vente.remise.cible`)'),
     options: Identifiant.optional().describe('le champ texte qui liste, séparées par des virgules, les variantes que l’acheteur choisit avant de mettre l’article au panier'),
     payee: Identifiant.optional().describe('une ligne qui ne se vend qu’une fois : la transition de son cycle, sans rôle (`par: []`), que la base fait quand sa commande est payée ; elle ne s’achète que depuis les états d’où part cette transition, puis plus jamais'),
   }).optional().describe('chaque ligne de cette table est un article à vendre, qui s’achète sans compte ; une ligne qu’un `visiteur` envoie se vend aussi quand la base en pose le prix (un champ calculé)'),
@@ -210,6 +212,7 @@ export const Boutique = z.object({
     prix: z.number().min(0).default(0).describe('le prix d’un envoi, dans la devise'),
     offerteDes: z.number().positive().nullable().default(null).describe('le montant du panier à partir duquel l’envoi est offert'),
     retrait: z.string().min(1).nullable().default(null).describe('l’adresse du retrait sur place, quand il est offert'),
+    zones: z.array(Zone).max(ZONES_AU_PLUS).default([]).describe('le prix de l’envoi selon le pays et le poids du colis (France, Europe, Monde) : un pays d’une zone a le prix de sa zone ; un pays desservi hors de toute zone, le `prix` ; vide : le `prix` partout'),
   }).default({}),
   remise: z.object({
     table: Identifiant.describe('la table des codes'),
@@ -218,6 +221,10 @@ export const Boutique = z.object({
     montant: Identifiant.optional().describe('le champ du montant retiré des articles, dans la devise'),
     actif: Identifiant.optional().describe('le champ booléen qui dit si le code vaut encore'),
     fin: Identifiant.optional().describe('le champ date après lequel le code ne vaut plus'),
+    minimum: Identifiant.optional().describe('le champ du montant d’articles, dans la devise, à partir duquel le code vaut'),
+    utilisations: Identifiant.optional().describe('le champ entier du nombre de commandes payées où le code vaut, au plus (les commandes payées avec lui se comptent en base)'),
+    premiere: Identifiant.optional().describe('le champ booléen qui réserve le code à une première commande (aucune commande payée avec la même adresse e-mail)'),
+    cible: Identifiant.optional().describe('le champ texte qui dit à quoi le code s’applique : des noms de tables vendues ou des catégories (`vente.categorie`), séparés par des virgules ; vide : tout le panier'),
   }).optional().describe('les codes de remise : un code saisi au panier baisse le prix payé, lu en base par la vente'),
 }).describe('ce que la vente de l’app sait de son vendeur : pays, devise, TVA, livraison, codes de remise');
 
@@ -337,6 +344,7 @@ export const Manifeste = z.object({
     if (!m.tables.some((t) => t.vente)) ctx.addIssue({ code: 'custom', message: 'une app à panier a au moins une table dont les lignes se vendent (`vente` sur la table)' });
     if (!m.roles.some((r) => r.obtenu === 'proprietaire')) ctx.addIssue({ code: 'custom', message: 'une app à panier a un rôle du propriétaire (`obtenu: proprietaire`) : il gère les commandes' });
     if (m.vente?.remise) lireLaRemise(m.vente.remise, m.tables, ctx);
+    if (m.vente) lireLesZones(m.vente.livraison.zones, m.tables.flatMap((t) => (t.vente ? [{ nom: t.nom, poids: t.vente.poids }] : [])), ctx);
   } else if (m.vente) {
     ctx.addIssue({ code: 'custom', message: '`vente` ne se déclare que pour une app à panier' });
   }
@@ -378,8 +386,11 @@ export const Manifeste = z.object({
       }
       for (const e of t.periode.libre.filter((x) => !t.cycle?.etats.includes(x))) ctx.addIssue({ code: 'custom', message: `${t.nom}.periode.libre : ${e} n’est pas un état du cycle de ${t.nom}` });
     }
-    for (const c of [...(t.identite ?? []), ...(t.vente ? [t.vente.prix, t.vente.libelle, t.vente.stock, t.vente.tva, t.vente.poids, t.vente.options] : [])]) {
+    for (const c of [...(t.identite ?? []), ...(t.vente ? [t.vente.prix, t.vente.libelle, t.vente.stock, t.vente.tva, t.vente.poids, t.vente.categorie, t.vente.options] : [])]) {
       if (c && !champs.has(c)) ctx.addIssue({ code: 'custom', message: `${t.nom} : le champ ${c} n'existe pas` });
+    }
+    if (t.vente?.categorie && !['texte', 'choix'].includes(t.champs.find((c) => c.nom === t.vente!.categorie)?.type ?? '')) {
+      ctx.addIssue({ code: 'custom', message: `${t.nom}.${t.vente.categorie} : la catégorie se lit dans un champ texte ou choix` });
     }
     if (t.vente?.options && t.champs.find((c) => c.nom === t.vente!.options)?.type !== 'texte') {
       ctx.addIssue({ code: 'custom', message: `${t.nom}.${t.vente.options} : les variantes se lisent dans un champ texte` });
@@ -513,8 +524,9 @@ export function lireLeManifeste(json: unknown): { ok: true; manifeste: Manifeste
   const liens = lesLiensRepares(demandes.valeur);
   const cycles = lesCyclesRepares(liens.valeur);
   const envois = lesEnvoisRepares(cycles.valeur);
-  const ventes = lesLecturesReparees(envois.valeur), repare = [...acces.repare, ...demandes.repare, ...liens.repare, ...cycles.repare, ...envois.repare, ...ventes.repare];
-  const r = Manifeste.safeParse(ventes.valeur);
+  const ventes = lesLecturesReparees(envois.valeur), zones = lesZonesReparees(ventes.valeur);
+  const repare = [...acces.repare, ...demandes.repare, ...liens.repare, ...cycles.repare, ...envois.repare, ...ventes.repare, ...zones.repare];
+  const r = Manifeste.safeParse(zones.valeur);
   if (r.success) return { ok: true, manifeste: avecSesEtatsOuverts(r.data), repare };
   return { ok: false, erreurs: lesErreursLues(r.error.issues), repare };
 }

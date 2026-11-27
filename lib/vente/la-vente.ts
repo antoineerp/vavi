@@ -18,8 +18,8 @@ import { timingSafeEqual } from 'node:crypto';
 import { lireLeManifeste } from '@/lib/backend/app/manifeste';
 import type { AppelDeLaBase } from '@/lib/relais/poser-la-base';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
-import { laBoutique, type Boutique } from './la-boutique';
-import { chiffrer, laDestination, lePanierMontre, lesArticlesAPayer, lireLeCode, lireLesCoordonnees, lireLesLignes, type ArticleLu, type Refus } from './le-chiffrage';
+import { laBoutique, lesMots, type Boutique } from './la-boutique';
+import { chiffrer, laDestination, lePanierMontre, lesArticlesAPayer, lireLeCode, lireLesCoordonnees, lireLesLignes, type ArticleLu, type Refus, type RemiseLue } from './le-chiffrage';
 import { lePaiementDeLEvenement, ouvrirUneSessionStripe, verifierLaSignature, type AppelStripe } from './stripe';
 import { laFacture, type CommandeFacturee } from './la-facture';
 import { accorderLAcces } from './l-acces-paye';
@@ -70,18 +70,19 @@ async function chiffrerEnBase(d: DependancesDeLaVente, o: Ouverte, corps: Record
     const a = o.boutique.articles.get(table);
     if (!a) continue;
     const r = await d.rpc('app_articles_a_vendre', { p_schema: o.schema, p_table: table, p_prix: a.prix, p_libelle: a.libelle, p_stock: a.stock ?? null,
-      p_tva: a.tva ?? null, p_poids: a.poids ?? null, p_options: a.options ?? null, p_ids: [...new Set(lignes.filter((l) => l.table === table).map((l) => l.id))] });
+      p_tva: a.tva ?? null, p_poids: a.poids ?? null, p_options: a.options ?? null, p_categorie: a.categorie ?? null, p_ids: [...new Set(lignes.filter((l) => l.table === table).map((l) => l.id))] });
     if (r.error) { d.journal(`[vente] ${o.schema} — les articles de ${table} : ${r.error.message}`); return refus(503, 'try again in a moment'); }
     lues.set(table, (r.data ?? []) as ArticleLu[]);
   }
   const code = lireLeCode(corps.code);
-  let remise: { pourcentage: unknown; montant: unknown } | null | undefined;
+  let remise: RemiseLue | null | undefined;
   const R = o.boutique.remise;
   if (code && R) {
     const r = await d.rpc('app_remise_du_code', { p_schema: o.schema, p_table: R.table, p_champ: R.code, p_code: code,
-      p_pourcentage: R.pourcentage ?? null, p_montant: R.montant ?? null, p_actif: R.actif ?? null, p_fin: R.fin ?? null });
+      p_pourcentage: R.pourcentage ?? null, p_montant: R.montant ?? null, p_actif: R.actif ?? null, p_fin: R.fin ?? null,
+      p_minimum: R.minimum ?? null, p_utilisations: R.utilisations ?? null, p_premiere: R.premiere ?? null, p_cible: R.cible ?? null });
     if (r.error) { d.journal(`[vente] ${o.schema} — le code de remise : ${r.error.message}`); return refus(503, 'try again in a moment'); }
-    remise = ((r.data ?? []) as { pourcentage: unknown; montant: unknown }[])[0] ?? null;
+    remise = ((r.data ?? []) as RemiseLue[])[0] ?? null;
   }
   const c = chiffrer(o.boutique, lignes, lues, code, remise);
   return c.forme === 'chiffre' ? c.panier : c;
@@ -123,16 +124,23 @@ export async function ouvrirLaVente(d: DependancesDeLaVente, id: string, corps: 
   const p = await chiffrerEnBase(d, o, corps);
   if ('forme' in p) return non(p);
   if (p.retirees.length > 0) return non(refus(409, fr ? 'Un article du panier n’existe plus : retirez-le, puis recommencez.' : 'An item in the cart no longer exists: remove it, then try again.'));
-  if (p.remise && 'refusee' in p.remise) return non(refus(409, fr ? `Le code « ${p.remise.code} » ne vaut pas : retirez-le, puis recommencez.` : `The code “${p.remise.code}” is not valid: remove it, then try again.`));
+  if (p.remise && 'refusee' in p.remise) return non(refus(409, `${p.remise.raison ?? (fr ? `Le code « ${p.remise.code} » ne vaut pas` : `The code “${p.remise.code}” is not valid`)}${fr ? ' : retirez-le, puis recommencez.' : ': remove it, then try again.'}`));
   const acheteur = lireLesCoordonnees(corps.acheteur, o.boutique.livraison);
   if (typeof acheteur === 'string') return { statut: 400, corps: { error: fr ? 'Vos coordonnées sont incomplètes.' : 'Your details are incomplete.', detail: acheteur, code: 'coordonnees' } };
   const destination = acheteur.retrait ? { pays: null, retrait: true } : { pays: acheteur.adresse?.country ?? null, retrait: false };
+  if (p.remise && 'premiere' in p.remise && p.remise.premiere) {
+    const n = await d.rpc('app_commandes_du_courriel', { p_schema: o.schema, p_courriel: acheteur.courriel });
+    if (n.error) { d.journal(`[vente] ${o.schema} — les commandes du courriel : ${n.error.message}`); return non(refus(503, fr ? 'Réessayez dans un instant.' : 'Try again in a moment.')); }
+    if (Number(n.data) > 0) return non(refus(409, `${lesMots(o.boutique.langue).remisePremiere.replace('{code}', p.remise.code)}${fr ? ' : retirez-le, puis recommencez.' : ': remove it, then try again.'}`));
+  }
   const encaisse = await d.leCompte(id);
   if (!encaisse) return { statut: 503, corps: { error: fr ? 'Le paiement n’est pas encore configuré pour cette boutique.' : 'Payment is not set up for this shop yet.', code: 'paiement-non-configure' } };
   const a = lesArticlesAPayer(o.boutique, p, destination);
+  if ('impossible' in a.envoi) return non(refus(409, `${a.envoi.impossible}.`));
   const r = await d.rpc('app_ouvrir_une_commande', { p_schema: o.schema, p_compte: compte ?? o.proprietaire, p_lignes: a.lignes, p_montant: a.montant,
     p_livraison: a.frais, p_devise: o.boutique.devise, p_courriel: acheteur.courriel, p_nom: acheteur.nom, p_adresse: acheteur.adresse, p_tva: a.tva,
-    p_mode: o.boutique.livraison.pays.length > 0 || acheteur.retrait ? (acheteur.retrait ? 'retrait' : 'expedition') : null });
+    p_mode: o.boutique.livraison.pays.length > 0 || acheteur.retrait ? (acheteur.retrait ? 'retrait' : 'expedition') : null,
+    p_code: p.remise && 'centimes' in p.remise ? p.remise.code : null });
   const vendue = r.error && /« [^»]+ » ne se paie plus[^\n]*/.exec(r.error.message);
   if (vendue) return non(refus(409, `${vendue[0]}.`));
   if (r.error || typeof r.data !== 'string') {

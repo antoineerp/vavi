@@ -122,7 +122,7 @@ describe.runIf(POSTGRES_PRESENT)('la vente, sur un PostgreSQL réel', () => {
 
   it('le navigateur n’appelle aucune fonction de la vente ; un identifiant hors motif est refusé par la base', () => {
     expect(pg.comme(ACHETEUSE, `select public.app_lire_une_commande('${S}', '${commandeDe(0)}');`).ok).toBe(false);
-    expect(pg.comme(null, `select * from public.app_articles_a_vendre('${S}', 'the', 'prix', 'nom', null, null, null, null, array['x']);`).ok).toBe(false);
-    expect(pg.service(`select * from public.app_articles_a_vendre('${S}', 'the; drop table x', 'prix', 'nom', null, null, null, null, array['x']);`).sortie).toMatch(/identifiant refusé/);
+    expect(pg.comme(null, `select * from public.app_articles_a_vendre('${S}', 'the', 'prix', 'nom', null, null, null, null, null, array['x']);`).ok).toBe(false);
+    expect(pg.service(`select * from public.app_articles_a_vendre('${S}', 'the; drop table x', 'prix', 'nom', null, null, null, null, null, array['x']);`).sortie).toMatch(/identifiant refusé/);
   });
 });

@@ -69,7 +69,10 @@ export const APP = { ...manifeste, tables: [...manifeste.tables, ...TABLES_DE_LA
     readonly reveil: { readonly type: 'horaire' | 'evenement' } | { readonly type: 'bouton'; readonly par: readonly string[] } }[];
   readonly vente?: {
     readonly pays: string; readonly devise: string; readonly tva: 'assujettie' | 'franchise';
-    readonly livraison: { readonly pays: readonly string[]; readonly prix: number; readonly offerteDes: number | null; readonly retrait: string | null };
+    readonly livraison: { readonly pays: readonly string[]; readonly prix: number; readonly offerteDes: number | null; readonly retrait: string | null;
+      /** Le prix selon le pays et le poids du colis ; la plateforme le calcule au panier. */
+      readonly zones?: readonly { readonly nom: string; readonly pays: readonly string[]; readonly prix?: number; readonly offerteDes?: number | null;
+        readonly tranches?: readonly { readonly jusqua: number; readonly prix: number }[] }[] };
     /** Présente : le panier propose un code de remise, que la plateforme lit en base. */
     readonly remise?: { readonly table: string };
   };
