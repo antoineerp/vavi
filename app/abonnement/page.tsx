@@ -16,7 +16,7 @@ import { Icone } from '@/app/_partage/les-icones';
 import { claudeYTravaille, lEtat, laTeinte } from '@/app/_partage/le-pilotage';
 import { adresseDeLApp } from '@/app/_partage/l-adresse-des-apps';
 import { lesAbonnementsReels, PAGE_DE_L_ABONNEMENT } from '@/app/_partage/les-abonnements-reels';
-import { lEtatDuCompte, lesFacturesDuCompte, lireLeRetourDuPaiement } from '@/lib/abonnements/l-abonnement';
+import { completerLAbonnement, lEtatDuCompte, lesFacturesDuCompte, lireLeRetourDuPaiement } from '@/lib/abonnements/l-abonnement';
 import { GRILLE_DU_CODE, OFFRES, OFFRES_PAYANTES } from '@/lib/abonnements/les-offres';
 import { choisir, ouvrirLePortail, resilierALaFin } from './gestes';
 
@@ -26,7 +26,7 @@ const MOTS = {
   fr: { sousTitre: 'Votre offre, vos sites en ligne et vos factures.', essai: 'Essai gratuit',
     etatEssai: 'Vous êtes sur l’essai gratuit : vos projets se voient en aperçu, aucun n’est en ligne. Pour mettre un site en ligne, choisissez une offre.',
     etatActif: (o: string, n: number, k: number) => `Offre ${o} : ${n} site${n > 1 ? 's' : ''} en ligne sur ${k} place${k > 1 ? 's' : ''}.`,
-    prochain: (d: string) => `Prochain paiement le ${d}.`, offertJusqu: (d: string) => `Offerte jusqu’au ${d}.`,
+    prochain: (d: string) => `Prochain paiement le ${d}.`, dernier: (x: string, d: string) => `Dernier paiement : ${x} le ${d}.`, offertJusqu: (d: string) => `Offerte jusqu’au ${d}.`,
     choisirUneOffre: 'Choisir une offre', regler: 'Régler le paiement', publierLe: (n: string) => `Publier ${n}`,
     cEstFait: (n: string) => `C’est fait : votre offre est active. Vous pouvez maintenant publier ${n}.`, cEstFaitSans: 'C’est fait : votre offre est active. Vous pouvez publier vos projets.',
     places: 'Vos places en ligne', placesExplication: 'Chaque place met un site ou une app en ligne. Un projet occupe une place quand vous cliquez « Publier » sur sa page.',
@@ -41,7 +41,7 @@ const MOTS = {
   en: { sousTitre: 'Your offer, your sites online and your invoices.', essai: 'Free trial',
     etatEssai: 'You are on the free trial: your projects can be seen in preview, none is online. To put a site online, choose an offer.',
     etatActif: (o: string, n: number, k: number) => `${o} offer: ${n} site${n > 1 ? 's' : ''} online out of ${k} place${k > 1 ? 's' : ''}.`,
-    prochain: (d: string) => `Next payment on ${d}.`, offertJusqu: (d: string) => `Offered until ${d}.`,
+    prochain: (d: string) => `Next payment on ${d}.`, dernier: (x: string, d: string) => `Last payment: ${x} on ${d}.`, offertJusqu: (d: string) => `Offered until ${d}.`,
     choisirUneOffre: 'Choose an offer', regler: 'Settle the payment', publierLe: (n: string) => `Publish ${n}`,
     cEstFait: (n: string) => `Done: your offer is active. You can now publish ${n}.`, cEstFaitSans: 'Done: your offer is active. You can publish your projects.',
     places: 'Your places online', placesExplication: 'Each place puts one site or app online. A project takes a place when you click “Publish” on its page.',
@@ -65,6 +65,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const d = lesAbonnementsReels();
   // Au retour du paiement, l'abonnement est lu chez Stripe sans attendre le webhook (27/11).
   if (q.fait === 'abonne') await lireLeRetourDuPaiement(d, c.compte, q.session).catch(() => false);
+  // Un abonnement actif sans sa période (le prochain paiement) se complète chez Stripe (27/11).
+  await completerLAbonnement(d, c.compte).catch(() => undefined);
   const [e, g, a, f, l] = await Promise.all([lEtatDuCompte(d, c.compte), d.laGrille(), d.lAbonnement(c.compte), lesFacturesDuCompte(d, c.compte), c.projets.lister(c.compte)]);
   const grille = g.lu ? g.valeur : GRILLE_DU_CODE;
   const locale = c.langue === 'fr' ? 'fr-FR' : 'en-GB';
@@ -85,8 +87,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const phrase = !v ? null : v.etat === 'aucun' ? m.etatEssai
     : v.etat === 'actif' ? (v.resilieALaFin ? t.resilieLe(OFFRES[v.offre].nom[c.langue], date(v.engageJusquAu ?? v.jusquAu)) : m.etatActif(OFFRES[v.offre].nom[c.langue], enLigne.length, v.projets))
       : v.etat === 'grace' ? t.grace(date(v.pauseLe)) : t.suspendu;
+  // Ce qui a vraiment été payé (une réduction comprise), lu sur la dernière facture payée, jamais le prix de la grille.
+  const dernier = f.lu ? f.valeur.find((x) => x.statut === 'paid') ?? null : null;
   const detail = v?.etat === 'actif' && !v.resilieALaFin
-    ? [offert ? m.offertJusqu(date(v.jusquAu)) : v.jusquAu ? m.prochain(date(v.jusquAu)) : null, v.engageJusquAu ? t.engage(date(v.engageJusquAu)) : null].filter(Boolean).join(' ') : null;
+    ? [dernier && !offert ? m.dernier(euros(dernier.centimes, dernier.devise), date(dernier.le)) : null,
+      offert ? m.offertJusqu(date(v.jusquAu)) : v.jusquAu ? m.prochain(date(v.jusquAu)) : null, v.engageJusquAu ? t.engage(date(v.engageJusquAu)) : null].filter(Boolean).join(' ') : null;
   const geste = !v ? null
     : v.etat === 'actif' ? (venu && venu.enLigneEmpreinte === null ? <Link className="bouton" href={`/projets/${venu.id}`}>{m.publierLe(venu.nom)}</Link> : null)
       : v.etat === 'grace' && a.lu && a.valeur?.client ? <form action={ouvrirLePortail}><button type="submit">{m.regler}</button></form>

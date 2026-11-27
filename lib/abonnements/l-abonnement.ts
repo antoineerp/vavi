@@ -91,6 +91,23 @@ async function appliquerLaMiseAJour(d: DependancesDesAbonnements, maj: MiseAJour
 }
 
 /**
+ * UN ABONNEMENT ACTIF SANS SA PÉRIODE SE COMPLÈTE CHEZ STRIPE (Antoine, 27/11 : « je ne vois pas la date de prochaine
+ * échéance »). Seule la session de paiement était arrivée (elle ne porte pas de période) ; le serveur relit l'abonnement
+ * lui-même, vérifie qu'il est à ce compte, et applique la même lecture que le webhook. Sans effet quand rien ne manque.
+ */
+export async function completerLAbonnement(d: DependancesDesAbonnements, compte: string): Promise<void> {
+  if (!d.cle) return;
+  const a = await d.lAbonnement(compte);
+  const id = a.lu ? a.valeur?.abonnement : null;
+  if (!a.lu || !a.valeur || a.valeur.finDePeriode || !['active', 'trialing'].includes(a.valeur.statut) || !id || !/^sub_[A-Za-z0-9]{6,64}$/.test(id)) return;
+  const r = await d.stripe(`https://api.stripe.com/v1/subscriptions/${id}`, { method: 'GET', headers: { authorization: `Bearer ${d.cle}` } }).catch(() => null);
+  const o = r?.ok ? ((await r.json().catch(() => null)) as Record<string, unknown> | null) : null;
+  if (!o || (o.metadata as { vavi_compte?: unknown } | undefined)?.vavi_compte !== compte) { d.journal(`[abonnements] ${compte.slice(0, 8)} — abonnement illisible chez Stripe`); return; }
+  const l = lEvenement('customer.subscription.updated', o);
+  if (l.forme === 'mise_a_jour') await appliquerLaMiseAJour(d, l.maj, Math.floor(d.maintenant / 1000));
+}
+
+/**
  * AU RETOUR DU PAIEMENT, L'ABONNEMENT EST LU CHEZ STRIPE (Antoine, 27/11 : payé, validé par Stripe, et la console disait
  * encore « Essai gratuit »). Le webhook seul l'inscrivait : absent, mal réglé ou en retard, rien n'arrivait. Stripe renvoie
  * la personne avec l'identifiant de sa session (`session_id`) ; le serveur la relit lui-même avec la clé secrète (rien
