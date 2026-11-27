@@ -56,6 +56,13 @@ describe('le tableau', () => {
     expect(t.visites).toEqual({ total: 12, parSite: [{ nom: 'Vélos', visites: 12 }] });
     expect(t.grille.site).toBe(2400);
   });
+  // 27/11 (Antoine : « ce que les gens développent le plus ») : le décompte par nature.
+  it('ce que les gens construisent : par nature, créés, en ligne, payants, visites, ventes', () => {
+    expect(t.parNature).toEqual([
+      { nature: 'boutique', crees: 1, enLigne: 1, payants: 1, visites: 12, ventes: 3 },
+      { nature: 'site', crees: 1, enLigne: 0, payants: 1, visites: 0, ventes: 0 },
+    ]);
+  });
   it('les services : le nom des secrets qui manquent, jamais leur valeur', () => {
     const s = lEtatDesServices({ RESEND_API_KEY: 're_secret', VAVI_EXPEDITEUR: 'vavi@exemple.fr', VAVI_ADMINS: ' ' });
     expect(s.find((x) => x.service === 'Courriel (Resend)')?.manquent).toEqual([]);

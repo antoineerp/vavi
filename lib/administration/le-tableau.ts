@@ -51,6 +51,8 @@ export interface LeTableau {
     readonly nouveauxCeMois: number; readonly resiliesCeMois: number;
   };
   readonly projets: readonly (LeTableauBrut['projets'][number] & { readonly courriel: string | null; readonly ventes: { readonly nombre: number; readonly recentes: number; readonly montants: string } | null })[];
+  /** Ce que les gens construisent : par nature (site, boutique, app…), créés, en ligne, dont le propriétaire paie, avec des visites. */
+  readonly parNature: readonly { readonly nature: string; readonly crees: number; readonly enLigne: number; readonly payants: number; readonly visites: number; readonly ventes: number }[];
   readonly visites: { readonly total: number; readonly parSite: readonly { readonly nom: string; readonly visites: number }[] };
   readonly reductions: LeTableauBrut['reductions'];
   readonly buildsEnEchec: LeTableauBrut['builds_en_echec'];
@@ -80,8 +82,17 @@ export function leTableau(b: LeTableauBrut, comptes: readonly UnCompte[], mainte
     return { ...p, courriel: courriel.get(p.proprietaire) ?? null, ventes: s.length ? { nombre: s.reduce((n, v) => n + Number(v.nombre), 0), recentes: s.reduce((n, v) => n + Number(v.recentes), 0),
       montants: s.map((v) => `${(Number(v.centimes) / 100).toFixed(2)} ${v.devise.toUpperCase()}`).join(' + ') } : null };
   });
+  const payeur = new Set(factures.map((l) => l.id));
+  const natures = new Map<string, { crees: number; enLigne: number; payants: number; visites: number; ventes: number }>();
+  for (const p of projets) {
+    const n = natures.get(p.nature ?? 'inconnue') ?? { crees: 0, enLigne: 0, payants: 0, visites: 0, ventes: 0 };
+    n.crees += 1; if (p.en_ligne) n.enLigne += 1; if (payeur.has(p.proprietaire)) n.payants += 1;
+    n.visites += Number(p.visites); n.ventes += p.ventes?.nombre ?? 0;
+    natures.set(p.nature ?? 'inconnue', n);
+  }
   return {
     comptes: lignes,
+    parNature: [...natures].map(([nature, n]) => ({ nature, ...n })).sort((x, y) => y.crees - x.crees),
     grille: laGrille(b.tarifs),
     revenus: {
       mensuel: factures.reduce((n, l) => n + (l.montant ?? 0), 0), sansMontant: factures.filter((l) => l.montant === null).length,
