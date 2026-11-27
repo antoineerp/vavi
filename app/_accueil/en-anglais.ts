@@ -19,6 +19,7 @@ export const EN: Readonly<Record<string, string>> = {
   "une vraie base de données, des comptes clients, les paiements et l'hébergement en Europe": 'a real database, customer accounts, payments and hosting in Europe',
   ', et vous donne une console pour tout piloter.': ', and gives you a console to steer it all.',
   'Ajouter vavi à Claude': 'Add vavi to Claude',
+  "Le lien de vavi, à coller dans Claude si le bouton ne s'ouvre pas :": 'The vavi link, to paste into Claude if the button does not open:',
   'Essai gratuit, sans carte bancaire. Vous ne payez vavi que pour publier.': 'Free trial, no credit card. You only pay vavi to publish.',
   'Capture réelle : vous parlez à Claude à gauche, votre site se construit à droite.': 'Real screenshot: you talk to Claude on the left, your site is built on the right.',
   'Ce que Claude ne fait pas seul': 'What Claude does not do alone',
