@@ -11,6 +11,9 @@ import { Identifiant } from './identifiant';
 
 export const CHIFFRES: readonly string[] = ['nombre', 'entier', 'montant'];
 export const REPARTIS_PAR: readonly string[] = ['choix', 'booleen', 'reference'];
+/** Les figures d'un chiffre réparti (Antoine, 27/11 : les graphiques d'un vrai tableau de bord, pas seulement des barres). */
+export const FORMES_DANS_LE_TEMPS = ['colonnes', 'courbe', 'aire', 'cumul', 'cascade', 'chaleur', 'tuile'] as const;
+export const FORMES_PAR_UN_CHAMP = ['barres', 'anneau', 'entonnoir'] as const;
 
 export const Indicateur = z.object({
   nom: Identifiant,
@@ -36,8 +39,8 @@ export const Indicateur = z.object({
     nombre: z.number().int().min(2).max(24).default(6),
     serie: Identifiant.optional().describe('un second classement : un champ choix ou booléen de la table, ou `etat` ; chaque valeur se partage entre ses modalités (des colonnes empilées, une courbe par modalité)'),
   }).optional().describe('le chiffre se répartit, par un champ (`champ`) ou dans le temps (`date` et `unite`) ; il se montre en graphique'),
-  forme: z.enum(['colonnes', 'courbe', 'barres', 'anneau']).optional()
-    .describe('la figure d’un chiffre réparti : `colonnes` ou `courbe` dans le temps ; `barres`, ou `anneau` pour les parts d’un tout, par un champ. Sans elle : des colonnes dans le temps, des barres par un champ'),
+  forme: z.enum([...FORMES_DANS_LE_TEMPS, ...FORMES_PAR_UN_CHAMP]).optional()
+    .describe('la figure d’un chiffre réparti. Dans le temps : `colonnes`, `courbe`, `aire` (empilée par la série), `cumul` (la somme depuis la première période), `cascade` (ce que chaque période ajoute ou retire, jusqu’au total), `chaleur` (une case par période et par modalité), `tuile` (le dernier chiffre en grand, sa variation et sa petite courbe). Par un champ : `barres`, `anneau` (les parts d’un tout), `entonnoir` (les étapes d’un cycle, chacune en part de la première). Sans elle : des colonnes dans le temps, des barres par un champ'),
 }).describe('un chiffre que la base calcule sur les lignes que chaque compte voit ; réparti, un graphique');
 type IndicateurLu = z.infer<typeof Indicateur>;
 
@@ -81,8 +84,10 @@ export function lireLesIndicateurs(m: { readonly tables: readonly TableLue[]; re
     if (i.anciennete?.de !== undefined && i.anciennete.a !== undefined && i.anciennete.de > i.anciennete.a) dire('l’ancienneté va de `de` à `a`, `de` le plus petit');
     if (i.forme && !i.par) dire('une `forme` dessine un chiffre réparti (`par`)');
     if (!i.par) continue;
-    if (i.forme && ['colonnes', 'courbe'].includes(i.forme) !== Boolean(i.par.date)) dire(`il se répartit ${i.par.date ? 'dans le temps' : 'par un champ'} : sa forme est ${i.par.date ? '`colonnes` ou `courbe`' : '`barres` ou `anneau`'}`);
-    if (i.forme === 'anneau' && (!['nombre', 'somme'].includes(i.calcul) || i.par.objectif || i.par.serie)) dire('un anneau montre les parts d’un tout : un `nombre` ou une `somme`, sans `objectif` ni `serie`');
+    const dansLeTemps = (FORMES_DANS_LE_TEMPS as readonly string[]).includes(i.forme ?? '');
+    if (i.forme && dansLeTemps !== Boolean(i.par.date)) dire(`il se répartit ${i.par.date ? 'dans le temps' : 'par un champ'} : sa forme est ${(i.par.date ? FORMES_DANS_LE_TEMPS : FORMES_PAR_UN_CHAMP).map((f) => `\`${f}\``).join(', ')}`);
+    if ((i.forme === 'anneau' || i.forme === 'entonnoir') && (!['nombre', 'somme'].includes(i.calcul) || i.par.objectif || i.par.serie)) dire(`${i.forme === 'anneau' ? 'un anneau montre les parts d’un tout' : 'un entonnoir montre ce qui reste à chaque étape'} : un \`nombre\` ou une \`somme\`, sans \`objectif\` ni \`serie\``);
+    if (['cumul', 'cascade'].includes(i.forme ?? '') && (!['nombre', 'somme'].includes(i.calcul) || i.par.serie)) dire(`\`${i.forme}\` pose les valeurs bout à bout : un \`nombre\` ou une \`somme\`, sans \`serie\``);
     if (i.par.serie && (!modalitesDeLaSerie(t, i.par.serie) || i.par.serie === i.par.champ || i.par.objectif)) dire(`la série ${i.par.serie} est un champ choix ou booléen de ${t.nom}, ou \`etat\`, autre que \`champ\`, sans \`objectif\``);
     if (Boolean(i.par.champ) === Boolean(i.par.date)) { dire('il se répartit par un `champ`, ou dans le temps par une `date` et une `unite`'); continue; }
     if (i.par.date && (!estDate(champ(i.par.date)) || !i.par.unite)) dire(`dans le temps, il nomme un champ date de ${t.nom} (\`date\`) et une \`unite\``);

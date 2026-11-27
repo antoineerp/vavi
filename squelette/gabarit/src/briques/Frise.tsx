@@ -2,12 +2,18 @@
  * La frise d'une table dont chaque ligne occupe une période (`periode` dans app.json) : une barre par ligne, de son début
  * à sa fin, sur l'axe des mois, et le jour présent marqué. Montée dans les enfants de `<Lignes table="…">`, qui dit
  * l'attente, la panne et le vide ; `vers` mène à l'écran d'une ligne.
+ *
+ * LE GANTT (Antoine, 27/11 : « des Gantt » dans les apps métier) : chaque barre prend la couleur de son groupe (l'état de
+ * son cycle, ou le champ `groupe`), avec sa légende ; `avancement` (un champ chiffré de 0 à 100) remplit la barre de ce
+ * qui est fait ; une barre qui finit avant aujourd'hui sans être remplie se dit en retard. Ce qu'il remplace : une barre
+ * d'une seule couleur, sans avancement ni groupe.
  */
 import { Link } from 'react-router';
 import { APP } from '../lib/app';
 import { langueCourante } from '../lib/langue';
 import { libellesPour } from '../lib/libelles';
 import type { Ligne, NomDeTable } from '../lib/donnees';
+import { couleur } from './figures';
 
 const JOUR = 86_400_000;
 const instant = (v: unknown): number | null => {
@@ -25,18 +31,31 @@ function reperes(debut: number, fin: number): number[] {
   return r;
 }
 
-export function Frise<T extends NomDeTable>({ table, lignes, vers }: {
+
+export function Frise<T extends NomDeTable>({ table, lignes, vers, groupe, avancement }: {
   readonly table: T; readonly lignes: readonly Ligne<T>[]; readonly vers?: (id: string) => string;
+  /** Le champ qui colore les barres : un champ choix de la table, ou `etat` (par défaut quand la table a un cycle). */
+  readonly groupe?: string;
+  /** Un champ chiffré de 0 à 100 : la part faite de chaque ligne. */
+  readonly avancement?: string;
 }) {
   const L = libellesPour(langueCourante());
   const langue = langueCourante();
-  const p = APP.tables.find((t) => t.nom === table)?.periode;
-  if (!p) return null;
+  const t = APP.tables.find((x) => x.nom === table);
+  const p = t?.periode;
+  if (!t || !p) return null;
+  const cycle = (t as { cycle?: { etats: readonly string[]; libelles: Readonly<Record<string, string>> } }).cycle;
+  const champDuGroupe = groupe ?? (cycle ? 'etat' : undefined);
+  const groupes: readonly string[] = champDuGroupe === 'etat' ? cycle?.etats ?? []
+    : (t.champs.find((c) => c.nom === champDuGroupe) as { valeurs?: readonly string[] } | undefined)?.valeurs ?? [];
+  const nomDuGroupe = (g: string): string => (champDuGroupe === 'etat' ? cycle?.libelles[g] ?? g : g);
   const barres = lignes.flatMap((l) => {
     const x = l as unknown as Record<string, unknown>;
     const a = instant(x[p.debut]);
     const b = instant(x[p.fin]);
-    return a === null || b === null ? [] : [{ id: String(x.id), nom: String(x[p.libelle] ?? ''), a: Math.min(a, b), b: Math.max(a, b) + JOUR }];
+    const g = champDuGroupe ? groupes.indexOf(String(x[champDuGroupe] ?? '')) : -1;
+    const fait = avancement && typeof x[avancement] === 'number' ? Math.max(0, Math.min(100, x[avancement] as number)) : null;
+    return a === null || b === null ? [] : [{ id: String(x.id), nom: String(x[p.libelle] ?? ''), a: Math.min(a, b), b: Math.max(a, b) + JOUR, g, fait }];
   });
   const sansDates = lignes.length - barres.length;
   if (barres.length === 0) return sansDates > 0 ? <p className="text-sm text-muted-foreground">{L.sansPeriode.replace('{n}', String(sansDates))}</p> : null;
@@ -57,8 +76,16 @@ export function Frise<T extends NomDeTable>({ table, lignes, vers }: {
       </div>
       <ol className="space-y-2">
         {barres.sort((x, y) => x.a - y.a).map((x) => {
-          const titre = `${x.nom} · ${jour.format(x.a)} → ${jour.format(x.b - JOUR)}`;
-          const barre = <span className="absolute inset-y-1 rounded-md bg-primary" style={{ left: pos(x.a), width: `max(0.5rem, ${((x.b - x.a) / duree) * 100}%)` }} />;
+          const enRetard = x.fait !== null && x.fait < 100 && x.b < maintenant;
+          const titre = `${x.nom} · ${jour.format(x.a)} → ${jour.format(x.b - JOUR)}${x.fait !== null ? ` · ${x.fait} %` : ''}${x.g >= 0 ? ` · ${nomDuGroupe(groupes[x.g]!)}` : ''}`;
+          const teinte = x.g >= 0 ? couleur(x.g) : 'var(--color-primary)';
+          const barre = (
+            <span className={`absolute inset-y-1 overflow-hidden rounded-md ${enRetard ? 'ring-2 ring-destructive' : ''}`}
+              style={{ left: pos(x.a), width: `max(0.5rem, ${((x.b - x.a) / duree) * 100}%)`, background: x.fait === null ? teinte : `color-mix(in oklch, ${teinte} 35%, var(--color-card))` }}>
+              {x.fait !== null ? <span className="absolute inset-y-0 left-0" style={{ width: `${x.fait}%`, background: teinte }} /> : null}
+              {x.fait !== null ? <span className={`relative px-2 text-xs font-medium leading-6 tabular-nums ${x.fait >= 50 ? 'text-background' : 'text-foreground'}`}>{x.fait} %</span> : null}
+            </span>
+          );
           return (
             <li key={x.id} className="grid items-center gap-1 sm:grid-cols-[12rem_1fr] sm:gap-0">
               {vers ? <Link to={vers(x.id)} className="truncate pr-3 text-sm font-medium underline-offset-4 hover:underline">{x.nom}</Link>
@@ -74,6 +101,9 @@ export function Frise<T extends NomDeTable>({ table, lignes, vers }: {
       <figcaption className="flex flex-wrap gap-x-6 text-xs text-muted-foreground">
         {maintenant > debut && maintenant < fin ? <span className="inline-flex items-center gap-2"><span className="h-3 w-px bg-foreground/60" />{L.aujourdhui}</span> : null}
         {sansDates > 0 ? <span>{L.sansPeriode.replace('{n}', String(sansDates))}</span> : null}
+        {groupes.filter((_, k) => barres.some((x) => x.g === k)).map((g) => (
+          <span key={g} className="inline-flex items-center gap-2"><span aria-hidden className="size-2.5 rounded-sm" style={{ background: couleur(groupes.indexOf(g)) }} />{nomDuGroupe(g)}</span>
+        ))}
       </figcaption>
     </figure>
   );
