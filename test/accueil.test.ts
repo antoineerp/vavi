@@ -3,7 +3,8 @@
  * ne fait pas, et les prix sont ceux de la grille du code.
  */
 import { describe, expect, it } from 'vitest';
-import { laPageDAccueil } from '@/app/_accueil/la-page';
+import { laPageDAccueil, lesTextesSansTraduction } from '@/app/_accueil/la-page';
+import { laLangueDuNavigateur } from '@/app/_partage/la-langue-du-navigateur';
 import { lienDInstallation } from '@/lib/mcp/l-adresse';
 import { CENTIMES_D_UN_PROJET_EN_PLUS, OFFRES } from '@/lib/abonnements/les-offres';
 import { TEXTES } from '@/app/_partage/textes';
@@ -44,5 +45,39 @@ describe('la page d’accueil', () => {
 
   it('un texte avec des signes HTML ne casse pas la page', () => {
     expect(laPageDAccueil({ premier: 'a "b" <c> & d', preference: 'x' }, ADRESSE, 'https://vavi.test')).toContain('a &quot;b&quot; &lt;c&gt; &amp; d');
+  });
+
+  it('chaque texte de la page a sa traduction anglaise ; la page anglaise ne garde aucun mot français, son script compris', () => {
+    expect(lesTextesSansTraduction()).toEqual([]);
+    const en = laPageDAccueil({ premier: TEXTES.en.commencer.premierTexte, preference: TEXTES.en.commencer.preferenceTexte }, ADRESSE, 'https://vavi.test', 'en');
+    expect(en).toContain('<html lang="en">');
+    expect(en).toContain(`<code id="preference">${TEXTES.en.commencer.preferenceTexte}</code>`);
+    expect(en.match(/>Add vavi to Claude</g)?.length).toBeGreaterThanOrEqual(3);
+    for (const o of Object.values(OFFRES)) expect(en).toContain(`${o.centimes / 100} €`);
+    const lu = en.replace(/<style[\s\S]*?<\/style>|<!--[\s\S]*?-->/g, '').replace(/\s(class|id|href|src|data-copier)="[^"]*"/g, '');
+    expect(lu.replace('>Français<', '><').replace('clichés', '')).not.toMatch(/[àâçéèêîôûù]|\b(vous|votre|avec|pour|dans|bientôt)\b/i);
+    expect(en).not.toMatch(/__[A-Z_]+__/);
+    const script = en.slice(en.lastIndexOf('<script>') + 8, en.lastIndexOf('</script>'));
+    expect(script).toContain("'Copied'");
+    expect(() => new Function(script)).not.toThrow();
+  });
+
+  it('chaque langue mène à l’autre, et Google lit les deux adresses', () => {
+    const en = laPageDAccueil(T, ADRESSE, 'https://vavi.test', 'en');
+    expect(page).toContain('href="https://vavi.test/en" hreflang="en" lang="en">English</a>');
+    expect(en).toContain('href="https://vavi.test/fr" hreflang="fr" lang="fr">Français</a>');
+    for (const p of [page, en]) for (const l of ['fr', 'en']) expect(p).toContain(`<link rel="alternate" hreflang="${l}" href="https://vavi.test/${l}">`);
+    expect(page).toContain('<link rel="canonical" href="https://vavi.test/fr">');
+    expect(en).toContain('<link rel="canonical" href="https://vavi.test/en">');
+  });
+
+  it('la langue du navigateur se lit poids compris : le français s’il passe avant l’anglais, sinon l’anglais', () => {
+    expect(laLangueDuNavigateur('fr-FR,fr;q=0.9,en;q=0.8')).toBe('fr');
+    expect(laLangueDuNavigateur('en-US,en;q=0.9,fr;q=0.8')).toBe('en');
+    expect(laLangueDuNavigateur('de-DE,fr;q=0.8,en;q=0.5')).toBe('fr');
+    expect(laLangueDuNavigateur('es-ES,es;q=0.9')).toBe('en');
+    expect(laLangueDuNavigateur('en;q=0.3, fr;q=0.7')).toBe('fr');
+    expect(laLangueDuNavigateur(null)).toBe('fr');
+    expect(laLangueDuNavigateur('', 'en')).toBe('en');
   });
 });
