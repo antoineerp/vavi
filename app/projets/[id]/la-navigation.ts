@@ -17,7 +17,7 @@ export interface Rubrique { readonly titre: string; readonly ecrans: readonly { 
 
 /**
  * Le menu du projet. PUR. Un seul écran pour le contenu (« Gérer le contenu » : textes, images, apparence) ; les titres des
- * pages vivent dans le référencement ; « Utilisateurs » seulement quand d'autres que le propriétaire ont un compte ;
+ * pages vivent dans le référencement ; « Utilisateurs » dès que l'app a des comptes (le propriétaire seul compris, 27/11) ;
  * connecteurs et clés à part, pour qui fait appeler un logiciel (essai de la console du 26/11, choix d'Antoine « Simplifier
  * puis enrichir »). « Textes » et « Apparence et titres » mènent à « Gérer le contenu ».
  */

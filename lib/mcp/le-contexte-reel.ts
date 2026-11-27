@@ -25,7 +25,7 @@ import { capturer, type NavigateurAPhotographier } from '@/lib/seo/les-captures'
 import { jouerLeParcours, BASE_DU_PARCOURS, type NavigateurDuParcours } from '@/lib/parcours/le-parcours';
 import { avecUneCopie } from '@/lib/parcours/la-copie';
 import { laRouteDeLaCopie, type GestesDeLaCopie } from '@/lib/parcours/la-plateforme-de-la-copie';
-import { entrer, envoyerUnLien, rafraichir, sInscrire, sortir, type Dependances as DependancesDesComptes, type Issue as IssueDesComptes } from '@/lib/comptes/les-comptes';
+import { entrer, envoyerUnLien, rafraichir, sInscrire, sortir, unCodeDuProprietaire, type Dependances as DependancesDesComptes, type Issue as IssueDesComptes } from '@/lib/comptes/les-comptes';
 import { magasinSurSupabase } from '@/lib/comptes/sur-supabase';
 import { chiffrerLePanier } from '@/lib/vente/la-vente';
 import type { Manifeste } from '@/lib/backend/app/manifeste';
@@ -96,6 +96,19 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
   const base = clientDeService();
   const projets = projetsSurSupabase(base);
   const magasin = magasinS3();
+  /** Le code d'entrée du propriétaire dans son app (`unCodeDuProprietaire`), son adresse lue de son compte vavi ;
+   * `null` : une app sans compte, ou rien de lisible (la porte s'affiche, comme avant). */
+  async function leCodeDuProprietaire(projet: string, app: string): Promise<string | null> {
+    const cle = laCleDesComptes(process.env);
+    const f = await projets.fichiers(compte, projet);
+    const m = f.lu ? leManifesteStocke(f.valeur.get('app.json')) : null;
+    if (!cle || !m?.lu || m.manifeste.roles.length === 0) return null;
+    const u = await base.auth.admin.getUserById(compte);
+    const email = u.error ? null : u.data.user?.email ?? null;
+    if (!email) return null;
+    const r = await unCodeDuProprietaire({ magasin: magasinSurSupabase(base), cle, maintenant: () => Date.now(), courrier: null }, { app, email });
+    return r.ok ? r.valeur : null;
+  }
   return {
     langue: await laLangue(base, compte),
     noter(etape) {
@@ -208,8 +221,12 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
           // Claude.ai refuse un `<base>` d'une autre origine (base-uri 'self', essai d'Antoine du 25/11) : les fichiers de
           // la page sont nommés en entier, à l'aperçu ; ceux qu'ils chargent suivent leur propre adresse. Le routeur
           // monte là où la vue tourne (le chemin de son cadre).
+          // Le propriétaire entre dans son app déjà connecté (Antoine, 27/11 : il restait bloqué sur la porte de sa propre
+          // app) : un code d'entrée de son compte d'app, posé en `#vavi=` avant que l'app ne lise son adresse.
+          const code = await leCodeDuProprietaire(projet, schema).catch(() => null);
+          const entree = code ? `window.__VAVI_CODE__=${JSON.stringify(code)};try{if(!location.hash)history.replaceState(history.state,'',location.pathname+location.search+'#vavi='+window.__VAVI_CODE__)}catch(e){}` : '';
           const page = lesFichiersEnEntier(html.replace('<base href="/">', ''), adresse)
-            .replace('</script>', 'window.__VAVI_BASENAME__=location.pathname;</script>');
+            .replace('</script>', `window.__VAVI_BASENAME__=location.pathname;${entree}</script>`);
           return lesFichiersDansLaPage(page, adresse, async (chemin) => {
             if (chemin.split('/').some((x) => x === '..' || x === '')) return null;
             const f = await magasin.magasin.lire(`${racineDuBuild(projet, empreinte)}/${chemin}`);

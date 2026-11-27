@@ -10,6 +10,8 @@ declare global {
     __SUPABASE_ANON_KEY__?: string;
     __DATABASE_SCHEMA__?: string;
     __VAVI_BASENAME__?: string;
+    /** Le code d'entrée du propriétaire, posé par la vue de vavi dans Claude (`lib/comptes.ts`). */
+    __VAVI_CODE__?: string;
   }
 }
 

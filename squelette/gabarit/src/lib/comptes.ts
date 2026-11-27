@@ -88,7 +88,8 @@ export async function sortir(): Promise<void> {
 /** Le code d'un lien reçu par courriel (`#vavi=nature.code`), lu une fois et retiré de l'adresse avant le routeur. */
 export const CODE_DU_LIEN: string | null = (() => {
   if (typeof window === 'undefined') return null;
-  const code = /^#vavi=([\w.-]+)$/.exec(window.location.hash)?.[1];
+  // `__VAVI_CODE__` : le code d'entrée du propriétaire, posé par la vue de vavi dans Claude, là où l'adresse ne se réécrit pas.
+  const code = /^#vavi=([\w.-]+)$/.exec(window.location.hash)?.[1] ?? window.__VAVI_CODE__ ?? null;
   if (!code) return null;
   window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
   return code;

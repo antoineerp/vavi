@@ -80,7 +80,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <div className="panneau-tete"><h2>{fr ? 'Mise en ligne' : 'Publishing'}</h2></div>
           <ol className="chaine">
             <li className={marche(projet.apercuEmpreinte !== null, false)}><span className="chaine-pastille"><Icone nom="oeil" taille={16} /></span><strong>{t.apercu}</strong>
-              {projet.apercuEmpreinte ? <a href={adresseDeLApp(id, 'apercu')} target="_blank" rel="noreferrer">{t.voirLApercu}</a> : <span>{t.rienAPublier}</span>}</li>
+              {projet.apercuEmpreinte ? <a href={`/projets/${id}/entrer`} target="_blank" rel="noreferrer">{t.voirLApercu}</a> : <span>{t.rienAPublier}</span>}</li>
             <li className={marche(etat === 'en_ligne', etat === 'a_publier')}><span className="chaine-pastille"><Icone nom="envoi" taille={16} /></span><strong>{t.publier}</strong><span>{etat === 'a_publier' ? (fr ? 'changements prêts' : 'changes ready') : etat === 'en_ligne' ? (fr ? 'à jour' : 'up to date') : '—'}</span></li>
             <li className={marche(projet.enLigneEmpreinte !== null, false)}><span className="chaine-pastille"><Icone nom="globe" taille={16} /></span><strong>{t.siteEnLigne}</strong>
               {projet.enLigneEmpreinte ? <a href={adresseDeLApp(id, 'en_ligne')} target="_blank" rel="noreferrer">{t.voirLeSite}</a> : <span>—</span>}</li>

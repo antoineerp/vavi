@@ -46,7 +46,8 @@ describe('la console', () => {
     expect(gerer).toContain('<EditeurDeTextes');
     expect(gerer).toContain('<Apparence');
     const mise = readFileSync(join(process.cwd(), 'app', 'projets', '[id]', 'layout.tsx'), 'utf8');
-    expect(mise).toContain("roles.some((r) => r.obtenu !== 'proprietaire')");
+    // Antoine, 27/11 : l'écran des comptes se montre dès que l'app a des comptes, le seul propriétaire compris.
+    expect(mise).toContain('m.manifeste.roles.length > 0');
   });
 
   // 26/11 (« enrichir ») : une photo se remplace en cliquant dessus dans l'aperçu ; l'image de partage se dépose ;
