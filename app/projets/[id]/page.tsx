@@ -98,7 +98,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <form action={publier.bind(null, id)}>
             <p className="attenue" style={{ fontSize: '0.85rem', margin: '0 0 0.75rem' }}>{etat === 'en_ligne' ? t.dejaEnLigne : etat === 'rien_a_publier' ? t.pasDApercu : t.publierExplication}</p>
             {empeche && <div role="alert" style={{ fontWeight: 700, fontSize: '1.05rem', margin: '0 0 0.75rem' }}>
-              {t.erreur} {ERREURS[empeche]?.[c.langue] ?? empeche}</div>}
+              {empeche === 'nature' && m?.lu && !['site', 'document'].includes(m.manifeste.nature)
+                ? (fr ? `${projet.nom} est ${m.manifeste.nature === 'boutique' ? 'une boutique' : m.manifeste.nature === 'jeu' ? 'un jeu' : 'une app'} : votre offre ne publie que des sites vitrines. Pour la publier, passez à l’offre Boutique ou app (ou Pro).`
+                  : `${projet.nom} is ${m.manifeste.nature === 'boutique' ? 'a shop' : m.manifeste.nature === 'jeu' ? 'a game' : 'an app'}: your offer publishes showcase sites only. To publish it, move to the Shop or app offer (or Pro).`)
+                : <>{t.erreur} {ERREURS[empeche]?.[c.langue] ?? empeche}</>}</div>}
             {empeche && OFFRE.includes(empeche)
               ? <Link className="bouton" href={`/abonnement?projet=${id}#offres`}>{fr ? 'Choisir une offre pour publier' : 'Choose a plan to publish'}</Link>
               : <button type="submit" disabled={etat !== 'a_publier'}><Icone nom="envoi" taille={16} />{t.publier}</button>}
