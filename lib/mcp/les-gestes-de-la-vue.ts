@@ -64,7 +64,9 @@ export async function mettreEnLigneDepuisLaVue(c: Contexte, a: { project: string
  * qu'à son rafraîchissement. La page ne fait plus que les dessiner ; les changer ne touche qu'au serveur. Gestes connus
  * de la page : `link` (ouvre `url`), `publish` (deux clics, jeton de la vue), `panel` (demande le panneau à l'hôte).
  */
-export interface BoutonDeLaFiche { readonly do: 'link' | 'publish' | 'panel'; readonly label: { readonly fr: string; readonly en: string }; readonly url?: string; readonly main?: boolean }
+/** L'icône d'un bouton (Antoine, 27/11 : « des boutons visibles », une icône devant chaque mot) ; la page la dessine. */
+export type IconeDuBouton = 'panneau' | 'apercu' | 'publier' | 'offre' | 'site' | 'domaine' | 'console';
+export interface BoutonDeLaFiche { readonly do: 'link' | 'publish' | 'panel'; readonly label: { readonly fr: string; readonly en: string }; readonly url?: string; readonly main?: boolean; readonly icon?: IconeDuBouton }
 
 export function lesBoutonsDeLaFiche(f: { readonly preview_url: string | null; readonly state: string; readonly console_url: string;
   readonly can_publish?: boolean | null; readonly plan_url?: string; readonly raison?: string | null; readonly online_url?: string | null }): BoutonDeLaFiche[] {
@@ -78,16 +80,16 @@ export function lesBoutonsDeLaFiche(f: { readonly preview_url: string | null; re
   };
   return [
     // « Afficher à droite », en premier et en vert (Antoine, 26/11 17h02) : Claude.ai n'ouvre son panneau qu'après un clic.
-    { do: 'panel' as const, label: { fr: 'Afficher à droite', en: 'Show on the right' }, main: true },
+    { do: 'panel' as const, label: { fr: 'Afficher à droite', en: 'Show on the right' }, main: true, icon: 'panneau' as const },
     // Par la console, qui y fait entrer le propriétaire déjà connecté (`/projets/<id>/entrer`, 27/11).
-    ...(f.preview_url ? [{ do: 'link' as const, label: { fr: 'Voir l’aperçu', en: 'See the preview' }, url: `${f.console_url}/entrer` }] : []),
-    ...(sansOffre ? [{ do: 'link' as const, label: POURQUOI[f.raison ?? ''] ?? { fr: 'Publier : choisir une offre', en: 'Publish: choose a plan' }, url: f.plan_url, main: true }]
-      : f.state === 'a_publier' ? [{ do: 'publish' as const, label: { fr: 'Publier', en: 'Publish' }, main: true }] : []),
+    ...(f.preview_url ? [{ do: 'link' as const, label: { fr: 'Voir l’aperçu', en: 'See the preview' }, url: `${f.console_url}/entrer`, icon: 'apercu' as const }] : []),
+    ...(sansOffre ? [{ do: 'link' as const, label: POURQUOI[f.raison ?? ''] ?? { fr: 'Publier : choisir une offre', en: 'Publish: choose a plan' }, url: f.plan_url, main: true, icon: 'offre' as const }]
+      : f.state === 'a_publier' ? [{ do: 'publish' as const, label: { fr: 'Publier', en: 'Publish' }, main: true, icon: 'publier' as const }] : []),
     // EN LIGNE, CE QUI SUIT (Antoine, 27/11 : « je n'ai aucun message confirmant la publication », « à aucun moment je n'ai
     // eu de message si je voulais publier sur mon nom de domaine ») : le site lui-même, et son nom de domaine.
-    ...(f.online_url ? [{ do: 'link' as const, label: { fr: 'Voir le site en ligne', en: 'See the online site' }, url: f.online_url },
-      { do: 'link' as const, label: { fr: 'Mon nom de domaine', en: 'My domain name' }, url: `${f.console_url}/domaine` }] : []),
-    { do: 'link', label: { fr: 'Console vavi', en: 'vavi console' }, url: f.console_url },
+    ...(f.online_url ? [{ do: 'link' as const, label: { fr: 'Voir le site en ligne', en: 'See the online site' }, url: f.online_url, icon: 'site' as const },
+      { do: 'link' as const, label: { fr: 'Mon nom de domaine', en: 'My domain name' }, url: `${f.console_url}/domaine`, icon: 'domaine' as const }] : []),
+    { do: 'link', label: { fr: 'Console vavi', en: 'vavi console' }, url: f.console_url, icon: 'console' },
   ];
 }
 
