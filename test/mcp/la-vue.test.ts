@@ -191,8 +191,19 @@ describe('les boutons de la fiche viennent du serveur (26/11 : Claude.ai gardait
     // Et la raison, dans le bouton même (27/11) : une app sur l'offre Site.
     expect(lesBoutonsDeLaFiche({ preview_url: 'https://a/p', state: 'a_publier', console_url: 'https://c/projets/x', can_publish: false, plan_url: 'https://c/abonnement', raison: 'nature' })
       .find((x) => x.main && x.do === 'link')?.label.fr).toBe('Publier : une app demande l’offre Boutique ou app');
+    // INCIDENT 27/11 (Antoine : « je n'ai aucun message confirmant la publication », « à aucun moment je n'ai eu de message
+    // si je voulais publier sur mon nom de domaine ») : en ligne, la fiche mène au site et au nom de domaine, et le dit.
+    const { laNoteEnLigne } = await import('@/lib/mcp/les-gestes-de-la-vue');
+    const enLigne = lesBoutonsDeLaFiche({ preview_url: 'https://a/p', state: 'en_ligne', console_url: 'https://c/projets/x', online_url: 'https://sillage.sites.vavi.dev/' });
+    expect(enLigne.filter((x) => x.do === 'link').map((x) => [x.label.fr, x.url])).toEqual([['Voir l’aperçu', 'https://c/projets/x/entrer'],
+      ['Voir le site en ligne', 'https://sillage.sites.vavi.dev/'], ['Mon nom de domaine', 'https://c/projets/x/domaine'], ['Console vavi', 'https://c/projets/x']]);
+    expect(laNoteEnLigne({ online_url: 'https://sillage.sites.vavi.dev/', state: 'en_ligne' })?.fr).toBe('En ligne à sillage.sites.vavi.dev. Votre propre nom de domaine (www.votre-nom.fr) se branche avec « Mon nom de domaine ».');
+    expect(laNoteEnLigne({ online_url: null, state: 'a_publier' })).toBeNull();
     const { laRessourceDeLaVue } = await import('@/lib/mcp/la-vue');
     const page = laRessourceDeLaVue({ jeton: 'JETON', cadres: [] }).contents[0]!.text;
     expect(page).not.toMatch(/Console vavi|Choisir une offre|Ouvrir l’app en grand/);
+    // La page montre la note de la fiche, et garde le « C'est en ligne » du clic au-delà de la relecture suivante.
+    expect(page).toContain('f.online_note');
+    expect(page).toMatch(/garde=\{texte:T\.publie,jusqua:Date\.now\(\)\+120000\}/);
   });
 });
