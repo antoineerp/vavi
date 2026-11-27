@@ -24,6 +24,8 @@ export type Porte = Readonly<Fonctions & {
   readonly vitrine: boolean;
   /** Une table dont chaque ligne occupe une période : une frise. */
   readonly periodes: boolean;
+  /** Une période `exclusive` : des places qui se réservent, que la base ne laisse pas prendre deux fois. */
+  readonly reservations: boolean;
   /** Des écrans déclarés depuis la demande (`ecrans`). */
   readonly ecrans: boolean;
   /** Des agents déclarés. */
@@ -49,7 +51,7 @@ export function ceQueLAppPorte(m: Manifeste): Porte {
     reliefs: m.tables.some((t) => t.champs.some((c) => c.depuis && t.champs.find((x) => x.nom === c.depuis!.champ)?.type === 'fichier')),
     photos: m.tables.some((t) => t.champs.some((c) => c.type === 'image')), langues: m.langues.autres.length > 0,
     moteur: m.indicateurs.length > 0 || m.tables.some((t) => t.champs.some((c) => c.calcul || c.cumul)),
-    comptes: m.roles.length > 0, vitrine: m.tables.some(estMontree), periodes: m.tables.some((t) => t.periode), agents: m.agents.length > 0, ecrans: m.ecrans.length > 0,
+    comptes: m.roles.length > 0, vitrine: m.tables.some(estMontree), periodes: m.tables.some((t) => t.periode), reservations: m.tables.some((t) => t.periode?.exclusive), agents: m.agents.length > 0, ecrans: m.ecrans.length > 0,
     acces: m.roles.some((r) => r.obtenu === 'paiement'), resultat: Boolean(m.resultat), sansCompte: m.tables.some((t) => t.ecriture.includes('visiteur')), parcours: Boolean(m.parcours),
     privee: m.nature === 'app' && m.roles.length > 0 && m.roles.every((r) => ['proprietaire', 'invitation', 'habilitation'].includes(r.obtenu))
       && !m.tables.some((t) => t.lecture.includes('visiteur') || t.ecriture.includes('visiteur')) };

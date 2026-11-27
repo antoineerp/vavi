@@ -94,14 +94,19 @@ export function exigencesDuGeste(t: Table, T: string): string[] {
 
 /**
  * La période d'une ligne, tenue par la base : la fin ne précède jamais le début (contrainte `check`, posée sans relire
- * les lignes déjà là) ; une période `exclusive` ne chevauche aucune autre ligne de la même ressource, hors des états
- * `libre` : le déclencheur `<table>_occupe` refuse (23P01), quel que soit qui écrit. Il lit TOUTES les lignes, sous son
- * propriétaire : la RLS cache à un visiteur les réservations des autres, pas leur place. Le verrou de la ressource rend
- * deux réservations simultanées du même créneau impossibles. Une date seule occupe sa journée entière.
+ * les lignes déjà là) ; une période `exclusive` ne tient pas plus de lignes à la fois sur une même ressource que sa
+ * `capacite` (une seule par défaut), hors des états `libre` : le déclencheur `<table>_occupe` refuse (23P01), quel que
+ * soit qui écrit. Il lit TOUTES les lignes, sous son propriétaire : la RLS cache à un visiteur les réservations des
+ * autres, pas leur place. Le verrou de la ressource rend deux réservations simultanées de la dernière place impossibles.
+ * Une date seule occupe sa journée entière. La foule se compte au début de chaque ligne qui recouvre la nouvelle : c'est
+ * là qu'elle est la plus grande.
+ *
+ * `<table>_occupations(du, au, ressource)` rend ce qui est pris, sans rien d'autre (ni qui, ni quoi) : les périodes, leur
+ * ressource, la capacité ; la plateforme la sert aux pages, même sans compte (`/api/occupations`).
  *
  * Ce qu'elle remplace : la période qui ne servait qu'à la frise ; deux personnes réservaient le même créneau.
  */
-export function sqlDeLaPeriode(s: string, t: Table): string[] {
+export function sqlDeLaPeriode(s: string, tables: readonly Table[], t: Table): string[] {
   const p = t.periode;
   if (!p) return [];
   const T = `${s}.${t.nom}`;
@@ -112,24 +117,51 @@ export function sqlDeLaPeriode(s: string, t: Table): string[] {
     const fin = t.champs.find((c) => c.nom === p.fin)?.type === 'date' ? `(${l}.${p.fin} + 1)::timestamptz` : `${l}.${p.fin}::timestamptz`;
     return `tstzrange(${l}.${p.debut}::timestamptz, ${fin}, '[)')`;
   };
-  const libres = p.libre.length > 0 && t.cycle ? tableau(p.libre) : null;
-  const meme = p.ressource ? ` and l.${p.ressource} is not distinct from new.${p.ressource}` : '';
-  const retrait = [`drop trigger if exists ${t.nom}_occupe on ${T};`];
+  const retrait = [`drop trigger if exists ${t.nom}_occupe on ${T};`, `drop function if exists ${s}.${t.nom}_occupations(timestamptz, timestamptz, text);`];
   if (!p.exclusive) return [...pose, ...retrait];
+  const libres = p.libre.length > 0 && t.cycle ? tableau(p.libre) : null;
+  const tient = (l: string): string => `${p.debut ? `${l}.${p.debut} is not null and ${l}.${p.fin} is not null` : ''}${libres ? ` and not (${l}.etat = any(${libres}))` : ''}`;
+  const meme = (l: string, r: string): string => (p.ressource ? ` and ${l}.${p.ressource} is not distinct from ${r}` : '');
+  const ref = p.ressource ? t.champs.find((c) => c.nom === p.ressource) : undefined;
+  const capacite = (r: string): string => {
+    if (typeof p.capacite === 'number') return String(p.capacite);
+    if (typeof p.capacite === 'string' && ref?.table && tables.some((x) => x.nom === ref.table)) {
+      return `coalesce((select c.${p.capacite} from ${s}.${ref.table} c where c.id = ${r}), 1)`;
+    }
+    return '1';
+  };
   return [...pose,
     [`create or replace function ${s}.${t.nom}_occupe() returns trigger language plpgsql security definer set search_path = '' as $fn$`,
+      'declare v_foule bigint;',
       'begin',
       `  if new.${p.debut} is null or new.${p.fin} is null then return new; end if;`,
       ...(libres ? [`  if new.etat = any(${libres}) then return new; end if;`] : []),
       `  perform pg_advisory_xact_lock(hashtextextended(${cite(`${T}:`)} || coalesce(${p.ressource ? `new.${p.ressource}::text` : 'null'}, ''), 0));`,
-      `  if exists (select 1 from ${T} l where l.id <> new.id${meme}`
-        + `${libres ? ` and not (l.etat = any(${libres}))` : ''} and ${plage('l')} && ${plage('new')}) then`,
+      '  select coalesce(max(q.n), 0) into v_foule from (',
+      `    select (select count(*) from ${T} x where x.id <> new.id and ${tient('x')}${meme('x', `new.${p.ressource}`)} and ${plage('x')} @> d.t) as n`,
+      `    from (select lower(${plage('new')}) as t union select lower(${plage('l')}) from ${T} l`,
+      `          where l.id <> new.id and ${tient('l')}${meme('l', `new.${p.ressource}`)} and ${plage('l')} && ${plage('new')}) d`,
+      `    where ${plage('new')} @> d.t) q;`,
+      `  if v_foule + 1 > ${capacite(`new.${p.ressource}`)} then`,
       `    raise exception '% : cette période est déjà prise', ${cite(t.libelle)} using errcode = '23P01';`,
       '  end if;',
       '  return new;',
       'end $fn$;'].join('\n'),
     `revoke all on function ${s}.${t.nom}_occupe() from public;`,
-    ...retrait,
+    retrait[0]!,
     `create trigger ${t.nom}_occupe before insert or update on ${T} for each row execute function ${s}.${t.nom}_occupe();`,
+    [`create or replace function ${s}.${t.nom}_occupations(p_du timestamptz, p_au timestamptz, p_ressource text default null) returns jsonb`,
+      `language plpgsql stable security definer set search_path = '' as $fn$`,
+      'begin',
+      "  if p_du is null or p_au is null or p_au <= p_du or p_au - p_du > interval '400 days' then",
+      "    raise exception 'occupations : une fenêtre de 400 jours au plus, du avant au' using errcode = '22023';",
+      '  end if;',
+      `  return jsonb_build_object('capacite', ${p.ressource ? `case when p_ressource is null then null else ${capacite(ref?.type === 'reference' ? 'nullif(p_ressource, \'\')::uuid' : 'p_ressource')} end` : capacite('null')},`,
+      `    'occupations', coalesce((select jsonb_agg(o order by o.debut) from (select lower(${plage('l')}) as debut, upper(${plage('l')}) as fin${p.ressource ? `, l.${p.ressource}::text as ressource` : ''}`,
+      `      from ${T} l where ${tient('l')} and ${plage('l')} && tstzrange(p_du, p_au, '[)')${p.ressource ? ` and (p_ressource is null or l.${p.ressource}::text = p_ressource)` : ''}`,
+      `      order by 1 limit 5000) o), '[]'::jsonb));`,
+      'end $fn$;'].join('\n'),
+    `revoke all on function ${s}.${t.nom}_occupations(timestamptz, timestamptz, text) from public;`,
+    `grant execute on function ${s}.${t.nom}_occupations(timestamptz, timestamptz, text) to authenticated, service_role;`,
   ];
 }

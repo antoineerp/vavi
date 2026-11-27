@@ -147,6 +147,9 @@ export const REGLES: readonly Regle[] = [
   regle({ id: 'envoi-sans-compte', sujet: 'formulaires',
     texte: 'Ce qu’un visiteur envoie sans compte (`tous` ou `visiteur` dans le `creer` de son `acces`) part par `envoyerSansCompte(table, ligne, { colonne: fichier })` de `@/lib/envoi`, d’une page publique ; ce que la base a calculé s’y montre au retour, un chiffre vide en « — ». Un refus montre sa `raison` et son `geste`. Ce qui se vend s’achète sans compte (`<AjouterAuPanier table id>`).',
     porte: 'sansCompte', tenuePar: { fige: 'src/lib/envoi.ts' } }),
+  regle({ id: 'reservation', sujet: 'formulaires',
+    texte: 'Une table à période `exclusive` se réserve : la page lit les places prises par `lesOccupations(table, du, au, ressource)` de `@/lib/occupations` (même sans compte, sans rien d’autre que début, fin, ressource et capacité), grise d’avance ce que `estLibre(occupations, debut, fin, capacite)` refuse, et calcule la fin depuis la durée choisie. La base reste seule juge : si la place a été prise entre-temps, l’écriture rend un refus « période déjà prise » à montrer avec son `geste`, puis la page relit les occupations.',
+    porte: 'reservations', tenuePar: { fige: 'src/lib/occupations.ts' } }),
 
   // ── Textes
   regle({ id: 'textes-par-langue', sujet: 'langues',

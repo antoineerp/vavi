@@ -34,6 +34,20 @@ describe('l’envoi sans compte', () => {
     expect(appels).toEqual(['voie_neuve_creer:messages', 'voie_neuve_lire:messages']);
     expect((await envoyerSansCompte(m, 'app_x', { table: 'evenements', ligne: { titre: 'x' } }, [], d)).statut).toBe(422);
   });
+  it('une place déjà prise (période exclusive) : 409, dit comme tel, le code rendu au gabarit', async () => {
+    const d = { relais: async () => ({ lu: false as const, pourquoi: 'Réservations : cette période est déjà prise', code: '23P01' }) };
+    const r = await envoyerSansCompte(m, 'app_x', { table: 'messages', ligne: { nom: 'Ana', texte: 'Bonjour à vous' } }, [], d);
+    expect(r).toMatchObject({ statut: 409, corps: { code: '23P01', error: expect.stringContaining('déjà prise') } });
+    const autre = await envoyerSansCompte(m, 'app_x', { table: 'messages', ligne: { nom: 'Ana', texte: 'Bonjour à vous' } }, [], { relais: async () => ({ lu: false as const, pourquoi: 'x', code: '23502' }) });
+    expect(autre.statut).toBe(422);
+  });
+  it('les places prises : une route des apps, aucune pendant un parcours', () => {
+    expect(existsSync('app/api/occupations/[projet]/route.ts')).toBe(true);
+    expect(estUneRouteDesApps('/api/occupations/p')).toBe(true);
+    const o = { site: 'http://127.0.0.1:4000', base: 'https://b.supabase.co', images: [] };
+    expect(leSortDeLaRequete('http://127.0.0.1:4000/api/occupations/p?table=r&du=a&au=b', 'GET', 'fetch', o)).toEqual({ sort: 'simulee', quoi: 'occupations' });
+    expect(laReponseSimulee('occupations', undefined, null).corps).toEqual({ capacite: null, occupations: [] });
+  });
   it('un parcours sans copie le simule ; sur une copie il le joue, au lieu de « unavailable »', async () => {
     const o = { site: 'http://127.0.0.1:4000', base: 'https://b.supabase.co', images: [] };
     expect(leSortDeLaRequete('http://127.0.0.1:4000/api/depot/p', 'POST', 'fetch', o)).toEqual({ sort: 'simulee', quoi: 'depot' });
