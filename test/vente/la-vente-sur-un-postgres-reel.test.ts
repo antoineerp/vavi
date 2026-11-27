@@ -14,7 +14,7 @@ import { createHmac } from 'node:crypto';
 import { sqlDeLaBase } from '@/lib/backend/pipeline/la-base';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { CHEMIN_DE_LA_MIGRATION_DE_LA_VENTE, laMigrationDeLaVente } from '@/lib/vente/le-sql-de-la-vente';
-import { confirmerLaVente, lireLaFacture, ouvrirLaVente, type DependancesDeLaVente } from '@/lib/vente/la-vente';
+import { confirmerLaVente, lireLaFacture, lireLaFactureElectronique, ouvrirLaVente, type DependancesDeLaVente } from '@/lib/vente/la-vente';
 import { unManifeste } from '../aides/un-manifeste';
 import { demarrer, POSTGRES_PRESENT, type UnPostgres } from '../aides/un-postgres';
 
@@ -118,6 +118,10 @@ describe.runIf(POSTGRES_PRESENT)('la vente, sur un PostgreSQL réel', () => {
     expect(jeton).toMatch(/^[0-9a-f]{64}$/);
     expect(await lireLaFacture(d(), P, commandeDe(0), jeton)).toContain('Sencha');
     expect(await lireLaFacture(d(), P, commandeDe(0), 'f'.repeat(64))).toBeNull();
+    // La facture électronique de la même commande : à qui porte le jeton ; sans n° de TVA du vendeur, le manque est nommé.
+    expect(await lireLaFactureElectronique(d(), P, commandeDe(0), 'f'.repeat(64))).toBeNull();
+    expect(await lireLaFactureElectronique(d(), P, commandeDe(0), jeton)).toEqual({ forme: 'manque', manques: ['le n° de TVA intracommunautaire du vendeur'], numero: expect.stringMatching(/-000001$/) });
+    expect(await lireLaFacture(d(), P, commandeDe(0), jeton)).toContain('format=xml');
   });
 
   it('le navigateur n’appelle aucune fonction de la vente ; un identifiant hors motif est refusé par la base', () => {

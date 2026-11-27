@@ -280,7 +280,8 @@ export const Direction = z.object({
 export const Editeur = z.object({
   nom: z.string().min(1).optional().describe('le nom légal de qui publie l’app'),
   adresse: z.string().min(1).optional(), telephone: z.string().min(1).optional(), courriel: z.string().min(1).optional(),
-  immatriculation: z.string().min(1).optional().describe('le numéro d’immatriculation de l’entreprise'),
+  immatriculation: z.string().min(1).optional().describe('le numéro d’immatriculation de l’entreprise (SIREN ou SIRET en France)'),
+  tva: z.string().min(1).optional().describe('le numéro de TVA intracommunautaire de l’entreprise (FR + 11 caractères en France) ; la facture électronique d’un vendeur assujetti l’exige'),
   horaires: z.array(z.string().min(1)).optional().describe('une ligne par plage d’ouverture'),
 }).describe('qui publie l’app, tel que la demande ou ses pièces jointes le disent : rien d’inventé, un fait inconnu reste absent');
 

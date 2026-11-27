@@ -32,7 +32,7 @@ const MOTS = {
     trouve: 'Être trouvé sur Google et les IA', chezGoogle: 'chez Google', ouvrir: 'Ouvrir',
     site: 'Le site', siteExplication: 'Ce que Google, les assistants IA et les mentions légales disent de votre site. Enregistrez : l’aperçu est rebâti, puis « Publier » le met en ligne.',
     nom: 'Nom du site', description: 'Ce que fait le site (une ou deux phrases)', editeur: 'Qui publie le site', editeurNom: 'Nom ou raison sociale', adresse: 'Adresse',
-    telephone: 'Téléphone', courriel: 'Courriel', immatriculation: 'Immatriculation (SIRET…)', horaires: 'Horaires (une ligne par plage)',
+    telephone: 'Téléphone', courriel: 'Courriel', immatriculation: 'Immatriculation (SIRET…)', tva: 'N° de TVA intracommunautaire', horaires: 'Horaires (une ligne par plage)',
     pageTitre: 'Titre dans Google', pageDescription: 'Description dans Google', conseil: (n: number, max: number) => `${n}/${max} caractères conseillés`,
     enregistrerPages: 'Enregistrer les titres et descriptions',
     partage: 'Image de partage et assistants IA', image: 'L’image qui accompagne vos liens partagés', aucuneImage: 'Aucune', sansPhoto: 'Votre site n’a pas encore de photo : déposez la vôtre ci-dessous, ou demandez à Claude d’en poser.',
@@ -74,7 +74,7 @@ const MOTS = {
     trouve: 'Being found on Google and AI', chezGoogle: 'at Google', ouvrir: 'Open',
     site: 'The site', siteExplication: 'What Google, AI assistants and the legal notice say about your site. Save: the preview is rebuilt, then “Publish” puts it online.',
     nom: 'Site name', description: 'What the site does (one or two sentences)', editeur: 'Who publishes the site', editeurNom: 'Name or company name', adresse: 'Address',
-    telephone: 'Phone', courriel: 'E-mail', immatriculation: 'Registration number', horaires: 'Opening hours (one line per range)',
+    telephone: 'Phone', courriel: 'E-mail', immatriculation: 'Registration number', tva: 'EU VAT number', horaires: 'Opening hours (one line per range)',
     pageTitre: 'Title in Google', pageDescription: 'Description in Google', conseil: (n: number, max: number) => `${n}/${max} characters advised`,
     enregistrerPages: 'Save titles and descriptions',
     partage: 'Sharing image and AI assistants', image: 'The image that comes with your shared links', aucuneImage: 'None', sansPhoto: 'Your site has no photo yet: upload yours below, or ask Claude to add some.',
@@ -198,7 +198,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <h3>{m.editeur}</h3>
           <div style={GRILLE}>
             {([['editeur_nom', m.editeurNom, editeur.nom], ['editeur_adresse', m.adresse, editeur.adresse], ['editeur_telephone', m.telephone, editeur.telephone],
-              ['editeur_courriel', m.courriel, editeur.courriel], ['editeur_immatriculation', m.immatriculation, editeur.immatriculation]] as const).map(([n, l, v]) => (
+              ['editeur_courriel', m.courriel, editeur.courriel], ['editeur_immatriculation', m.immatriculation, editeur.immatriculation], ['editeur_tva', m.tva, editeur.tva]] as const).map(([n, l, v]) => (
               <div key={n}><label htmlFor={n}>{l}</label><input id={n} name={n} maxLength={300} defaultValue={v ?? ''} type={n === 'editeur_courriel' ? 'email' : n === 'editeur_telephone' ? 'tel' : 'text'} /></div>
             ))}
           </div>

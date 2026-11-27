@@ -31,12 +31,13 @@ export const enDevise = (langue: string, devise: string) => (centimes: number | 
   try { return new Intl.NumberFormat(langue, { style: 'currency', currency: devise }).format(centimes / 100); } catch { return `${(centimes / 100).toFixed(2)} ${devise}`; }
 };
 
-export function laFacture(b: Boutique, c: CommandeFacturee): string {
+/** `electronique` : l'adresse relative du XML Factur-X de cette facture, offerte en lien ; absente : aucun lien. */
+export function laFacture(b: Boutique, c: CommandeFacturee, electronique?: string): string {
   const M = lesMots(b.langue);
   const prix = enDevise(b.langue, c.vente_devise ?? b.devise);
   const a = c.vente_adresse ?? {};
   const texte = (xs: unknown[]): string[] => xs.filter((x): x is string => typeof x === 'string' && x.trim() !== '');
-  const acheteur = texte([c.vente_nom, a.line1, a.line2, [a.postal_code, a.city].filter((x) => typeof x === 'string').join(' '), a.country, c.vente_courriel]);
+  const acheteur = texte([a.societe, c.vente_nom, typeof a.siren === 'string' ? `SIREN ${a.siren}` : null, typeof a.tva === 'string' ? `TVA ${a.tva}` : null, a.line1, a.line2, [a.postal_code, a.city].filter((x) => typeof x === 'string').join(' '), a.country, c.vente_courriel]);
   const v = c.vente_tva ?? null;
   const lignes = (c.vente_lignes ?? []).map((l) => {
     const q = typeof l.quantite === 'number' ? l.quantite : 1;
@@ -61,5 +62,6 @@ export function laFacture(b: Boutique, c: CommandeFacturee): string {
     + `<section><h2>${echapper(M.factureA)}</h2><p>${acheteur.map(echapper).join('<br>') || '—'}</p></section></div>`
     + tableau([M.article, M.quantite, M.prixUnitaire, M.taux, M.montant], lignes) + ventilation
     + tableau([M.horsTaxe, M.tva, M.ttc], [[prix(somme('htCentimes')), prix(somme('tvaCentimes')), prix(c.vente_montant_centimes)]])
+    + (electronique ? `<p><a href="${echapper(electronique)}" download>${echapper(M.factureElectronique)}</a></p>` : '')
     + '</body></html>';
 }

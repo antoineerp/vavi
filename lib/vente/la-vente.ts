@@ -22,6 +22,7 @@ import { laBoutique, lesMots, type Boutique } from './la-boutique';
 import { chiffrer, laDestination, lePanierMontre, lesArticlesAPayer, lireLeCode, lireLesCoordonnees, lireLesLignes, type ArticleLu, type Refus, type RemiseLue } from './le-chiffrage';
 import { lePaiementDeLEvenement, ouvrirUneSessionStripe, verifierLaSignature, type AppelStripe } from './stripe';
 import { laFacture, type CommandeFacturee } from './la-facture';
+import { leXmlFacturX, type FactureElectronique } from './le-factur-x';
 import { accorderLAcces } from './l-acces-paye';
 
 export interface DependancesDeLaVente {
@@ -236,5 +237,21 @@ export async function lireLaFacture(d: DependancesDeLaVente, id: string, command
   const r = await d.rpc('app_lire_une_commande', { p_schema: o.schema, p_id: commande });
   if (r.error) { d.journal(`[vente] ${o.schema} — la facture : ${r.error.message}`); return null; }
   const c = (r.data ?? {}) as Partial<CommandeFacturee> & { readonly vente_jeton?: unknown };
-  return leJetonEst(c.vente_jeton, jeton) && c.vente_facture ? laFacture(o.boutique, c as CommandeFacturee) : null;
+  if (!leJetonEst(c.vente_jeton, jeton) || !c.vente_facture) return null;
+  const xml = `?${new URLSearchParams({ commande, jeton, format: 'xml' }).toString()}`;
+  return laFacture(o.boutique, c as CommandeFacturee, xml);
+}
+
+/**
+ * GET /api/pay/<projet>/facture?commande=&jeton=&format=xml — la facture électronique (Factur-X, profil EN 16931) de la même
+ * commande, à qui porte son jeton ; ou ce qui lui manque pour être conforme. `null` : aucune facture à ce jeton.
+ */
+export async function lireLaFactureElectronique(d: DependancesDeLaVente, id: string, commande: string, jeton: string): Promise<(FactureElectronique & { readonly numero: string }) | null> {
+  const o = await laBoutiqueDuProjet(d, id);
+  if ('forme' in o || !commande || commande.length > 64) return null;
+  const r = await d.rpc('app_lire_une_commande', { p_schema: o.schema, p_id: commande });
+  if (r.error) { d.journal(`[vente] ${o.schema} — la facture électronique : ${r.error.message}`); return null; }
+  const c = (r.data ?? {}) as Partial<CommandeFacturee> & { readonly vente_jeton?: unknown };
+  if (!leJetonEst(c.vente_jeton, jeton) || !c.vente_facture) return null;
+  return { ...leXmlFacturX(o.boutique, o.boutique.electronique, c as CommandeFacturee, lesMots(o.boutique.langue).livraison), numero: c.vente_facture.numero };
 }

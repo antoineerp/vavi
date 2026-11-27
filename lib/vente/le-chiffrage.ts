@@ -11,6 +11,7 @@
 import type { Boutique, Livraison, MotsDeLaVente, RegimeDeTva } from './la-boutique';
 import { lesMots } from './la-boutique';
 import { enDevise } from './la-facture';
+import { laTva, leSiren } from './le-factur-x';
 import type { TauxDUnPays } from './les-taux-de-tva';
 
 export const LIGNES_AU_PLUS = 50;
@@ -99,10 +100,15 @@ export function lireLesCoordonnees(brut: unknown, l: Livraison): Coordonnees | s
   if (nom.length < 2 || nom.length > 120) return 'acheteur.nom';
   if (courriel.length > 254 || !UN_COURRIEL.test(courriel)) return 'acheteur.courriel';
   if (telephone && !UN_TELEPHONE.test(telephone)) return 'acheteur.telephone';
-  const tel: Record<string, string> = telephone ? { telephone } : {};
+  // Une entreprise qui achète : sa raison sociale, son SIREN et son n° de TVA, facultatifs, portés par sa facture électronique.
+  const societe = lu(o.societe).slice(0, 200), sirenSaisi = lu(o.siren), tvaSaisie = lu(o.tva);
+  if (sirenSaisi && !leSiren(sirenSaisi)) return 'acheteur.siren';
+  if (tvaSaisie && !laTva(tvaSaisie)) return 'acheteur.tva';
+  const tel: Record<string, string> = { ...(telephone ? { telephone } : {}), ...(societe ? { societe } : {}),
+    ...(sirenSaisi ? { siren: leSiren(sirenSaisi)! } : {}), ...(tvaSaisie ? { tva: laTva(tvaSaisie)! } : {}) };
   const retrait = o.retrait === true;
   if (retrait && l.retrait === null) return 'acheteur.retrait';
-  if (l.pays.length === 0 || retrait) return { nom, courriel, retrait, adresse: telephone ? tel : null };
+  if (l.pays.length === 0 || retrait) return { nom, courriel, retrait, adresse: Object.keys(tel).length ? tel : null };
   const champs = { line1: lu(a.line1), line2: lu(a.line2), postal_code: lu(a.postal_code), city: lu(a.city), country: lu(a.country).toUpperCase() };
   for (const k of ['line1', 'postal_code', 'city'] as const) if (!champs[k] || champs[k].length > 200) return `acheteur.adresse.${k}`;
   if (!l.pays.includes(champs.country)) return 'acheteur.adresse.country';
