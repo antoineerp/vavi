@@ -1,4 +1,4 @@
-# vavi à l'essai sur Fly (avant le lot 9 et OVH) : une machine à Paris, arrêtée quand personne ne s'en sert.
+# vavi sur Fly : une machine à Paris (4 Go depuis le 27/11, pour deux builds à la fois, `lib/atelier/la-file.ts`), arrêtée quand personne ne s'en sert.
 app = "vavi-essai"
 primary_region = "cdg"
 
@@ -17,5 +17,5 @@ primary_region = "cdg"
     grace_period = "20s"
 
 [[vm]]
-  memory = "2gb"
+  memory = "4gb"
   cpus = 2
