@@ -27,6 +27,7 @@ import { Agent, lireLesAgents } from './les-agents';
 import { Demande, Ecran, lesDemandesReparees, lireLesEcrans, Parcours } from './les-ecrans';
 import { Analyse, estAnalysee, lireLAnalyse } from './l-analyse';
 import { lireLaRemise } from './la-remise';
+import { lesZonesReparees, lireLesZones, Zone, ZONES_AU_PLUS } from './la-livraison';
 import { lireLesEnvois } from './l-envoi-sans-compte';
 import { INSCRITS, lesAccesTraduits, TOUS } from './les-acces';
 import { lesFormesReparees } from './les-formes-reparees';
@@ -210,6 +211,7 @@ export const Boutique = z.object({
     prix: z.number().min(0).default(0).describe('le prix d’un envoi, dans la devise'),
     offerteDes: z.number().positive().nullable().default(null).describe('le montant du panier à partir duquel l’envoi est offert'),
     retrait: z.string().min(1).nullable().default(null).describe('l’adresse du retrait sur place, quand il est offert'),
+    zones: z.array(Zone).max(ZONES_AU_PLUS).default([]).describe('le prix de l’envoi selon le pays et le poids du colis (France, Europe, Monde) : un pays d’une zone a le prix de sa zone ; un pays desservi hors de toute zone, le `prix` ; vide : le `prix` partout'),
   }).default({}),
   remise: z.object({
     table: Identifiant.describe('la table des codes'),
@@ -337,6 +339,7 @@ export const Manifeste = z.object({
     if (!m.tables.some((t) => t.vente)) ctx.addIssue({ code: 'custom', message: 'une app à panier a au moins une table dont les lignes se vendent (`vente` sur la table)' });
     if (!m.roles.some((r) => r.obtenu === 'proprietaire')) ctx.addIssue({ code: 'custom', message: 'une app à panier a un rôle du propriétaire (`obtenu: proprietaire`) : il gère les commandes' });
     if (m.vente?.remise) lireLaRemise(m.vente.remise, m.tables, ctx);
+    if (m.vente) lireLesZones(m.vente.livraison.zones, m.tables.flatMap((t) => (t.vente ? [{ nom: t.nom, poids: t.vente.poids }] : [])), ctx);
   } else if (m.vente) {
     ctx.addIssue({ code: 'custom', message: '`vente` ne se déclare que pour une app à panier' });
   }
@@ -513,8 +516,9 @@ export function lireLeManifeste(json: unknown): { ok: true; manifeste: Manifeste
   const liens = lesLiensRepares(demandes.valeur);
   const cycles = lesCyclesRepares(liens.valeur);
   const envois = lesEnvoisRepares(cycles.valeur);
-  const ventes = lesLecturesReparees(envois.valeur), repare = [...acces.repare, ...demandes.repare, ...liens.repare, ...cycles.repare, ...envois.repare, ...ventes.repare];
-  const r = Manifeste.safeParse(ventes.valeur);
+  const ventes = lesLecturesReparees(envois.valeur), zones = lesZonesReparees(ventes.valeur);
+  const repare = [...acces.repare, ...demandes.repare, ...liens.repare, ...cycles.repare, ...envois.repare, ...ventes.repare, ...zones.repare];
+  const r = Manifeste.safeParse(zones.valeur);
   if (r.success) return { ok: true, manifeste: avecSesEtatsOuverts(r.data), repare };
   return { ok: false, erreurs: lesErreursLues(r.error.issues), repare };
 }

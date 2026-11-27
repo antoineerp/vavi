@@ -56,7 +56,9 @@ export interface PanierChiffre {
   readonly retirees?: readonly LigneDuPanier[];
   readonly lignes: ReadonlyArray<{ readonly table: string; readonly id: string; readonly libelle: string; readonly centimes: number; readonly quantite: number; readonly option?: string }>;
   readonly devise: string;
-  readonly livraison: { readonly adresse: boolean; readonly pays: readonly string[]; readonly centimes: number; readonly retrait: string | null };
+  readonly livraison: { readonly adresse: boolean; readonly pays: readonly string[]; readonly centimes: number; readonly retrait: string | null;
+    /** Aucune zone ne prend ce colis vers ce pays (un article sans poids, trop lourd) : pourquoi ; le paiement attend. */
+    readonly impossible?: string };
   readonly aPayerCentimes: number;
   readonly recapitulatif: readonly LigneDuRecapitulatif[];
 }

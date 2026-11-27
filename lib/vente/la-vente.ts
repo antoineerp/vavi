@@ -130,6 +130,7 @@ export async function ouvrirLaVente(d: DependancesDeLaVente, id: string, corps: 
   const encaisse = await d.leCompte(id);
   if (!encaisse) return { statut: 503, corps: { error: fr ? 'Le paiement n’est pas encore configuré pour cette boutique.' : 'Payment is not set up for this shop yet.', code: 'paiement-non-configure' } };
   const a = lesArticlesAPayer(o.boutique, p, destination);
+  if ('impossible' in a.envoi) return non(refus(409, `${a.envoi.impossible}.`));
   const r = await d.rpc('app_ouvrir_une_commande', { p_schema: o.schema, p_compte: compte ?? o.proprietaire, p_lignes: a.lignes, p_montant: a.montant,
     p_livraison: a.frais, p_devise: o.boutique.devise, p_courriel: acheteur.courriel, p_nom: acheteur.nom, p_adresse: acheteur.adresse, p_tva: a.tva,
     p_mode: o.boutique.livraison.pays.length > 0 || acheteur.retrait ? (acheteur.retrait ? 'retrait' : 'expedition') : null });
