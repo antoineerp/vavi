@@ -1,6 +1,6 @@
 /**
  * LA PAGE D'ACCUEIL PUBLIQUE de vavi (vavi.dev) : la maquette du 24/11, corrigée le 25/11. Elle ne promet rien que vavi
- * ne fasse déjà : les agents et le domaine à soi sont marqués « bientôt ». Le tableau des prix d'autres outils est retiré,
+ * ne fasse déjà : le domaine à soi est marqué « bientôt ». Le tableau des prix d'autres outils est retiré,
  * faute d'avoir été relevé. Elle dit que l'offre gratuite de Claude permet un connecteur. Le bouton « Ajouter vavi à
  * Claude » ouvre le connecteur déjà rempli, et une animation dessinée montre les trois étapes. Les trous `__…__` sont
  * remplis par `laPageDAccueil`.
@@ -333,6 +333,10 @@ details.bloque-d>summary{display:inline-flex;gap:10px;align-items:center;font-fa
 .offre ul{margin:0;padding-left:1.1em;display:grid;gap:4px;font-size:.96rem}
 .offre .pour{color:var(--encre-douce);font-size:.96rem}
 .en-plus{margin-top:22px;text-align:center;font-size:1.05rem}
+.compris{margin-top:56px;display:grid;gap:18px}
+.compris ul{margin:0;padding-left:1.1em;display:grid;gap:6px;color:var(--encre-douce)}
+.compris ul b{color:var(--encre)}
+.compris h4{margin:0;font-size:1.1rem}
 @media (max-width:1000px){.offres{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:540px){.offres{grid-template-columns:1fr}}
 
@@ -948,7 +952,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
         <h3>Boutique ou app</h3>
         <p class="prix">__PRIX_BOUTIQUE__ <small>/ mois</small></p>__PROMO_OFFRE__
         <p class="pour">Pour vendre en ligne ou gérer clients et dossiers.</p>
-        <ul><li>Tout de l'offre Site</li><li>Compte Stripe ouvert depuis la console</li><li>Agents IA (bientôt)</li><li>TVA par article, factures numérotées</li><li>Comptes clients et rôles</li><li>Commandes et clients dans la console</li></ul>
+        <ul><li>Tout de l'offre Site</li><li>Compte Stripe ouvert depuis la console</li><li>Agents IA de votre app</li><li>TVA par article, factures numérotées</li><li>Comptes clients et rôles</li><li>Commandes et clients dans la console</li></ul>
         <a class="bouton plein" href="#etapes">Choisir Boutique</a>
       </div>
       <div class="offre">
@@ -960,6 +964,17 @@ details p{margin-top:10px;color:var(--encre-douce)}
       </div>
     </div>
     <p class="en-plus">Un projet de plus, sur n'importe quelle offre payante : <b>__PRIX_EN_PLUS__ / mois</b>. Chaque offre engage 12 mois, payés chaque mois et reconduits tacitement ; après la première année, résiliable à tout moment.</p>
+    <div class="compris">
+      <div class="titre-section">
+        <h3>Tout est compris, aucun technicien à payer</h3>
+        <p>Un hébergeur vous loue un serveur. vavi fait tourner votre site ou votre app : tout ce qu'il faut autour est dans le prix.</p>
+      </div>
+      <div class="deux-blocs">
+        <div class="bloc-abo"><h4>Sur toutes les offres payantes</h4><ul><li><b>L'hébergement en Europe</b> en HTTPS, sans serveur à régler.</li><li><b>Une base de données à votre projet</b>, ses droits d'accès posés pour vous : chacun ne voit que ce qu'il doit voir.</li><li><b>Les sauvegardes de la base</b>, chaque jour.</li><li><b>Les fichiers et les images</b>, stockés et servis.</li><li><b>Les mises à jour :</b> Claude modifie, l'aperçu se met à jour, vous cliquez sur Publier. Chaque version est gardée, un clic vous ramène en arrière.</li><li><b>La console :</b> vos données, vos messages, vos utilisateurs, vos visites, vos textes et vos couleurs, sans passer par Claude.</li><li><b>Les formulaires protégés du spam</b>, et les pages RGPD écrites depuis votre projet.</li><li><b>Le référencement :</b> des pages lisibles par Google et par les assistants IA.</li><li><b>L'export du code et des données :</b> vous partez quand vous voulez.</li></ul></div>
+        <div class="bloc-abo"><h4>En plus, avec Boutique ou app et Pro</h4><ul><li><b>Les comptes de vos utilisateurs</b>, leurs rôles et leurs invitations.</li><li><b>Les paiements sur votre propre compte Stripe</b>, la TVA par article, les factures numérotées.</li><li><b>Les réservations sans double réservation</b>, la livraison par zone et par poids, les codes de remise.</li></ul>
+          <h4>Comparer honnêtement</h4><p>Un hébergement seul coûte quelques euros par mois. Il faut ensuite quelqu'un pour installer l'app, la base, les sauvegardes, les comptes, les courriels et les paiements, puis la réparer quand une mise à jour casse. Chez vavi, tout cela est dans le prix affiché.</p></div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -978,7 +993,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
       <details><summary>Où sont hébergées les données de mes clients ?</summary><p>En Europe : la base de données, les fichiers et le site.</p></details>
       <details><summary>Est-ce que vavi prend une commission sur mes ventes ?</summary><p>Non. Vous payez votre abonnement vavi. Les frais de paiement sont ceux de Stripe, prélevés directement par Stripe.</p></details>
       <details><summary>Mon site sera-t-il conforme au RGPD ?</summary><p>vavi pose ce que le RGPD demande à un site : mentions légales et politique de confidentialité avec vos informations, audience mesurée sans cookie, consentement sur les formulaires, données hébergées en Europe, et un moyen pour chaque client de récupérer ou d'effacer ses données. Vous restez responsable de l'usage que vous faites de ces données.</p></details>
-      <details><summary>Et les agents IA ?</summary><p>Ils arrivent bientôt : des agents qui travaillent dans votre site, préparent et vous laissent valider. Ils utiliseront une clé d’IA à votre nom, facturée par le fournisseur d’IA ; vavi ne prend rien dessus.</p></details>
+      <details><summary>Et les agents IA ?</summary><p>Claude les écrit pour votre app : ils travaillent seuls, à l’heure dite, quand une nouvelle ligne arrive ou sur un bouton, avec un plafond d’IA par jour. Ils utilisent une clé d’IA à votre nom, facturée par le fournisseur d’IA ; vavi ne prend rien dessus.</p></details>
       <details><summary>Que demande Stripe pour ouvrir mon compte ?</summary><p>En général une pièce d'identité, un RIB et le numéro de votre entreprise. Vous les déposez une seule fois, sur le formulaire sécurisé de Stripe : vavi ne garde pas vos papiers.</p></details>
       <details><summary>Puis-je utiliser mon propre nom de domaine ?</summary><p>Bientôt, sur toutes les offres payantes. En attendant, votre site est en ligne à son adresse sécurisée chez vavi.</p></details>
     </div>

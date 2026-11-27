@@ -26,7 +26,8 @@ describe('la page d’accueil', () => {
   it('rien de ce que vavi ne fait pas encore n’est promis, ni l’offre payante de Claude exigée, ni un prix d’ailleurs', () => {
     expect(page).not.toMatch(/abonnement Claude payant|offre gratuite de Claude ne permet pas|Lovable|Replit|Bolt|suivi Google/);
     expect(page).not.toMatch(/agents IA déjà paramétrés|Agents IA déjà/);
-    expect(page).toContain('Agents IA (bientôt)');
+    expect(page).toContain('Agents IA de votre app');
+    expect(page).not.toContain('Agents IA (bientôt)');
     expect(page).toContain('Votre nom de domaine (bientôt)');
   });
 
