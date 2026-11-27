@@ -24,8 +24,12 @@ const VITRINE = [
 ] as const;
 
 const PAR_NATURE: Readonly<Partial<Record<Manifeste['nature'], readonly string[]>>> = {
-  site: ['Unless the person asks for one page, a site has its home page plus one page per thing a visitor comes for (three to five public pages in all, a contact page when there is a form), each page as rich as the home page in its own way.'],
-  boutique: ['The catalogue shows each product by its photo first, a mosaic or a carousel on the home page, a product page with its gallery and characteristics, and the cart always one click away.'],
+  site: [
+    'Unless the person asks for one page, a site has its home page plus one page per thing a visitor comes for: at least three public pages, always a contact page (`<Contact>` of `@/briques/sections`, with the details the person gave), each page as rich as the home page in its own way.',
+    'A site that publishes over time (articles, news, recipes, events, a journal) keeps each piece as a row of a table of app.json (title, summary, text, cover photo, section, date), never written in the code: its list page opens on `<ArticleALaUne>` then `<GrilleDArticles>` (the first one larger), filters by section; each piece has its own page with `<EnTeteDArticle>` and `<CorpsDArticle>` at reading width, its date and reading time (`tempsDeLecture`), then two or three related pieces. These are in `@/briques/editorial`.',
+    'A site that publishes over time, a shop or a site of events offers its newsletter with `<InscriptionALaLettre>` of `@/briques/editorial`, once on the home page and at the end of each piece; the owner finds each subscriber in the Messages of the console. Not on a site that has nothing new to send.',
+  ],
+  boutique: ['The catalogue shows each product by its photo first, a mosaic or a carousel on the home page, a product page with its gallery and characteristics, and the cart always one click away; a contact page and `<InscriptionALaLettre>` of `@/briques/editorial` for its news.'],
   app: ['The public home page shows what the person gets from the app (the product itself, its own screens filled with its examples) before it explains; the work screens follow the rules below.'],
 };
 
