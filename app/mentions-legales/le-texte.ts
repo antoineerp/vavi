@@ -1,7 +1,7 @@
 /**
  * Les mentions légales de vavi (la plateforme), exigées par la loi pour la confiance dans l'économie numérique (art. 6-III) :
  * l'éditeur, le directeur de la publication, l'hébergeur. Données d'Antoine, 27/11/2026 : entrepreneur individuel (EI),
- * soumis à la TVA ; une SAS en création reprendra l'activité à son immatriculation (seulement une information, l'éditeur
+ * sans numéro de TVA affiché (choix d'Antoine) ; une SAS en création reprendra l'activité à son immatriculation (seulement une information, l'éditeur
  * reste l'EI tant qu'elle n'a pas de Kbis). Mêmes sections que la politique de confidentialité, dans les deux langues.
  */
 import type { Politique } from '@/app/confidentialite/le-texte';
@@ -9,7 +9,6 @@ import type { Politique } from '@/app/confidentialite/le-texte';
 const CONTACT = 'info@vavi.dev';
 const EDITEUR = 'Antoine Cirier, EI';
 const SIRET = '378 204 457 00048';
-const TVA = 'FR18378204457';
 const ADRESSE = '11 rue du Docteur Sérullaz, 69670 Vaugneray, France';
 
 export const MENTIONS: Readonly<Record<'fr' | 'en', Politique>> = {
@@ -20,7 +19,6 @@ export const MENTIONS: Readonly<Record<'fr' | 'en', Politique>> = {
       { titre: 'Éditeur', liste: [
         `${EDITEUR} (entrepreneur individuel), sous le nom commercial vavi.`,
         `SIRET : ${SIRET}.`,
-        `TVA intracommunautaire : ${TVA}.`,
         `Adresse : ${ADRESSE}.`,
         `Contact : ${CONTACT}.`,
       ] },
@@ -44,7 +42,6 @@ export const MENTIONS: Readonly<Record<'fr' | 'en', Politique>> = {
       { titre: 'Publisher', liste: [
         `${EDITEUR} (French sole trader), trading as vavi.`,
         `SIRET: ${SIRET}.`,
-        `EU VAT number: ${TVA}.`,
         `Address: ${ADRESSE}.`,
         `Contact: ${CONTACT}.`,
       ] },

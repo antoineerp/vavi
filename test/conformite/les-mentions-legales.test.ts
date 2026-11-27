@@ -11,6 +11,7 @@ describe('les mentions légales de vavi', () => {
       for (const attendu of ['Antoine Cirier, EI', '378 204 457 00048', 'Vaugneray', 'info@vavi.dev', 'Fly.io, Inc.', 'Supabase']) expect(tout).toContain(attendu);
       expect(tout).not.toMatch(/\[|à confirmer|to be confirmed/i);
       expect(tout).not.toContain('VAVI.DEV');
+      expect(tout).not.toMatch(/FR\d{11}/);
       for (const s of p.sections) expect((s.paragraphes?.length ?? 0) + (s.liste?.length ?? 0), s.titre).toBeGreaterThan(0);
     }
   });
