@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Administration — vavi', robots: { index: false, follow: false } };
 
 const JOURS = 30;
+const NATURES: Record<string, string> = { site: 'Site vitrine', boutique: 'Boutique', app: 'App métier', jeu: 'Jeu', document: 'Document', inconnue: 'Pas encore déclarée' };
 const date = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleDateString('fr-FR', { dateStyle: 'medium', timeZone: 'Europe/Paris' }) : '—');
 const euros = (c: number | null) => (c === null ? '—' : `${(c / 100).toLocaleString('fr-FR', { minimumFractionDigits: c % 100 ? 2 : 0, maximumFractionDigits: 2 })} €`);
 const lEtat = (e: EtatDeLAbonnement) => e.etat === 'aucun' ? 'essai'
@@ -113,6 +114,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         <button type="submit">Changer les prix</button>
       </form>
       <p className="attenue">En vigueur : Site {euros(t.grille.site)}, Boutique ou app {euros(t.grille.boutique)}, Pro {euros(t.grille.pro)}, projet en plus {euros(t.grille.enPlus)}. Un nouveau prix vaut pour les abonnements à venir. Ceux en cours gardent le leur. Pense aussi à changer la grille du site public.</p>
+
+      <h2>Ce que les gens construisent</h2>
+      {t.parNature.length === 0 ? <p className="carte attenue">Aucun projet pour l’instant.</p> : <div className="defile carte"><table className="tableau">
+        <thead><tr><th>Nature</th><th>Projets créés</th><th>En ligne</th><th>Dont le propriétaire paie</th><th>Visites ({JOURS} j)</th><th>Ventes payées</th></tr></thead>
+        <tbody>{t.parNature.map((n) => <tr key={n.nature}><td>{NATURES[n.nature] ?? n.nature}</td><td>{n.crees} ({Math.round((n.crees / t.projets.length) * 100)} %)</td>
+          <td>{n.enLigne}</td><td>{n.payants}</td><td>{n.visites}</td><td>{n.ventes}</td></tr>)}</tbody>
+      </table></div>}
 
       <h2>Projets</h2>
       <div className="defile carte"><table className="tableau">
