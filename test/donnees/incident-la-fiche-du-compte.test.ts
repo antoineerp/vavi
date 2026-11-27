@@ -62,6 +62,7 @@ describe.runIf(POSTGRES_PRESENT)('la fiche d’un compte, sur un PostgreSQL rée
       return r.ok ? { lu: true, valeur: JSON.parse(r.sortie) } : { lu: false, pourquoi: r.sortie };
     },
     async supprimer() { return { lu: true, valeur: false }; },
+    async periode() { return { lu: true, valeur: [] }; },
   };
   let ana = '', leo = '';
   beforeAll(() => {

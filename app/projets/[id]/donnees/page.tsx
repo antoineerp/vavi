@@ -10,6 +10,9 @@ import type { Ligne } from '@/lib/donnees/sur-supabase';
 import { leProjet } from './le-projet';
 import { enregistrer, importer, supprimer } from './gestes';
 import { MOTS } from './textes';
+import { laFenetre, leLundi, lePlanning, plusJours } from '@/lib/donnees/le-planning';
+import { LePlanning } from './le-planning';
+import { laCellule, type Mots, type References } from './la-cellule';
 
 export const dynamic = 'force-dynamic';
 const PAR_PAGE = 50;
@@ -36,14 +39,23 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     // Le nombre de lignes de chaque table, au menu des tables (comme l'explorateur de constructor).
     Promise.all(p.tables.map(async (x) => { const l = await p.donnees.lire(p.schema, x.nom, { limite: 1 }); return [x.nom, l.lu ? l.valeur.total : null] as const; })).then((e) => new Map(e)),
   ]);
-  const enCours = q.ligne && ID.test(q.ligne) && lues.lu ? lues.valeur.lignes.find((l) => l.id === q.ligne) ?? null : null;
+  // Le planning d'une table à période : la semaine demandée, à l'heure de Paris (`lib/donnees/le-planning`).
+  const vuePlanning = Boolean(t.periode) && q.vue === 'planning';
+  const lundi = leLundi(q.semaine);
+  const fenetre = laFenetre(lundi);
+  const duPlanning = vuePlanning && t.periode ? await p.donnees.periode(p.schema, t.nom, t.periode.debut, t.periode.fin, fenetre.du, fenetre.au) : null;
+  const colonneRessource = t.periode?.ressource ? t.colonnes.find((c) => c.nom === t.periode!.ressource) : undefined;
+  const ordre = colonneRessource?.type === 'reference' ? (references.get(colonneRessource.table ?? '') ?? []).map((x) => x.id) : colonneRessource?.valeurs ?? [];
+  const planning = duPlanning?.lu ? lePlanning(t, duPlanning.valeur, lundi, ordre) : null;
+  const enCours = q.ligne && ID.test(q.ligne)
+    ? (lues.lu ? lues.valeur.lignes.find((l) => l.id === q.ligne) : undefined) ?? (duPlanning?.lu ? duPlanning.valeur.find((l) => l.id === q.ligne) : undefined) ?? null : null;
   const formulaire = q.nouvelle === '1' ? 'nouvelle' : enCours ? 'modifier' : null;
   const importees = Number.parseInt(q.importees ?? '0', 10) || 0;
   const message = q.fait === 'importees' ? `${m.importees(importees)}${q.ignorees ? ` ${m.ignorees} ${q.ignorees}.` : ''}`
     : q.fait ? m.fait[q.fait]
     : q.erreur === 'import_coupe' ? `${m.importCoupe(importees, q.ligne ?? '?')} ${q.pourquoi ?? ''}`
     : q.erreur ? `${m.erreurs[q.erreur] ?? q.erreur}${q.champ ? ` ${q.champ} (${q.pourquoi})` : q.pourquoi ? ` ${q.pourquoi}` : ''}` : null;
-  const lien = (o: Record<string, string>) => `/projets/${id}/donnees?${new URLSearchParams({ table: t.nom, ...(cherche ? { q: cherche } : {}), ...o })}`;
+  const lien = (o: Record<string, string>) => `/projets/${id}/donnees?${new URLSearchParams({ table: t.nom, ...(cherche ? { q: cherche } : {}), ...(vuePlanning ? { vue: 'planning', semaine: lundi } : {}), ...o })}`;
 
   return (
     <main className="console">
@@ -84,8 +96,16 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             </form>
           </div>
         )}
+        {t.periode && (
+          <nav className="ligne" aria-label={m.vues}>
+            {vuePlanning ? <Link href={`/projets/${id}/donnees?table=${t.nom}`}>{m.liste}</Link> : <strong>{m.liste}</strong>}
+            {vuePlanning ? <strong>{m.planning}</strong> : <Link href={`/projets/${id}/donnees?table=${t.nom}&vue=planning`}>{m.planning}</Link>}
+          </nav>
+        )}
         {formulaire && <LeFormulaire id={id} t={t} ligne={enCours} references={references} m={m} langue={p.langue} annuler={lien({})} />}
-        {!lues.lu ? <p role="alert">{m.erreurs.panne} ({lues.pourquoi})</p> : lues.valeur.lignes.length === 0 ? <p className="attenue">{m.aucune}</p> : (
+        {vuePlanning ? (duPlanning && !duPlanning.lu ? <p role="alert">{m.erreurs.panne} ({duPlanning.pourquoi})</p>
+          : planning && <LePlanning planning={planning} t={t} m={m} langue={p.langue} references={references} lien={lien} semaine={(n) => `/projets/${id}/donnees?table=${t.nom}&vue=planning&semaine=${plusJours(lundi, 7 * n)}`} aujourdhui={`/projets/${id}/donnees?table=${t.nom}&vue=planning`} />)
+        : !lues.lu ? <p role="alert">{m.erreurs.panne} ({lues.pourquoi})</p> : lues.valeur.lignes.length === 0 ? <p className="attenue">{m.aucune}</p> : (
           <>
             <p className="attenue">{m.lignes(lues.valeur.total)}</p>
             <div style={{ overflowX: 'auto' }}>
@@ -114,8 +134,6 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   );
 }
 
-type Mots = (typeof MOTS)['fr'] | (typeof MOTS)['en'];
-type References = ReadonlyMap<string, readonly { readonly id: string; readonly nom: string }[]>;
 
 /** Les lignes que chaque référence de la table peut désigner (au plus 200 par table), nommées par leur premier texte. */
 async function lesReferences(p: Extract<Awaited<ReturnType<typeof leProjet>>, { ok: true }>, t: TableDeLaConsole): Promise<References> {
@@ -129,11 +147,6 @@ async function lesReferences(p: Extract<Awaited<ReturnType<typeof leProjet>>, { 
   return r;
 }
 
-function laCellule(c: Colonne, v: unknown, references: References, langue: 'fr' | 'en'): string {
-  if (c.type === 'reference' && c.table && typeof v === 'string') return references.get(c.table)?.find((x) => x.id === v)?.nom ?? v.slice(0, 8);
-  const texte = enTexte(c, v, langue);
-  return texte.length > 80 ? `${texte.slice(0, 80)}…` : texte;
-}
 
 function LeFormulaire({ id, t, ligne, references, m, langue, annuler }: { id: string; t: TableDeLaConsole; ligne: Ligne | null; references: References; m: Mots; langue: 'fr' | 'en'; annuler: string }) {
   const valeur = (c: Colonne): string => {
@@ -168,3 +181,4 @@ function LeFormulaire({ id, t, ligne, references, m, langue, annuler }: { id: st
     </div>
   );
 }
+
