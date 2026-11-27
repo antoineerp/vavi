@@ -196,6 +196,12 @@ section{padding-block:64px}
 /* Ouverture sur une colonne, avec la capture réelle de Claude ; ce qui tourne ; l'abonnement */
 .ouverture.une-colonne .enveloppe{grid-template-columns:1fr;gap:36px}
 .ouverture.une-colonne .texte{max-width:46em}
+.ouverture.une-colonne .texte.titre-et-appel{max-width:none;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:28px 48px;align-items:center}
+.titre-et-appel .tete{display:grid;gap:22px;min-width:0}
+.titre-et-appel .appel{display:grid;gap:16px;min-width:0;padding:26px;background:var(--carte);border:1px solid var(--trait);border-radius:18px;box-shadow:0 1px 0 var(--trait),0 22px 44px -28px var(--ombre)}
+.titre-et-appel .appel .adresse-haut{margin-top:0}
+.titre-et-appel .appel p{margin:0}
+@media (max-width:900px){.ouverture.une-colonne .texte.titre-et-appel{grid-template-columns:1fr}}
 .ecran-claude,.capture-console{margin:0;display:grid;gap:10px;min-width:0}
 .ecran-claude img,.capture-console img{width:100%;height:auto;display:block;border:1px solid var(--trait);border-radius:14px;box-shadow:0 1px 0 var(--trait),0 30px 60px -34px var(--ombre);background:var(--carte)}
 .ecran-claude figcaption,.capture-console figcaption{font-family:var(--f-mono);font-size:.8rem;color:var(--encre-douce)}
@@ -476,10 +482,13 @@ details p{margin-top:10px;color:var(--encre-douce)}
 <!-- ═════════ OUVERTURE ═════════ -->
 <div class="ouverture une-colonne">
   <div class="enveloppe">
-    <div class="texte">
+    <div class="texte titre-et-appel">
+      <div class="tete">
       <span class="note">votre abonnement Claude suffit : aucun crédit d'IA à acheter</span>
       <h1>Claude écrit votre site. <span class="surligne">vavi le fait tourner.</span> Vous le pilotez.</h1>
       <p class="chapeau">Vous décrivez votre site à Claude, dans l'abonnement que vous avez déjà. vavi lui donne <strong>une vraie base de données, des comptes clients, les paiements et l'hébergement en Europe</strong>, et vous donne une console pour tout piloter.</p>
+      </div>
+      <div class="appel">
       <div class="gestes">
         <a class="bouton plein vedette" href="__LIEN_D_INSTALLATION__" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Ajouter vavi à Claude</a>
         <a class="bouton" href="#etapes">Comment ça marche</a>
@@ -489,6 +498,7 @@ details p{margin-top:10px;color:var(--encre-douce)}
         <div class="copie"><code id="adresse-mcp-haut">__ADRESSE_MCP__</code><button type="button" data-copier="adresse-mcp-haut">Copier</button></div>
       </div>
       <p style="color:var(--encre-douce);font-size:.95rem">Essai gratuit, sans carte bancaire. Vous ne payez vavi que pour publier.</p>
+      </div>
     </div>
     <figure class="ecran-claude">
       <img src="__IMAGES__/claude-et-planning.png" alt="Claude.ai : la conversation à gauche, l'app de planning de chantiers dans le panneau vavi à droite, avec le bouton Publier" width="1607" height="852">
