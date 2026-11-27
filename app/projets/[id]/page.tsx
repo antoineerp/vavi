@@ -17,6 +17,9 @@ import { lesJours } from '@/app/_partage/le-pilotage';
 import { lesAbonnementsReels } from '@/app/_partage/les-abonnements-reels';
 import { leDroitDePublier } from '@/lib/abonnements/l-abonnement';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
+import { magasinS3 } from '@/lib/publication/le-magasin';
+import { leDernierPassage } from '@/lib/mcp/la-recette';
+import { leBilan } from '@/lib/parcours/le-cahier';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +30,11 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   if (!p.lu) return <main className="console"><p role="alert">{t.erreur} {p.pourquoi}</p></main>;
   const projet = p.valeur!;
   const fr = c.langue === 'fr';
-  const [messages, visites, notes] = await Promise.all([boiteSurSupabase(c.base).lister(id, 100), lesVisites(c.base, id, 30), c.projets.notes(c.compte, id)]);
+  const magasin = magasinS3();
+  const [messages, visites, notes, passage] = await Promise.all([boiteSurSupabase(c.base).lister(id, 100), lesVisites(c.base, id, 30), c.projets.notes(c.compte, id),
+    magasin.lu ? leDernierPassage(magasin.magasin, id).catch(() => null) : Promise.resolve(null)]);
+  // LA RECETTE AVANT « PUBLIER » (Antoine, 27/11) : ce que les parcours rejoués disent de l'aperçu, sans rien bloquer.
+  const bilan = passage?.etat === 'joue' && passage.empreinte === projet.apercuEmpreinte ? leBilan(passage) : null;
   const audience = visites.lu ? resumerLAudience(visites.valeur) : null;
   const serie = audience ? lesJours(audience.parJour, 30, Date.now()) : null;
   const semaine = serie ? serie.slice(-7).reduce((n, x) => n + x.visites, 0) : null;
@@ -102,6 +109,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                 ? (fr ? `${projet.nom} est ${m.manifeste.nature === 'boutique' ? 'une boutique' : m.manifeste.nature === 'jeu' ? 'un jeu' : 'une app'} : votre offre ne publie que des sites vitrines. Pour la publier, passez à l’offre Boutique ou app (ou Pro).`
                   : `${projet.nom} is ${m.manifeste.nature === 'boutique' ? 'a shop' : m.manifeste.nature === 'jeu' ? 'a game' : 'an app'}: your offer publishes showcase sites only. To publish it, move to the Shop or app offer (or Pro).`)
                 : <>{t.erreur} {ERREURS[empeche]?.[c.langue] ?? empeche}</>}</div>}
+            {bilan && bilan.total > 0 && <p style={{ margin: '0 0 0.75rem' }}>
+              <span className={`etat ${bilan.casses.length ? 'rouge' : 'vert'}`}>{fr ? 'Recette' : 'Tests'}</span>{' '}
+              {bilan.casses.length === 0 ? (fr ? `les ${bilan.total} parcours passent sur cet aperçu.` : `all ${bilan.total} journeys pass on this preview.`)
+                : (fr ? `${bilan.casses.length} parcours sur ${bilan.total} casse${bilan.casses.length > 1 ? 'nt' : ''} : ${bilan.casses.join(', ')}.` : `${bilan.casses.length} of ${bilan.total} journeys broken: ${bilan.casses.join(', ')}.`)}{' '}
+              <Link href={`/projets/${id}/recette`}>{fr ? 'Voir la recette' : 'See the tests'}</Link></p>}
+            {passage?.etat === 'en_cours' && <p className="attenue" style={{ margin: '0 0 0.75rem' }}>{fr ? 'La recette est en train d’être rejouée…' : 'The tests are being replayed…'}</p>}
             {empeche && OFFRE.includes(empeche)
               ? <Link className="bouton" href={`/abonnement?projet=${id}#offres`}>{fr ? 'Choisir une offre pour publier' : 'Choose a plan to publish'}</Link>
               : <button type="submit" disabled={etat !== 'a_publier'}><Icone nom="envoi" taille={16} />{t.publier}</button>}
