@@ -37,6 +37,8 @@ import { lesLiensMorts } from '@/squelette/les-liens';
 import { lesEcartsDeDroit } from '@/squelette/les-droits-des-pages';
 import { lesPagesSansDescription } from '@/squelette/les-descriptions';
 import type { Etape as EtapeDuParcours, Parcours } from '@/lib/parcours/le-parcours';
+import { CHEMIN_DU_CAHIER, leBilan, lireLeCahier, type CahierLu } from '@/lib/parcours/le-cahier';
+import { jouerLaRecette, leDernierPassage } from './la-recette';
 import { CHEMIN_DES_IMAGES, CleDeLaBanqueRefusee, poserLesImages, type Banque, type DemandeDImage } from '@/lib/images/la-banque';
 import { REPRISES_MAX, reprendreLesImages } from '@/lib/images/la-reprise';
 import { TAILLE_MAX_D_UNE_PHOTO } from '@/lib/images/la-photo-fournie';
@@ -311,6 +313,7 @@ export async function lEtatDuProjet(c: Contexte, a: { project: string }): Promis
     work_session: ch ? { id: ch.id, intention: ch.intention, opened_at: ch.ouvertLe, last_change_at: ch.dernierGesteLe, changes: ch.gestes, done: ch.fait, remaining: ch.reste,
       how_to_continue: commentContinuer(ch.dernierGesteLe, Date.now()) } : null,
     project_notes: await lesNotesMontrees(c, a.project),
+    acceptance: await laRecetteMontree(c, a.project, lireLeCahier(f.valeur.get(CHEMIN_DU_CAHIER), arbre.lu ? arbre.manifeste.roles.map((r) => r.nom) : []), arbre.lu ? arbre.empreinte : null),
     database_laid_out_at: p.valeur.basePoseeLe,
     // L'INDEX (Antoine, 26/11) : les pages et, pour chaque fichier, ceux de Claude qui l'importent : ce qu'un changement touche.
     pages: index.pages,
@@ -324,6 +327,22 @@ export async function lEtatDuProjet(c: Contexte, a: { project: string }): Promis
         : build.valeur.vert ? { green: true, draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), published: p.valeur.apercuEmpreinte === arbre.empreinte }
           : { green: false, errors: build.valeur.ecarts },
   });
+}
+
+/** Le dernier passage de la recette, tel que Claude le lit : ce qui casse, où, pourquoi ; ou ce qu'il faut écrire. */
+async function laRecetteMontree(c: Contexte, projet: string, cahier: CahierLu, empreinte: string | null): Promise<Record<string, unknown> | string> {
+  if (!cahier.lu && !cahier.absent) return { book_does_not_hold: cahier.erreurs, next: `Fix ${CHEMIN_DU_CAHIER} as said, then build again.` };
+  if (!cahier.lu) return 'no acceptance book: write src/recette.json, { "journeys": [ { "name", "as_role"?, "on_copy"?, "steps": [ the steps of try_journey ] } ] }, with the main journeys of the request; vavi replays it after every green build and shows it to the person';
+  const p = c.magasin ? await leDernierPassage(c.magasin, projet).catch(() => undefined) : undefined;
+  if (p === undefined) return 'unknown: the storage did not answer';
+  if (!p) return 'not played yet: build the preview';
+  if (p.etat === 'en_cours') return 'being played now: read the project state again in a minute';
+  if (p.etat === 'injoue') return { played: false, why: p.raison ?? 'unknown' };
+  const b = leBilan(p);
+  return { played_at: p.le, on_current_version: p.empreinte === empreinte, passed: `${b.passent} of ${b.total} journeys`,
+    ...(cahier.repare.length ? { book_read_as: cahier.repare } : {}),
+    ...(b.casses.length ? { broken: p.parcours.filter((x) => !x.ok && !x.injoue).map((x) => ({ journey: x.nom, ...(x.arret ? { step: x.arret.n, what: x.arret.etape, why: x.arret.pourquoi, at: x.arret.adresse } : {}) })),
+      next: 'Fix what breaks each journey (or the journey itself if the request changed), build again: vavi replays the book.' } : {}) };
 }
 
 export async function lireDesFichiers(c: Contexte, a: { project: string; paths: readonly string[] }): Promise<Rendu> {
@@ -742,6 +761,10 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   console.log(`[build_preview] ${a.project} build ${temps.build} ms, envoi ${temps.store} ms`);
   await c.projets.enregistrerUnBuild(c.compte, a.project, { empreinte: arbre.empreinte, vert: true, ecarts: [] });
   compterLeBuild(c, a.project, true);
+  // LA RECETTE REJOUÉE À CHAQUE APERÇU VERT (Antoine, 27/11) : en arrière-plan, sans modèle ; son passage se lit par
+  // `get_project_state` et dans la console.
+  const recette = f.valeur.has(CHEMIN_DU_CAHIER) && c.enArrierePlan;
+  if (recette) c.enArrierePlan!(`recette ${a.project}`, async () => { await jouerLaRecette(c, a.project, 'apercu'); });
   // Un build vert DEVIENT l'aperçu (24/11, retour d'Antoine : la console disait « pas encore d'aperçu » après un build
   // vert) : la console et le lien montrent la dernière version qui se construit ; `publish` ferme le chantier.
   const designe = await c.projets.publierLApercu(c.compte, a.project, arbre.empreinte);
@@ -771,6 +794,8 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
     ...(sansDescription.length ? { seo_checks: { pages_without_description: sansDescription.slice(0, 30),
       next: 'Each of these public pages shows the app’s description under its Google link, the same on every page: add `export const description = \'…\'` to it, one or two sentences of 70 to 160 characters saying what THIS page offers, in the language of the page.' } } : {}),
     ...(vues?.captures.length ? { _images: vues.captures.map((x) => ({ data: x.jpeg.toString('base64'), mimeType: 'image/jpeg' })) } : {}),
+    acceptance: recette ? 'the acceptance book (src/recette.json) is being replayed in the background on this build: read its result with `get_project_state` before telling the person it works'
+      : f.valeur.has(CHEMIN_DU_CAHIER) ? 'not replayed on this server' : 'this project has no acceptance book yet: write src/recette.json (the main journeys of the request), vavi replays it after every green build',
     next: 'When the person’s request is done, call `publish` to close the work session.',
     checked: 'types (tsc strict) and the build', not_checked: 'how the screens look and behave: ask the person to open the preview and check.',
     prerendered: pre === 'en_fond' ? 'running in the background: the public pages are rendered for search engines after this answer'
