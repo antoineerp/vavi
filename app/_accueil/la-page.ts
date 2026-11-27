@@ -80,6 +80,17 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .bouton:hover{transform:translate(-1px,-1px);box-shadow:0 1px 0 var(--trait),0 22px 44px -28px var(--ombre)}
 .bouton:active{transform:translate(2px,2px);box-shadow:0 1px 0 var(--trait),0 22px 44px -28px var(--ombre)}
 .bouton.plein{background:var(--vert);color:#fff;border-color:var(--vert)}
+.bouton.vedette{position:relative;overflow:hidden;isolation:isolate;font-size:1.15rem;padding:16px 28px;border-radius:16px}
+.bouton.vedette svg{width:20px;height:20px;flex:none}
+.adresse-haut{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.adresse-haut>span{font-size:.92rem;color:var(--encre-douce)}
+@media (prefers-reduced-motion:no-preference){
+  .bouton.vedette{animation:appel 2.6s ease-out infinite}
+  .bouton.vedette::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.38) 50%,transparent 65%);transform:translateX(-120%);animation:reflet 3.2s ease-in-out infinite}
+  .bouton.vedette:hover{animation-play-state:paused}
+  @keyframes appel{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--vert) 55%,transparent),0 22px 44px -28px var(--ombre)}70%,100%{box-shadow:0 0 0 16px color-mix(in srgb,var(--vert) 0%,transparent),0 22px 44px -28px var(--ombre)}}
+  @keyframes reflet{0%,45%{transform:translateX(-120%)}75%,100%{transform:translateX(120%)}}
+}
 .entete .bouton{padding:8px 14px;font-size:.95rem}
 .entete .langue{font-family:var(--f-mono);font-size:.85rem;color:var(--encre-douce);text-decoration:none;white-space:nowrap}
 .entete .langue:hover{color:var(--encre);text-decoration:underline}
@@ -459,8 +470,12 @@ details p{margin-top:10px;color:var(--encre-douce)}
       <h1>Claude écrit votre site. <span class="surligne">vavi le fait tourner.</span> Vous le pilotez.</h1>
       <p class="chapeau">Vous décrivez votre site à Claude, dans l'abonnement que vous avez déjà. vavi lui donne <strong>une vraie base de données, des comptes clients, les paiements et l'hébergement en Europe</strong>, et vous donne une console pour tout piloter.</p>
       <div class="gestes">
-        <a class="bouton plein" href="__LIEN_D_INSTALLATION__" target="_blank" rel="noopener">Ajouter vavi à Claude</a>
+        <a class="bouton plein vedette" href="__LIEN_D_INSTALLATION__" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Ajouter vavi à Claude</a>
         <a class="bouton" href="#etapes">Comment ça marche</a>
+      </div>
+      <div class="adresse-haut">
+        <span>Le lien de vavi, à coller dans Claude si le bouton ne s'ouvre pas :</span>
+        <div class="copie"><code id="adresse-mcp-haut">__ADRESSE_MCP__</code><button type="button" data-copier="adresse-mcp-haut">Copier</button></div>
       </div>
       <p style="color:var(--encre-douce);font-size:.95rem">Essai gratuit, sans carte bancaire. Vous ne payez vavi que pour publier.</p>
     </div>
