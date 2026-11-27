@@ -66,13 +66,17 @@ export async function mettreEnLigneDepuisLaVue(c: Contexte, a: { project: string
  */
 export interface BoutonDeLaFiche { readonly do: 'link' | 'publish' | 'panel'; readonly label: { readonly fr: string; readonly en: string }; readonly url?: string; readonly main?: boolean }
 
-export function lesBoutonsDeLaFiche(f: { readonly preview_url: string | null; readonly state: string; readonly console_url: string }): BoutonDeLaFiche[] {
+export function lesBoutonsDeLaFiche(f: { readonly preview_url: string | null; readonly state: string; readonly console_url: string;
+  readonly can_publish?: boolean | null; readonly plan_url?: string }): BoutonDeLaFiche[] {
+  // Sans offre, « Publier » ne pourrait que refuser (Antoine, 27/11 : le refus passait inaperçu) : le bouton mène à l'offre.
+  const sansOffre = f.state === 'a_publier' && f.can_publish === false && f.plan_url;
   return [
     // « Afficher à droite », en premier et en vert (Antoine, 26/11 17h02) : Claude.ai n'ouvre son panneau qu'après un clic.
     { do: 'panel' as const, label: { fr: 'Afficher à droite', en: 'Show on the right' }, main: true },
     // Par la console, qui y fait entrer le propriétaire déjà connecté (`/projets/<id>/entrer`, 27/11).
     ...(f.preview_url ? [{ do: 'link' as const, label: { fr: 'Voir l’aperçu', en: 'See the preview' }, url: `${f.console_url}/entrer` }] : []),
-    ...(f.state === 'a_publier' ? [{ do: 'publish' as const, label: { fr: 'Publier', en: 'Publish' }, main: true }] : []),
+    ...(sansOffre ? [{ do: 'link' as const, label: { fr: 'Publier : choisir une offre', en: 'Publish: choose a plan' }, url: f.plan_url, main: true }]
+      : f.state === 'a_publier' ? [{ do: 'publish' as const, label: { fr: 'Publier', en: 'Publish' }, main: true }] : []),
     { do: 'link', label: { fr: 'Console vavi', en: 'vavi console' }, url: f.console_url },
   ];
 }
@@ -88,7 +92,7 @@ async function laFiche(c: Contexte, id: string, connue?: string): Promise<Rendu>
   const adresses = { console: c.adresse, domaine: c.domaineDesApps ?? null };
   const preview_url = projet.apercuEmpreinte ? lAdresseDeLApp(id, 'apercu', adresses) : null, console_url = `${c.adresse}/projets/${id}`;
   return {
-    buttons: lesBoutonsDeLaFiche({ preview_url, state: etat, console_url }),
+    buttons: lesBoutonsDeLaFiche({ preview_url, state: etat, console_url, can_publish: droit ? droit.permis : null, plan_url: `${c.adresse}/abonnement` }),
     ok: true, id, project: id, name: projet.nom, version: projet.version, state: etat,
     work_session: projet.chantier?.intention ?? null,
     preview_url,

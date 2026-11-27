@@ -14,6 +14,9 @@ import { leProjet, ERREURS } from './le-projet';
 import { Icone } from '@/app/_partage/les-icones';
 import { Aire } from '@/app/_partage/les-graphiques';
 import { lesJours } from '@/app/_partage/le-pilotage';
+import { lesAbonnementsReels } from '@/app/_partage/les-abonnements-reels';
+import { leDroitDePublier } from '@/lib/abonnements/l-abonnement';
+import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +32,13 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const serie = audience ? lesJours(audience.parJour, 30, Date.now()) : null;
   const semaine = serie ? serie.slice(-7).reduce((n, x) => n + x.visites, 0) : null;
   const etat = lEtatDeLaMiseEnLigne(projet);
+  // AVANT LE CLIC (Antoine, 27/11 : « je clique sur publier et il ne se passe rien » ; le refus de l'offre s'écrivait en
+  // haut de la page, loin du bouton) : ce qui empêche de publier se dit dans la carte, en grand, avec l'offre à choisir.
+  const fichiers = etat === 'a_publier' ? await c.projets.fichiers(c.compte, id) : null;
+  const m = fichiers?.lu ? leManifesteStocke(fichiers.valeur.get('app.json')) : null;
+  const droit = etat === 'a_publier' ? await leDroitDePublier(lesAbonnementsReels(), c.compte, id, m?.lu ? m.manifeste : null).catch(() => null) : null;
+  const empeche = droit?.lu && !droit.valeur.permis ? droit.valeur.pourquoi : q.erreur ?? null;
+  const OFFRE = ['aucune_offre', 'suspendu', 'nature', 'quota'];
   const message = q.fait === 'publie' ? t.publie : q.fait === 'claude_a_fini' ? t.claudeAFiniFait : q.fait === 'notes' ? (fr ? 'Notes enregistrées : Claude les relira au prochain travail.' : 'Notes saved: Claude will read them at the next work session.') : q.erreur ? `${t.erreur} ${ERREURS[q.erreur]?.[c.langue] ?? q.erreur}` : null;
   const recus = messages.lu ? messages.valeur.filter((m) => m.statut !== 'spam').length : null;
 
@@ -87,7 +97,11 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           </ol>
           <form action={publier.bind(null, id)}>
             <p className="attenue" style={{ fontSize: '0.85rem', margin: '0 0 0.75rem' }}>{etat === 'en_ligne' ? t.dejaEnLigne : etat === 'rien_a_publier' ? t.pasDApercu : t.publierExplication}</p>
-            <button type="submit" disabled={etat !== 'a_publier'}><Icone nom="envoi" taille={16} />{t.publier}</button>
+            {empeche && <div role="alert" style={{ fontWeight: 700, fontSize: '1.05rem', margin: '0 0 0.75rem' }}>
+              {t.erreur} {ERREURS[empeche]?.[c.langue] ?? empeche}</div>}
+            {empeche && OFFRE.includes(empeche)
+              ? <Link className="bouton" href="/abonnement">{fr ? 'Choisir une offre pour publier' : 'Choose a plan to publish'}</Link>
+              : <button type="submit" disabled={etat !== 'a_publier'}><Icone nom="envoi" taille={16} />{t.publier}</button>}
           </form>
           <p className="attenue" style={{ marginTop: '1rem', fontSize: '0.8rem' }}><a href={`/api/export/${id}`}>{t.exporter}</a> · {t.exporterExplication}</p>
         </div>
