@@ -54,7 +54,7 @@ export function ceQueLAppPorte(m: Manifeste): Porte {
     photos: m.tables.some((t) => t.champs.some((c) => c.type === 'image')), langues: m.langues.autres.length > 0,
     moteur: m.indicateurs.length > 0 || m.tables.some((t) => t.champs.some((c) => c.calcul || c.cumul)),
     comptes: m.roles.length > 0, vitrine: m.tables.some(estMontree), periodes: m.tables.some((t) => t.periode), reservations: m.tables.some((t) => t.periode?.exclusive),
-    regles: m.tables.some((t) => Boolean(t.regles?.length || t.uniques?.length)), agents: m.agents.length > 0, ecrans: m.ecrans.length > 0,
+    regles: m.tables.some((t) => Boolean(t.regles?.length || t.uniques?.length || t.plafonds?.length || t.cycle?.transitions.some((x) => x.reservee?.length))), agents: m.agents.length > 0, ecrans: m.ecrans.length > 0,
     acces: m.roles.some((r) => r.obtenu === 'paiement'), resultat: Boolean(m.resultat), sansCompte: m.tables.some((t) => t.ecriture.includes('visiteur')), parcours: Boolean(m.parcours),
     privee: m.nature === 'app' && m.roles.length > 0 && m.roles.every((r) => ['proprietaire', 'invitation', 'habilitation'].includes(r.obtenu))
       && !m.tables.some((t) => t.lecture.includes('visiteur') || t.ecriture.includes('visiteur')) };

@@ -15,6 +15,7 @@ import type { Manifeste } from '../app/manifeste';
 import type { TableDeLaBase } from '../app/la-commande';
 import { cite, tableau } from './sql';
 import { exigencesDuGeste } from './l-integrite-en-base';
+import { refusDUnGesteReserve, sqlDUnGesteReserve } from './les-regles-en-base';
 
 type Table = TableDeLaBase;
 type Transition = NonNullable<Table['cycle']>['transitions'][number];
@@ -38,7 +39,9 @@ export function sqlDuCycle(m: Manifeste, s: string, t: Table): string[] {
       return u ? [`    perform ${s}.${u.nom}_appliquer(l.${e.champ}, ${cite(e.transition)}, ${cite(`${t.libelle} : ${x.libelle}`)}) from ${T} l where l.id = p_id and l.${e.champ} is not null;`] : [];
     }),
     '  end if;'].join('\n'));
-  const possibles = cycle.transitions.map((x, i) => `(${i}, ${cite(x.nom)}, ${tableau(x.de)}, ${permis(x.par)} and ${parUnAutre(x, 'l')})`).join(', ');
+  // Un geste réservé sous condition (`reservee`) : quand la condition tient sur la ligne, seuls ses rôles le font.
+  const reserve = (x: Transition, l: string): string => (x.reservee ?? []).map((r) => ` and ${sqlDUnGesteReserve(s, t, r, l)}`).join('');
+  const possibles = cycle.transitions.map((x, i) => `(${i}, ${cite(x.nom)}, ${tableau(x.de)}, ${permis(x.par)} and ${parUnAutre(x, 'l')}${reserve(x, 'l')})`).join(', ');
   return [
     `create table if not exists ${J} (id bigint generated always as identity primary key, ligne uuid not null references ${T}(id) on delete cascade,`
       + ` transition text not null, de text not null, vers text not null, par uuid, par_email text, le timestamptz not null default now(), motif text);`,
@@ -81,6 +84,8 @@ export function sqlDuCycle(m: Manifeste, s: string, t: Table): string[] {
     '  end case;',
     "  if not v_permis then raise exception 'votre rôle ne fait pas ce geste' using errcode = '42501'; end if;",
     "  if not v_par_un_autre then raise exception 'ce geste se fait par un autre membre que celui qui a créé la ligne' using errcode = '42501'; end if;",
+    ...cycle.transitions.flatMap((x) => (x.reservee ?? []).map((r) =>
+      `  if p_transition = ${cite(x.nom)} and not exists (select 1 from ${T} l where l.id = p_id and ${sqlDUnGesteReserve(s, t, r, 'l')}) then ${refusDUnGesteReserve(r)} end if;`)),
     ...exigencesDuGeste(t, T),
     `  return ${s}.${t.nom}_appliquer(p_id, p_transition, p_motif);`,
     'end $fn$;'].join('\n'),
