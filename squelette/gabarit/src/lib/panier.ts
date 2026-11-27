@@ -70,6 +70,8 @@ export const chiffrer = (l: readonly LigneDuPanier[], destination: Destination, 
 /** Les coordonnées de qui achète, telles que la plateforme les relit (`lireLesCoordonnees`). */
 export interface Acheteur {
   readonly nom: string; readonly courriel: string; readonly telephone?: string; readonly retrait?: boolean;
+  /** Une entreprise qui achète : sa facture électronique porte sa raison sociale, son SIREN, son n° de TVA. */
+  readonly societe?: string; readonly siren?: string; readonly tva?: string;
   readonly adresse?: { readonly line1: string; readonly line2?: string; readonly postal_code: string; readonly city: string; readonly country: string };
 }
 

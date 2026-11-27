@@ -73,7 +73,7 @@ export interface ChoixDesIa { readonly assistants: boolean; readonly entrainemen
 /** Ce que le propriétaire dit de son site dans « Référencement » : son nom, ce qu'il fait, qui le publie (app.json). */
 export interface LeSite {
   readonly nom: string; readonly description: string;
-  readonly editeur: { readonly nom?: string; readonly adresse?: string; readonly telephone?: string; readonly courriel?: string; readonly immatriculation?: string; readonly horaires?: readonly string[] };
+  readonly editeur: { readonly nom?: string; readonly adresse?: string; readonly telephone?: string; readonly courriel?: string; readonly immatriculation?: string; readonly tva?: string; readonly horaires?: readonly string[] };
 }
 
 export type Changement =
@@ -175,7 +175,7 @@ export function avecLeSite(appJson: string, site: LeSite): { readonly ok: true; 
   const e = site.editeur;
   const horaires = (e.horaires ?? []).map((h) => h.trim().slice(0, 120)).filter(Boolean).slice(0, 14);
   const editeur = Object.fromEntries([
-    ...(['nom', 'adresse', 'telephone', 'courriel', 'immatriculation'] as const).map((k) => [k, (e[k] ?? '').trim().slice(0, 300)] as const),
+    ...(['nom', 'adresse', 'telephone', 'courriel', 'immatriculation', 'tva'] as const).map((k) => [k, (e[k] ?? '').trim().slice(0, 300)] as const),
     ['horaires', horaires] as const,
   ].filter(([, v]) => (Array.isArray(v) ? v.length > 0 : Boolean(v))));
   if (typeof editeur.courriel === 'string' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(editeur.courriel)) return { ok: false, detail: 'le courriel de l’éditeur' };

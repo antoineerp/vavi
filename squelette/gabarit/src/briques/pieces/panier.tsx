@@ -72,7 +72,7 @@ export default function Panier() {
     const lu = (k: string): string => String(f.get(k) ?? '').trim();
     const expedie = chiffre.donnee.livraison.adresse && !retrait;
     const acheteur: Acheteur = {
-      nom: lu('nom'), courriel: lu('courriel'), ...(lu('telephone') ? { telephone: lu('telephone') } : {}), ...(retrait ? { retrait: true } : {}),
+      nom: lu('nom'), courriel: lu('courriel'), ...(lu('telephone') ? { telephone: lu('telephone') } : {}), ...(lu('societe') ? { societe: lu('societe') } : {}), ...(lu('siren') ? { siren: lu('siren') } : {}), ...(lu('tva') ? { tva: lu('tva') } : {}), ...(retrait ? { retrait: true } : {}),
       ...(expedie ? { adresse: { line1: lu('line1'), ...(lu('line2') ? { line2: lu('line2') } : {}), postal_code: lu('postal_code'), city: lu('city'), country: pays } } : {}),
     };
     setEnvoi({ enCours: true, refus: null });
@@ -109,6 +109,14 @@ export default function Panier() {
           <label className="block space-y-1 text-sm"><span>{L.nomComplet}</span><Input name="nom" required minLength={2} maxLength={120} autoComplete="name" /></label>
           <label className="block space-y-1 text-sm"><span>{L.courriel}</span><Input name="courriel" type="email" required defaultValue={compte?.email ?? ''} autoComplete="email" /></label>
           <label className="block space-y-1 text-sm"><span>{L.telephone} ({L.facultatif})</span><Input name="telephone" type="tel" maxLength={30} autoComplete="tel" /></label>
+          <details className="text-sm">
+            <summary className="cursor-pointer">{L.pourUneEntreprise} ({L.facultatif})</summary>
+            <div className="mt-3 space-y-3">
+              <label className="block space-y-1"><span>{L.raisonSociale}</span><Input name="societe" maxLength={200} autoComplete="organization" /></label>
+              <label className="block space-y-1"><span>{L.siren}</span><Input name="siren" inputMode="numeric" maxLength={20} /></label>
+              <label className="block space-y-1"><span>{L.tvaIntracom}</span><Input name="tva" maxLength={20} /></label>
+            </div>
+          </details>
           {chiffre?.forme === 'donnee' && chiffre.donnee.livraison.adresse ? (
             <fieldset className="space-y-4">
               {chiffre.donnee.livraison.retrait ? (

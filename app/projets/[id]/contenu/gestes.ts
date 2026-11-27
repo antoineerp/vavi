@@ -168,7 +168,7 @@ export async function enregistrerLeSite(id: string, f: FormData) {
   const r = await changerLeSite(await lesDependances(id), id, {
     nom: champ('nom'), description: champ('description'),
     editeur: { nom: champ('editeur_nom'), adresse: champ('editeur_adresse'), telephone: champ('editeur_telephone'), courriel: champ('editeur_courriel'),
-      immatriculation: champ('editeur_immatriculation'), horaires: champ('editeur_horaires').split('\n') },
+      immatriculation: champ('editeur_immatriculation'), tva: champ('editeur_tva'), horaires: champ('editeur_horaires').split('\n') },
   });
   if (r.change) console.log(`[contenu] ${id.slice(0, 8)} site (version ${r.version}, aperçu ${r.apercu})`);
   retour(id, r, 'site', 'referencement');
