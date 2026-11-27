@@ -100,7 +100,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             {empeche && <div role="alert" style={{ fontWeight: 700, fontSize: '1.05rem', margin: '0 0 0.75rem' }}>
               {t.erreur} {ERREURS[empeche]?.[c.langue] ?? empeche}</div>}
             {empeche && OFFRE.includes(empeche)
-              ? <Link className="bouton" href="/abonnement">{fr ? 'Choisir une offre pour publier' : 'Choose a plan to publish'}</Link>
+              ? <Link className="bouton" href={`/abonnement?projet=${id}#offres`}>{fr ? 'Choisir une offre pour publier' : 'Choose a plan to publish'}</Link>
               : <button type="submit" disabled={etat !== 'a_publier'}><Icone nom="envoi" taille={16} />{t.publier}</button>}
           </form>
           <p className="attenue" style={{ marginTop: '1rem', fontSize: '0.8rem' }}><a href={`/api/export/${id}`}>{t.exporter}</a> · {t.exporterExplication}</p>

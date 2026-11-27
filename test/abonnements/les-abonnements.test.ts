@@ -129,8 +129,14 @@ describe('le webhook des abonnements', () => {
     expect(autre.appliques).toEqual([]);
     expect(await lireLeRetourDuPaiement(d(), COMPTE, '../v1/customers')).toBe(false);
   });
-  it('la page de paiement ramène l’identifiant de sa session', () => {
-    expect(readFileSync(join(__dirname, '../../lib/abonnements/l-abonnement.ts'), 'utf8')).toContain('?fait=abonne&session={CHECKOUT_SESSION_ID}');
+  it('la page de paiement ramène l’identifiant de sa session, et le projet d’où l’on vient (pour le publier)', async () => {
+    const corps: string[] = [];
+    const x = d({ stripe: async (_u, init) => { corps.push(init.body ?? ''); return { ok: true, json: async () => ({ url: 'https://checkout.stripe.test/s' }) }; } });
+    const P = '0f1e2d3c-4b5a-4968-8778-695a4b3c2d1e';
+    await choisirUneOffre(x, COMPTE, 'site', 0, P);
+    await choisirUneOffre(x, COMPTE, 'site', 0, 'javascript:alert(1)');
+    const retours = corps.map((b) => new URLSearchParams(b).get('success_url'));
+    expect(retours).toEqual([`https://v/abonnement?fait=abonne&projet=${P}&session={CHECKOUT_SESSION_ID}`, 'https://v/abonnement?fait=abonne&session={CHECKOUT_SESSION_ID}']);
   });
   const ev = (type: string, objet: Record<string, unknown>, extra: Record<string, unknown> = {}) => JSON.stringify({ type, created: 1700000000, data: { object: objet }, ...extra });
   const meta = { vavi_compte: COMPTE, vavi_offre: 'site', vavi_en_plus: '0' };

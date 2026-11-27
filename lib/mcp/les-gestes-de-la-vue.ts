@@ -92,7 +92,7 @@ async function laFiche(c: Contexte, id: string, connue?: string): Promise<Rendu>
   const adresses = { console: c.adresse, domaine: c.domaineDesApps ?? null };
   const preview_url = projet.apercuEmpreinte ? lAdresseDeLApp(id, 'apercu', adresses) : null, console_url = `${c.adresse}/projets/${id}`;
   return {
-    buttons: lesBoutonsDeLaFiche({ preview_url, state: etat, console_url, can_publish: droit ? droit.permis : null, plan_url: `${c.adresse}/abonnement` }),
+    buttons: lesBoutonsDeLaFiche({ preview_url, state: etat, console_url, can_publish: droit ? droit.permis : null, plan_url: `${c.adresse}/abonnement?projet=${id}#offres` }),
     ok: true, id, project: id, name: projet.nom, version: projet.version, state: etat,
     work_session: projet.chantier?.intention ?? null,
     preview_url,
