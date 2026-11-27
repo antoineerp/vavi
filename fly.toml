@@ -19,3 +19,8 @@ primary_region = "cdg"
 [[vm]]
   memory = "4gb"
   cpus = 2
+
+# Un déploiement démarre la nouvelle machine, attend qu'elle réponde à /api/sante, puis seulement arrête l'ancienne : sans
+# cela, la seule machine s'arrêtait pendant une à deux minutes et Claude ne joignait plus vavi (Antoine, 27/11 13h25).
+[deploy]
+  strategy = "bluegreen"
