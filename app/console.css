@@ -370,3 +370,11 @@ button.danger { color: var(--alerte); border-color: rgba(248, 113, 113, 0.35); b
 @media (max-width: 600px) { .offre-chiffres { grid-template-columns: 1fr 1fr; } .lignes-de-projets li { grid-template-columns: auto minmax(0, 1fr) auto; } .lignes-de-projets li > .etat, .lignes-de-projets li > .tuile-actions { grid-column: 2 / -1; } }
 .panneau-tete .bouton { white-space: nowrap; }
 @media (max-width: 860px) { .colonne .projet-menu > div { display: contents; } .colonne .projet-menu { flex-wrap: nowrap; } }
+/* Le tableau de bord de l'administration (27/11) : deux cartes côte à côte, l'une sous l'autre sur un téléphone. */
+.grille-deux { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 1rem; margin: 1rem 0; }
+.grille-deux .carte { margin: 0; min-width: 0; }
+.grille-deux h3 { margin: 0 0 0.75rem; font-size: 1rem; }
+.chiffre-du-compte .courbe { margin-top: 0.4rem; max-width: 100%; }
+button.google { width: 100%; justify-content: center; background: #fff; color: #1f1f1f; border-color: #dadce0; font-weight: 600; }
+button.google:hover { background: #f8f9fa; }
+.ou { text-align: center; margin: 0.8rem 0 0.4rem; font-size: 0.9rem; }

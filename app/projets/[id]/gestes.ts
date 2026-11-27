@@ -21,6 +21,7 @@ import { lesTextesDUnElement, reecrireUnTexte, type Reecriture } from '@/lib/con
 import { leDroitDePublier } from '@/lib/abonnements/l-abonnement';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 import { lesAbonnementsReels } from '@/app/_partage/les-abonnements-reels';
+import { deplacer } from '@/lib/projets/la-corbeille';
 
 const ID = /^[0-9a-f-]{36}$/;
 const retour = (id: string, q: Record<string, string>, ecran = ''): never => redirect(`/projets/${id}${ecran ? `/${ecran}` : ''}?${new URLSearchParams(q)}`);
@@ -181,4 +182,17 @@ export async function reglerLInscription(id: string, formulaire: FormData) {
   const c = await laConsole(`/projets/${id}/fonctions`);
   const r = await c.projets.regler(c.compte, id, { inscriptionSansValidation: formulaire.get('validation') === 'sans' });
   retour(id, r.lu ? { fait: 'inscription' } : { erreur: 'panne' }, 'fonctions');
+}
+
+/**
+ * Mettre le projet à la corbeille, ou l'en sortir (Antoine, 27/11, « Corbeille de 30 jours », `lib/projets/la-corbeille.ts`) :
+ * rien n'est effacé avant 30 jours ; le site en ligne s'arrête tout de suite et se republie après une restauration.
+ */
+export async function deplacerLeProjet(id: string, geste: 'corbeille' | 'restaurer') {
+  if (!ID.test(id) || !['corbeille', 'restaurer'].includes(geste)) redirect('/projets');
+  const c = await laConsole('/projets');
+  const r = await deplacer(c.base, c.compte, id, geste);
+  if (r.lu && r.valeur) console.log(`[console] ${id.slice(0, 8)} ${geste === 'corbeille' ? 'mis à la corbeille' : 'restauré'}`);
+  if (geste === 'restaurer' && r.lu && r.valeur) redirect(`/projets/${id}?fait=restaure`);
+  redirect(`/projets?${new URLSearchParams(r.lu && r.valeur ? { fait: geste } : { erreur: r.lu ? 'introuvable' : 'panne' })}`);
 }

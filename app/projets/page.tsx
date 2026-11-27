@@ -16,6 +16,8 @@ import { claudeYTravaille, ilYA, lActivite, lEtat, lEvolution, laTeinte, lesJour
 import { lesVisites } from '@/lib/formulaires/sur-supabase';
 import { resumerLAudience } from '@/lib/formulaires/l-audience';
 import { retirerClaude } from './retirer-claude';
+import { deplacerLeProjet } from './[id]/gestes';
+import { laCorbeille, lesJoursRestants } from '@/lib/projets/la-corbeille';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,9 +46,12 @@ const MOTS = {
 
 const ICONE_D_EVENEMENT = { claude: 'eclair', en_ligne: 'globe', version: 'version' } as const;
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ claude?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ claude?: string; fait?: string; erreur?: string }> }) {
   const c = await laConsole('/projets');
-  const { claude } = await searchParams;
+  const { claude, fait, erreur } = await searchParams;
+  const fr = c.langue === 'fr';
+  // La corbeille (27/11) : illisible tant que sa migration n'est pas posée, elle ne s'affiche simplement pas.
+  const corbeille = await laCorbeille(c.base, c.compte);
   const t = TEXTES[c.langue];
   const m = MOTS[c.langue];
   const l = await c.projets.lister(c.compte);
@@ -74,6 +79,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ c
         </EnTeteDePilotage>
         {claude === 'retire' && <p className="carte" role="status">{t.claudeRetire}</p>}
         {claude === 'echec' && <p className="carte" role="alert">{t.claudeEchec}</p>}
+        {fait === 'corbeille' && <p className="carte" role="status">{fr ? 'Projet mis à la corbeille : son site est arrêté. Vous pouvez le restaurer en bas de cette page pendant 30 jours.' : 'Project moved to the bin: its site is stopped. You can restore it at the bottom of this page for 30 days.'}</p>}
+        {erreur && <p className="carte" role="alert">{erreur === 'introuvable' ? (fr ? 'Ce projet n’est plus dans votre corbeille (déjà restauré, ou effacé après 30 jours).' : 'This project is no longer in your bin (already restored, or erased after 30 days).') : t.erreur}</p>}
         {!l.lu ? <p role="alert">{t.erreur} {l.pourquoi}</p> : projets.length === 0 ? (
           <div className="panneau vide"><LogoVavi taille={48} /><p>{t.aucun}</p><p><Link className="bouton" href="/commencer">{t.commencer.lien}</Link></p></div>
         ) : (
@@ -156,6 +163,17 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ c
               </form>
             </section>
           </>
+        )}
+        {corbeille.lu && corbeille.valeur.length > 0 && (
+          <section className="panneau" style={{ marginTop: '1rem' }} aria-labelledby="corbeille">
+            <div className="panneau-tete"><div><h2 id="corbeille">{fr ? 'Corbeille' : 'Bin'}</h2>
+              <p className="attenue">{fr ? 'Ces projets ne sont plus en ligne ni visibles par Claude. Chacun est effacé pour de bon après 30 jours.' : 'These projects are no longer online nor visible to Claude. Each is erased for good after 30 days.'}</p></div></div>
+            <ul className="liste">{corbeille.valeur.map((p) => {
+              const j = lesJoursRestants(p.supprimeLe, maintenant);
+              return <li key={p.id}><span>{p.nom} <span className="attenue">· {fr ? (j ? `effacé dans ${j} jour${j > 1 ? 's' : ''}` : 'effacé cette nuit') : (j ? `erased in ${j} day${j > 1 ? 's' : ''}` : 'erased tonight')}</span></span>
+                <form action={deplacerLeProjet.bind(null, p.id, 'restaurer')}><button type="submit" className="discret">{fr ? 'Restaurer' : 'Restore'}</button></form></li>;
+            })}</ul>
+          </section>
         )}
       </main>
     </div>

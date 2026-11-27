@@ -9,9 +9,9 @@ import { LogoVavi } from '@/app/_partage/le-logo';
 import { AllerALaSuite } from './aller-a-la-suite';
 
 const MOTS = {
-  fr: { titre: 'Se connecter ou créer son compte', intro: 'Donnez votre adresse e-mail : vavi vous envoie un lien. Sans compte, ce lien le crée ; avec un compte, il vous connecte. Aucun mot de passe.',
+  fr: { titre: 'Se connecter ou créer son compte', intro: 'Continuez avec Google, ou donnez votre adresse e-mail : vavi vous envoie un lien. Sans compte, il est créé ; avec un compte, vous êtes connecté. Aucun mot de passe.',
     rattache: 'Vos projets, votre abonnement, vos factures et l’accès de Claude sont rattachés à cette adresse.', nouveau: 'Nouveau sur vavi ?', guide: 'Voir comment brancher Claude' },
-  en: { titre: 'Sign in or create your account', intro: 'Enter your e-mail: vavi sends you a link. Without an account, the link creates it; with one, it signs you in. No password.',
+  en: { titre: 'Sign in or create your account', intro: 'Continue with Google, or enter your e-mail: vavi sends you a link. Without an account, it is created; with one, you are signed in. No password.',
     rattache: 'Your projects, subscription, invoices and Claude’s access are tied to this address.', nouveau: 'New to vavi?', guide: 'See how to connect Claude' },
 } as const;
 

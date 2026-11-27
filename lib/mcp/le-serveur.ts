@@ -29,6 +29,8 @@ export interface ContexteDuServeur extends ContexteDesRessources {
   readonly langue: string;
   /** Note une première fois du compte (le temps jusqu'au premier site, `lib/administration/le-premier-site`) ; sans attendre, sans jamais échouer. */
   readonly noter?: (etape: EtapeFranchie) => void;
+  /** Compte un appel d'outil, refusé ou non (`lib/administration/l-activite.ts`) : un nombre, jamais son contenu. */
+  readonly compter?: (outil: string, refus: boolean) => void;
 }
 
 export type EtapeFranchie = 'connecteur' | 'projet' | 'build_vert' | 'parcours' | 'en_ligne';
@@ -76,8 +78,9 @@ async function repondre(r: Requete, ctx: ContexteDuServeur): Promise<ReponseRpc 
       const nom = typeof p.name === 'string' ? p.name : '';
       const a = await appelerUnOutil(ctx.outils, nom, p.arguments);
       if (!a.connu) return erreur(id, -32602, `Unknown tool "${nom}".`);
-      if ('invalide' in a) return erreur(id, -32602, `Invalid arguments for ${nom}: ${a.invalide}`);
+      if ('invalide' in a) { ctx.compter?.(nom, true); return erreur(id, -32602, `Invalid arguments for ${nom}: ${a.invalide}`); }
       const refus = estUnRefus(a.rendu);
+      ctx.compter?.(nom, refus);
       const etape = lEtapeFranchie(nom, a.rendu as Record<string, unknown>, refus);
       if (etape) ctx.noter?.(etape);
       // Les images d'un rendu (`_images` : les captures d'un build vert) vont en blocs image, jamais dans le JSON.
