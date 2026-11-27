@@ -3,6 +3,7 @@ import { rafraichirLaSession } from '@/lib/supabase/session';
 import { CORS_DES_APPS, estUneRouteDesApps, laDecision, leDomaineDesApps } from '@/lib/publication/les-adresses-des-apps';
 import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 import { laCarteDesDomainesReelle } from '@/app/_partage/les-domaines-reels';
+import { lesEntetesDeLaConsole } from '@/lib/les-entetes';
 
 /**
  * D'abord l'hôte (`lib/publication/les-adresses-des-apps.ts`) : une app est servie à son hôte à elle, jamais à
@@ -20,6 +21,7 @@ export async function middleware(requete: NextRequest) {
     return r;
   }
   if (d.faire === 'rediriger') return NextResponse.redirect(d.adresse, 308);
+  // Une app (son hôte) : encadrable, son aperçu s'affiche dans la console et dans Claude.
   if (d.faire === 'reecrire') {
     const u = requete.nextUrl.clone();
     u.pathname = d.chemin;
@@ -27,7 +29,8 @@ export async function middleware(requete: NextRequest) {
   }
   // L'hôte d'une app ne reçoit jamais la session de la console (elle n'y est pas posée) : rien à rafraîchir.
   if (leDomaineDesApps(process.env) && requete.headers.get('host')?.toLowerCase().split(':')[0]?.endsWith(`.${leDomaineDesApps(process.env)}`)) return NextResponse.next();
-  return rafraichirLaSession(requete);
+  // La console : jamais encadrée (`lib/les-entetes.ts`).
+  return lesEntetesDeLaConsole(await rafraichirLaSession(requete), requete.nextUrl.pathname);
 }
 
 export const config = {
