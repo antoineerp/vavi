@@ -195,6 +195,8 @@ describe('on ne publie que le build vert de l’arbre courant', () => {
       .toMatchObject({ build: { green: true, preview_updated: true } });
     const b = await ok('build_preview', { project: w.project });
     expect(b.draft_url).toMatch(/^https:\/\/vavi\.test\/p\/[^/]+\/\?brouillon=[0-9a-f]{64}$/);
+    // INCIDENT 27/11 : l'adresse nue de l'aperçu arrêtait le propriétaire sur la porte de son app ; le lien à donner passe par la console.
+    expect(b.owner_url).toMatch(/^https:\/\/vavi\.test\/projets\/[^/]+\/entrer$/);
     // Le build vert devient l'aperçu tout de suite (retour d'Antoine du 24/11) : la console le montre sans attendre `publish`.
     expect(b).toMatchObject({ preview_url: expect.stringMatching(/^https:\/\/vavi\.test\/p\/[^/]+\/$/), preview_updated: true });
     expect((await ok('get_project_state', { project: w.project })).preview_url).toBe(b.preview_url);

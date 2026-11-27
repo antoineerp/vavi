@@ -20,6 +20,12 @@
  */
 export const EMPREINTE_DE_LA_VUE = 'a3798d540f';
 export const RESSOURCE_DE_LA_VUE = `ui://vavi/projet/${EMPREINTE_DE_LA_VUE}`;
+/**
+ * Une adresse de la vue d'une version passée : une conversation ouverte avant un déploiement garde la liste des outils
+ * qu'elle a lue, donc l'ancienne adresse (27/11, Antoine : panneau vide dans Claude, « Lire l'état d'un projet »). Elle
+ * reçoit la page d'aujourd'hui, à l'adresse demandée.
+ */
+export const estUneAdresseDeLaVue = (uri: unknown): uri is string => typeof uri === 'string' && /^ui:\/\/vavi\/projet(\/[0-9a-f]{10})?$/.test(uri);
 export const TYPE_DE_LA_VUE = 'text/html;profile=mcp-app';
 
 /** Ce qu'un outil porte pour être affiché dans la vue (la clé plate est l'ancienne forme, encore lue par des hôtes). */
@@ -33,10 +39,10 @@ const enScript = (v: unknown): string => JSON.stringify(v).replace(/</g, '\\u003
  * PURE — le contenu de `resources/read` : la page, et les domaines que son cadre peut ouvrir (l'aperçu de l'app, à son
  * hôte ou sous la console). Rien d'autre n'est permis : ni script, ni connexion hors de l'hôte.
  */
-export function laRessourceDeLaVue(o: { readonly jeton: string; readonly cadres: readonly string[]; readonly ressources?: readonly string[]; readonly connexions?: readonly string[] }) {
+export function laRessourceDeLaVue(o: { readonly uri?: string; readonly jeton: string; readonly cadres: readonly string[]; readonly ressources?: readonly string[]; readonly connexions?: readonly string[] }) {
   return {
     contents: [{
-      uri: RESSOURCE_DE_LA_VUE, mimeType: TYPE_DE_LA_VUE, text: laPage(o.jeton),
+      uri: o.uri ?? RESSOURCE_DE_LA_VUE, mimeType: TYPE_DE_LA_VUE, text: laPage(o.jeton),
       _meta: { ui: { csp: { frameDomains: [], resourceDomains: [...(o.ressources ?? [])], connectDomains: [...(o.connexions ?? [])] }, prefersBorder: true } },
     }],
   };

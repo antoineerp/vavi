@@ -91,6 +91,17 @@ describe('la vue dans Claude', () => {
     expect(script).toContain("'ui/request-display-mode'");
   });
 
+  it('INCIDENT 27/11 — une conversation ouverte avant un déploiement demande l’ancienne adresse de la vue : elle reçoit la page', async () => {
+    const ctx = { outils: c, langue: 'fr', gabaritPackageJson: GABARIT, noteDuChantier: async () => null } as ContexteDuServeur;
+    for (const uri of ['ui://vavi/projet/0123456789', 'ui://vavi/projet']) {
+      const r = await servirLeMcp({ jsonrpc: '2.0', id: 2, method: 'resources/read', params: { uri } }, ctx) as { result?: { contents: { uri: string; text: string }[] } };
+      expect(r.result?.contents[0]?.uri).toBe(uri);
+      expect(r.result?.contents[0]?.text).toContain('<script>');
+    }
+    const autre = await servirLeMcp({ jsonrpc: '2.0', id: 2, method: 'resources/read', params: { uri: 'ui://vavi/projet/../x' } }, ctx) as { result?: unknown };
+    expect(autre.result).toBeUndefined();
+  });
+
   it('INCIDENT 25/11 — la fiche remplaçait l’aperçu : l’app s’affiche d’elle-même, les boutons seuls dans une barre fixe', async () => {
     const ctx = { outils: c, langue: 'fr', gabaritPackageJson: GABARIT, noteDuChantier: async () => null } as ContexteDuServeur;
     const r = await servirLeMcp({ jsonrpc: '2.0', id: 2, method: 'resources/read', params: { uri: RESSOURCE_DE_LA_VUE } }, ctx) as { result: { contents: { text: string }[] } };

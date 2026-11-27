@@ -13,7 +13,7 @@ import { LOT_AU_PLUS } from './les-limites';
 import { INSTRUCTIONS, lesPrompts, unPrompt, lesRessources, lesModelesDeRessources, uneRessource, type ContexteDesRessources } from '@/lib/consignes';
 import { appelerUnOutil, lesOutils } from './les-outils';
 import { estUnRefus, type Contexte } from './les-gestes';
-import { RESSOURCE_DE_LA_VUE, laRessourceDeLaVue, lesCadresPermis } from './la-vue';
+import { estUneAdresseDeLaVue, laRessourceDeLaVue, lesCadresPermis } from './la-vue';
 import { ecrireUnJetonDeVue } from './les-jetons';
 import { FONCTIONS_PAS_ENCORE_SERVIES, lesFonctionsAFaireDansLaPage } from '@/squelette/les-types-des-tables';
 
@@ -100,9 +100,9 @@ async function repondre(r: Requete, ctx: ContexteDuServeur): Promise<ReponseRpc 
     case 'resources/templates/list': return resultat(id, { resourceTemplates: lesModelesDeRessources() });
     case 'resources/read': {
       // La vue porte le jeton qui prouve qu'un clic vient de la personne : lue par l'hôte, elle n'est pas listée au modèle.
-      if (p.uri === RESSOURCE_DE_LA_VUE) {
+      if (estUneAdresseDeLaVue(p.uri)) {
         const o = ctx.outils;
-        return resultat(id, laRessourceDeLaVue({ jeton: ecrireUnJetonDeVue(o.compte), cadres: lesCadresPermis(o.adresse, o.domaineDesApps ?? null), ressources: o.vue?.domaines?.ressources ?? [], connexions: o.vue?.domaines?.connexions ?? [] }));
+        return resultat(id, laRessourceDeLaVue({ uri: p.uri, jeton: ecrireUnJetonDeVue(o.compte), cadres: lesCadresPermis(o.adresse, o.domaineDesApps ?? null), ressources: o.vue?.domaines?.ressources ?? [], connexions: o.vue?.domaines?.connexions ?? [] }));
       }
       const u = await uneRessource(typeof p.uri === 'string' ? p.uri : '', { ...ctx, fonctionsPasEncoreServies: lesFonctionsAFaireDansLaPage(FONCTIONS_PAS_ENCORE_SERVIES) });
       return 'erreur' in u ? erreur(id, -32602, u.erreur) : resultat(id, u);
