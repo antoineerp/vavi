@@ -18,6 +18,7 @@ import { lesLiensRepares } from './les-liens';
 import { lesCyclesRepares, lireLesCycles } from './les-cycles';
 import { lireLaLigneVendueUneFois } from './la-ligne-vendue-une-fois';
 import { avecSesEtatsOuverts, Bornes, lireLIntegrite } from './l-integrite';
+import { lireLesRegles, Regle, Unique } from './les-regles';
 import { CHIFFRES, Indicateur, lireLesIndicateurs } from './les-indicateurs';
 import { Cumul, lireUnCumul } from './les-cumuls';
 import { lireUneValeurLue, ValeurLue } from './les-valeurs-lues';
@@ -167,6 +168,10 @@ export const Table = z.object({
     .describe('seulement quand la demande veut le résultat de l’IA tout de suite, sans relecture par une personne : la transition que la base fait sur chaque proposition dès qu’elle naît, marquée produite par l’IA ; absente, l’équipe valide'),
   contenu: z.boolean().default(false)
     .describe('ses lignes sont fixées d’avance, par la demande ou par un texte public qu’elle nomme (une liste d’exigences, un barème, une nomenclature) : `exemples` les porte TOUTES, en entier, telles que ce texte les écrit, et la base les garde'),
+  regles: z.array(Regle).max(30).optional()
+    .describe('les règles de gestion de ses lignes, que la base tient quel que soit l’écran : « si … alors … » (une dépense de plus de 50 € porte son justificatif ; une date de fin au moins la date de début ; un motif rempli quand l’état est refusé) ; la personne lit `dit` quand elle les rompt'),
+  uniques: z.array(Unique).max(10).optional()
+    .describe('les champs qui ne se répètent pas d’une ligne à l’autre dans une organisation (un courriel de client, une référence d’article, un numéro de dossier), chaque jeu avec sa phrase `dit`'),
   exemples: z.array(z.record(z.unknown())).max(LIGNES_D_UN_CONTENU).default([])
     .describe(`des lignes plausibles, champ par champ, qui remplissent l’aperçu tant que la base est vide (au plus ${EXEMPLES_AU_PLUS}, sauf une table \`contenu\`). Une référence, et la mère d’une table rattachée sous \`<mère>_id\`, nomment un exemple de la table désignée par la valeur d’un de ses champs (son identité d’abord) ; une date s’écrit en jours depuis aujourd’hui (-3 ; 1.375 pour demain à 9 h), pour tomber dans la semaine, le mois, l’année ; une table à cycle donne l’\`etat\` où chaque exemple se trouve (absent : l’état de départ)`),
 });
@@ -413,6 +418,7 @@ export const Manifeste = z.object({
     if (t.vente && !m.fonctions.panier) ctx.addIssue({ code: 'custom', message: `${t.nom} se vend : l'app a un panier` });
     lireLaLigneVendueUneFois(t, ctx);
     lireLIntegrite(t, ctx);
+    lireLesRegles(t, ctx);
     if (t.exemples.length > EXEMPLES_AU_PLUS && !t.contenu && !estAnalysee(m, t.nom)) ctx.addIssue({ code: 'custom', message: `${t.nom} : au plus ${EXEMPLES_AU_PLUS} exemples ; une table dont les lignes sont fixées d’avance se déclare \`contenu\` et les porte toutes` });
     if (t.contenu && t.exemples.length === 0) ctx.addIssue({ code: 'custom', message: `${t.nom} est un \`contenu\` : \`exemples\` porte chacune de ses lignes` });
     if (t.contenu && !['organisation', 'publique'].includes(t.appartenance)) ctx.addIssue({ code: 'custom', message: `${t.nom} est un \`contenu\`, lu de tous ceux qui lisent la table : \`organisation\` ou \`publique\`` });

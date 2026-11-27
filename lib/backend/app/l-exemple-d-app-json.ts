@@ -11,6 +11,7 @@ import { POLICES_PROPOSEES } from '../fige/polices';
 import { MOUVEMENTS, Nature, Obtention, Organisations, REGISTRES, SIGNATURES, TypeDeChamp } from './manifeste';
 import { LIGNES } from './les-acces';
 import { CADENCES } from './les-automatisations';
+import { COMPARAISONS } from './les-regles';
 
 export const EXEMPLE_D_APP_JSON = {
   version: 1,
@@ -78,6 +79,7 @@ export function laFormeDAppJson(): string {
     `Field type: ${v(TypeDeChamp)}. Role obtenu: ${v(Obtention)}. organisations: ${v(Organisations)}.`,
     `\`acces\` of a table says who does each gesture (lire, creer, modifier, supprimer): \`tous\` (anyone, with or without an account: a menu everyone reads, a booking anyone sends), \`inscrits\` (every role of the app), \`visiteur\` (only people without an account), or role names. \`lignes\` says which rows one sees: ${LIGNES.join(' | ')} (who manages the organisation always sees all). A table with a \`parent\` follows its parent row.`,
     `Each of \`agents\` (work done with no one in front of the screen) is { nom, libelle, dit: what it does in one sentence (10 to 300 characters), reveil, ia_par_jour?: its daily cap of AI calls }; its code is \`src/agents/<nom>.ts\`. reveil is one of: { "type": "horaire", "cadence": ${CADENCES.map((c) => `"${c}"`).join(' | ')}, "heure"?: 0 to 23 (Paris time), "jour"?: 0 to 6 for a weekly one, Sunday being 0 } | { "type": "evenement", "table": a declared table, on each new row } | { "type": "bouton", "par": [roles that start it from a page] }.`,
+    `A table may declare its business rules, held by the database on every screen: \`regles\`: [{ nom, dit: the sentence the person reads when refused (in the app's language, at most 200 characters), si: [conditions, all true for the rule to apply; none: always], alors: [conditions that must then hold] }], and \`uniques\`: [{ champs: [1 to 3 fields that never repeat within an organisation, text compared without case], dit }]. A condition is { champ (a field, or \`etat\` with a cycle), est: ${COMPARAISONS.join(' | ')}, valeur? (a date as days from today: 0 today, -30 thirty days ago) or autre? (another field of the row) }. An empty field never triggers \`si\` and never fails \`alors\`, except \`rempli\`. Example: "regles": [{ "nom": "justificatif", "dit": "Une dépense de plus de 50 € porte son justificatif.", "si": [{ "champ": "montant", "est": "superieur", "valeur": 50 }], "alors": [{ "champ": "justificatif", "est": "rempli" }] }].`,
     'Each of `demandes` is { passage: the words of the person, quoted; tenuePar: [at least one name of a declared screen, agent or automation that does it] }; for a site, or when unsure, write `"demandes": []`.',
   ].join('\n');
 }

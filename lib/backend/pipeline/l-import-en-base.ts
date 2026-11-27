@@ -9,6 +9,10 @@ import type { TableDeLaBase } from '../app/la-commande';
 import type { Groupe } from './la-base';
 import { cite, estUnePiece, tableau, valeurSql } from './sql';
 
+/** Un import reprend un existant tel qu'il est : les règles de gestion ne le relisent pas (`les-regles-en-base.ts`). */
+const enPose = (inserts: readonly string[]): string =>
+  `do $import$ begin\n  perform set_config('vavi.pose', 'oui', true);\n${inserts.map((x) => `  ${x}`).join('\n')}\n  perform set_config('vavi.pose', '', true);\nend $import$;`;
+
 /** Les lignes d'un groupe : un groupe est une requête, envoyée seule. */
 export const LIGNES_PAR_GROUPE = 200;
 
@@ -44,7 +48,7 @@ export function sqlDeLImport(m: Manifeste, imports: readonly LignesImportees[], 
     });
     const groupes: Groupe[] = [];
     for (let i = 0; i < inserts.length; i += LIGNES_PAR_GROUPE) {
-      groupes.push({ nom: `import de « ${x.document} » dans ${t.nom}`, sql: inserts.slice(i, i + LIGNES_PAR_GROUPE).join('\n') });
+      groupes.push({ nom: `import de « ${x.document} » dans ${t.nom}`, sql: enPose(inserts.slice(i, i + LIGNES_PAR_GROUPE)) });
     }
     return groupes;
   });
@@ -85,10 +89,12 @@ export function sqlDeLImportDeLaPersonne(s: string, t: TableDeLaBase, tables: Ma
       + ` raise exception 'import : de 1 à ${LIGNES_IMPORTEES_AU_PLUS} lignes' using errcode = '22023'; end if;`,
     `  for v_cle in select jsonb_object_keys(coalesce(p_valeurs, '{}'::jsonb)) loop if not (v_cle = any(${tableau(fixes)})) then`
       + ` raise exception 'import : % ne se fixe pas', v_cle using errcode = '22023'; end if; end loop;`,
+    "  perform set_config('vavi.pose', 'oui', true);",
     `  with l as (select o.ordre, p.* from jsonb_array_elements(p_lignes) with ordinality as o(ligne, ordre), jsonb_populate_record(null::${T}, ${resolue} || coalesce(p_valeurs, '{}'::jsonb)) p),`,
     `    r as (select distinct on (${cle}) l.* from l order by ${cle}, l.ordre),`,
     `    ins as (insert into ${T} (${colonnes.join(', ')}) select ${colonnes.map((c) => `r.${c}`).join(', ')} from r${deja} returning 1)`,
     '  select count(*) into v_n from ins;',
+    "  perform set_config('vavi.pose', '', true);",
     "  return jsonb_build_object('importees', v_n, 'deja', jsonb_array_length(p_lignes) - v_n);",
     'end $fn$;'].join('\n'),
     `revoke all on function ${s}.${t.nom}_importer(jsonb, jsonb) from public, anon;`,

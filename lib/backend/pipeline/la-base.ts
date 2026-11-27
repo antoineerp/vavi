@@ -27,6 +27,7 @@ import { TABLE_DE_LA_COMMANDE, tablesDeLaBase, type TableDeLaBase } from '../app
 import { CONFIANCES, sqlDeLaVente, sqlDesPieces, sqlDesPropositions } from './la-base-de-la-plateforme';
 import { cite, estUnePiece, ORGANISATION_UNIQUE, tableau, TYPE_SQL, valeurSql } from './sql';
 import { sqlDuCoffre } from './le-coffre';
+import { FIN_DE_LA_POSE, MARQUE_DE_LA_POSE, sqlDesRegles } from './les-regles-en-base';
 import { sqlDeLImport, sqlDeLImportDeLaPersonne } from './l-import-en-base';
 import { sqlDesGestesDesEspaces, sqlDesTablesDesEspaces } from './les-espaces-clients';
 import { colonneCalculee, colonneDuPalier, sqlDuMoteur } from './le-moteur';
@@ -260,6 +261,7 @@ function sqlDeLaTable(m: Manifeste, s: string, t: Table): string[] {
     ...colonnes.filter((c) => c.includes(' not null')).map((c) => `do $nn$ begin if not exists (select 1 from ${T}) then alter table ${T} alter column ${c.split(' ')[0]} set not null; end if; end $nn$;`),
     ...sqlDesBornes(s, t),
     ...sqlDeLaPeriode(s, m.tables, t),
+    ...sqlDesRegles(s, t),
     // La fiche d'un compte : la console la relie (`lib/donnees/les-fiches`) ; le navigateur ne l'écrit jamais, un compte a une fiche.
     ...(t.personnes ? [`alter table ${T} add column if not exists ${COLONNE_DE_LA_FICHE} uuid;`,
       `create unique index if not exists ${t.nom}_${COLONNE_DE_LA_FICHE}_unique on ${T} (${COLONNE_DE_LA_FICHE});`] : []),
@@ -378,11 +380,13 @@ function sqlDesExemples(m: Manifeste, s: string, t: Table, proprietaire: string)
   });
   if (inserts.length === 0) return [];
   return [`do $ex$ begin
+  ${MARQUE_DE_LA_POSE}
   if obj_description('${s}.${t.nom}'::regclass, 'pg_class') is distinct from ${cite(MARQUE_DES_EXEMPLES)} then
 ${inserts.join('\n')}
 `
     + `    comment on table ${s}.${t.nom} is ${cite(MARQUE_DES_EXEMPLES)};
   end if;
+  ${FIN_DE_LA_POSE}
 end $ex$;`];
 }
 
