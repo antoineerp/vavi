@@ -15,6 +15,8 @@ export const MOTS = {
       sans_app_json: 'L’app.json de ce projet ne se lit pas.', table: 'Table inconnue.', figee: 'Cette ligne est figée par son état : rien n’a changé.',
       saisie: 'À corriger :', base: 'La base a refusé :', import: 'Import refusé, rien n’est écrit :' } as Record<string, string>,
     sansTable: 'Cette app ne déclare aucune table.',
+    vues: 'Affichage', liste: 'Liste', planning: 'Planning', semainePrecedente: '← Semaine précédente', semaineSuivante: 'Semaine suivante →', cetteSemaine: 'Cette semaine',
+    semaineDu: (a: string, b: string) => `Du ${a} au ${b} (heure de Paris)`, semaineVide: 'Rien de prévu cette semaine.', sansRessource: 'Sans ressource',
   },
   en: {
     titre: 'Data', retour: 'Back to the project', chercher: 'Search', ajouter: 'Add a row', exporter: 'Export as CSV',
@@ -31,5 +33,7 @@ export const MOTS = {
       sans_app_json: 'This project’s app.json cannot be read.', table: 'Unknown table.', figee: 'This row is locked by its state: nothing changed.',
       saisie: 'To fix:', base: 'The database refused:', import: 'Import refused, nothing written:' } as Record<string, string>,
     sansTable: 'This app declares no table.',
+    vues: 'View', liste: 'List', planning: 'Schedule', semainePrecedente: '← Previous week', semaineSuivante: 'Next week →', cetteSemaine: 'This week',
+    semaineDu: (a: string, b: string) => `From ${a} to ${b} (Paris time)`, semaineVide: 'Nothing scheduled this week.', sansRessource: 'No resource',
   },
 } as const;

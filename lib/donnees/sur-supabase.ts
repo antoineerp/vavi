@@ -11,6 +11,8 @@ export interface LesDonnees {
   lire(schema: string, table: string, o: { readonly cherche?: string; readonly decalage?: number; readonly limite?: number }): Promise<Issue<{ readonly total: number; readonly lignes: readonly Ligne[] }>>;
   ecrire(schema: string, table: string, id: string | null, valeurs: Readonly<Record<string, unknown>>, proprietaire: string, ouverts: readonly string[] | null): Promise<Issue<Ligne | null>>;
   supprimer(schema: string, table: string, id: string, ouverts: readonly string[] | null): Promise<Issue<boolean>>;
+  /** Les lignes d'une table à période qui touchent la fenêtre [du, au) (62 jours au plus), triées par leur début. */
+  periode(schema: string, table: string, debut: string, fin: string, du: Date, au: Date): Promise<Issue<readonly Ligne[]>>;
 }
 
 export function donneesSurSupabase(base: SupabaseClient): LesDonnees {
@@ -28,6 +30,10 @@ export function donneesSurSupabase(base: SupabaseClient): LesDonnees {
     async supprimer(schema, table, id, ouverts) {
       const r = await base.rpc('vavi_console_supprimer', { p_schema: schema, p_table: table, p_id: id, p_ouverts: ouverts });
       return r.error ? { lu: false, pourquoi: r.error.message } : { lu: true, valeur: Boolean(r.data) };
+    },
+    async periode(schema, table, debut, fin, du, au) {
+      const r = await base.rpc('vavi_console_periode', { p_schema: schema, p_table: table, p_debut: debut, p_fin: fin, p_du: du.toISOString(), p_au: au.toISOString() });
+      return r.error ? { lu: false, pourquoi: r.error.message } : { lu: true, valeur: (r.data as Ligne[] | null) ?? [] };
     },
   };
 }
