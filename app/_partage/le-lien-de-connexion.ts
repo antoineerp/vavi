@@ -14,9 +14,15 @@ export function leJetonDuLien(fragment: string): string | null {
   return m ? m[1]! : null;
 }
 
+/** Le logo de vavi en PNG (les messageries ne montrent pas le SVG), servi par la console (`public/courriel`). */
+export const LOGO_DU_COURRIEL = 'https://www.vavi.dev/courriel/logo-vavi.png';
+
 /** Le courriel à coller dans Supabase (Authentication > Emails > Templates : « Magic Link » et « Confirm signup »). */
-export const LE_COURRIEL_DU_LIEN = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#0b1220">
-  <p style="font-size:20px;font-weight:700;margin:0 0 16px">vavi</p>
+export const LE_COURRIEL_DU_LIEN = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#0b1220;background:#ffffff">
+  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px"><tr>
+    <td style="vertical-align:middle;padding-right:8px"><img src="${LOGO_DU_COURRIEL}" width="36" height="36" alt="" style="display:block;border:0"></td>
+    <td style="vertical-align:middle;font-size:22px;font-weight:700;color:#1c2944">vavi</td>
+  </tr></table>
   <p style="margin:0 0 16px">Bonjour,<br>Voici votre lien pour entrer dans vavi. Il ne sert qu’une fois et expire dans une heure.</p>
   <p style="margin:0 0 24px"><a href="${MODELE_DU_LIEN}" style="display:inline-block;background:#22d3ee;color:#0b1220;font-weight:700;padding:12px 20px;border-radius:10px;text-decoration:none">Entrer dans vavi</a></p>
   <p style="margin:0 0 24px;color:#5b6475;font-size:14px">Hello, here is your link to sign in to vavi. It works once and expires in one hour. <a href="${MODELE_DU_LIEN}" style="color:#0e7490">Sign in</a></p>
