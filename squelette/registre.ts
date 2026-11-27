@@ -29,6 +29,7 @@ const MONTRES = [
   'src/briques/vitrine.tsx',
   'src/briques/vitrine-des-exemples.tsx',
   'src/briques/sections.tsx',
+  'src/briques/editorial.tsx',
   'src/briques/travail.tsx',
   'src/lib/navigation.ts',
 ] as const;
