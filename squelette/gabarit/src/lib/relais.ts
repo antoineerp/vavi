@@ -24,6 +24,7 @@ const REFUS: Readonly<Record<string, readonly [keyof Libelles, keyof Libelles]>>
   P0002: ['refusIntrouvable', 'gesteRecharger'],
   '22023': ['refusMotif', 'gesteCorriger'],
   '23505': ['refusDoublon', 'gesteCorriger'],
+  '23P01': ['refusOccupe', 'gesteAutrePeriode'],
   'trop-de-lignes': ['refusTropDeLignes', 'gestePrevenir'],
 };
 

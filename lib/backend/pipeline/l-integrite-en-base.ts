@@ -91,3 +91,45 @@ export function exigencesDuGeste(t: Table, T: string): string[] {
     ...(motif.length > 0 ? [`  if p_transition = any(${tableau(motif)}) and nullif(btrim(coalesce(p_motif, '')), '') is null then raise exception 'ce geste demande un motif' using errcode = '22023'; end if;`] : []),
   ];
 }
+
+/**
+ * La période d'une ligne, tenue par la base : la fin ne précède jamais le début (contrainte `check`, posée sans relire
+ * les lignes déjà là) ; une période `exclusive` ne chevauche aucune autre ligne de la même ressource, hors des états
+ * `libre` : le déclencheur `<table>_occupe` refuse (23P01), quel que soit qui écrit. Il lit TOUTES les lignes, sous son
+ * propriétaire : la RLS cache à un visiteur les réservations des autres, pas leur place. Le verrou de la ressource rend
+ * deux réservations simultanées du même créneau impossibles. Une date seule occupe sa journée entière.
+ *
+ * Ce qu'elle remplace : la période qui ne servait qu'à la frise ; deux personnes réservaient le même créneau.
+ */
+export function sqlDeLaPeriode(s: string, t: Table): string[] {
+  const p = t.periode;
+  if (!p) return [];
+  const T = `${s}.${t.nom}`;
+  const nom = `${t.nom}_periode_ordonnee`;
+  const pose = [`alter table ${T} drop constraint if exists ${nom};`,
+    `alter table ${T} add constraint ${nom} check (${p.debut} is null or ${p.fin} is null or ${p.fin} >= ${p.debut}) not valid;`];
+  const plage = (l: string): string => {
+    const fin = t.champs.find((c) => c.nom === p.fin)?.type === 'date' ? `(${l}.${p.fin} + 1)::timestamptz` : `${l}.${p.fin}::timestamptz`;
+    return `tstzrange(${l}.${p.debut}::timestamptz, ${fin}, '[)')`;
+  };
+  const libres = p.libre.length > 0 && t.cycle ? tableau(p.libre) : null;
+  const meme = p.ressource ? ` and l.${p.ressource} is not distinct from new.${p.ressource}` : '';
+  const retrait = [`drop trigger if exists ${t.nom}_occupe on ${T};`];
+  if (!p.exclusive) return [...pose, ...retrait];
+  return [...pose,
+    [`create or replace function ${s}.${t.nom}_occupe() returns trigger language plpgsql security definer set search_path = '' as $fn$`,
+      'begin',
+      `  if new.${p.debut} is null or new.${p.fin} is null then return new; end if;`,
+      ...(libres ? [`  if new.etat = any(${libres}) then return new; end if;`] : []),
+      `  perform pg_advisory_xact_lock(hashtextextended(${cite(`${T}:`)} || coalesce(${p.ressource ? `new.${p.ressource}::text` : 'null'}, ''), 0));`,
+      `  if exists (select 1 from ${T} l where l.id <> new.id${meme}`
+        + `${libres ? ` and not (l.etat = any(${libres}))` : ''} and ${plage('l')} && ${plage('new')}) then`,
+      `    raise exception '% : cette période est déjà prise', ${cite(t.libelle)} using errcode = '23P01';`,
+      '  end if;',
+      '  return new;',
+      'end $fn$;'].join('\n'),
+    `revoke all on function ${s}.${t.nom}_occupe() from public;`,
+    ...retrait,
+    `create trigger ${t.nom}_occupe before insert or update on ${T} for each row execute function ${s}.${t.nom}_occupe();`,
+  ];
+}
