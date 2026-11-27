@@ -54,7 +54,7 @@ describe('la page d’accueil', () => {
   });
 
   it('les liens mènent aux pages de la console, à son adresse (la page servie sous un autre nom y envoie), et le script se lit', () => {
-    for (const h of ['/commencer', '/projets', '/confidentialite']) expect(page).toContain(`href="https://vavi.test${h}"`);
+    for (const h of ['/commencer', '/projets', '/confidentialite', '/mentions-legales']) expect(page).toContain(`href="https://vavi.test${h}"`);
     expect(page).not.toMatch(/href="\/(commencer|projets|confidentialite)"/);
     expect(page).not.toContain('href="#haut">Mentions');
     const script = page.slice(page.lastIndexOf('<script>') + 8, page.lastIndexOf('</script>'));

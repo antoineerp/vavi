@@ -11,9 +11,9 @@ const CONTACT = 'info@vavi.dev';
 export const POLITIQUE: Readonly<Record<'fr' | 'en', Politique>> = {
   fr: {
     titre: 'Politique de confidentialité de vavi',
-    version: 'Version du 25 novembre 2026',
+    version: 'Version du 27 novembre 2026',
     sections: [
-      { titre: 'Qui sommes-nous', paragraphes: [`vavi est édité par VAVI.DEV. Contact pour vos données : ${CONTACT}.`] },
+      { titre: 'Qui sommes-nous', paragraphes: [`vavi est édité par Antoine Cirier, entrepreneur individuel (voir les mentions légales, à l’adresse /mentions-legales). Contact pour vos données : ${CONTACT}.`] },
       { titre: 'Ce que nous collectons', liste: [
         'Votre adresse électronique, pour vous connecter par un lien reçu par courriel.',
         'Vos projets : les fichiers que Claude écrit pour vous, leurs versions, la déclaration de leurs données.',
@@ -47,9 +47,9 @@ export const POLITIQUE: Readonly<Record<'fr' | 'en', Politique>> = {
   },
   en: {
     titre: 'vavi privacy policy',
-    version: 'Version of 25 November 2026',
+    version: 'Version of 27 November 2026',
     sections: [
-      { titre: 'Who we are', paragraphes: [`vavi is published by VAVI.DEV. Contact for your data: ${CONTACT}.`] },
+      { titre: 'Who we are', paragraphes: [`vavi is published by Antoine Cirier, French sole trader (see the legal notice, at /mentions-legales). Contact for your data: ${CONTACT}.`] },
       { titre: 'What we collect', liste: [
         'Your e-mail address, to sign you in with a link sent by e-mail.',
         'Your projects: the files Claude writes for you, their versions, the declaration of their data.',
