@@ -10,7 +10,7 @@
  * Remplace, pour vavi, « Gérer le contenu » du tableau de bord de constructor-v13 (`components/dashboard/EditeurDeContenus.tsx`).
  * Les couleurs choisies par la personne sont les siennes : `couleursDemandees` (la règle du violet vise le choix de Claude).
  */
-import { lireLeManifeste } from '@/lib/backend/app/manifeste';
+import { lireLeManifeste, MOUVEMENTS } from '@/lib/backend/app/manifeste';
 import { empreinteDuFichier } from '@/lib/projets/les-empreintes';
 import { CHEMIN_DES_IMAGES, lireLesImages, poser, type ImageTrouvee } from '@/lib/images/la-banque';
 import { avecLaPhotoFournie } from '@/lib/images/la-photo-fournie';
@@ -26,7 +26,14 @@ export const RAYONS = ['net', 'doux', 'rond'] as const;
  */
 export const CHAMPS_DES_POLICES = { titres: 'police_titres', texte: 'police_texte' } as const;
 
-export interface Apparence { readonly couleurs: Readonly<Record<(typeof COULEURS)[number], string>>; readonly polices: { readonly titres: string; readonly texte: string }; readonly rayon: (typeof RAYONS)[number] }
+/**
+ * Les effets de la direction que la peau applique sans modèle (`la-peau.ts`, `lesEffets`) : le mouvement, le verre dépoli, le
+ * titre en dégradé. Claude les choisit ; la personne les change ici (Antoine, 28/11 : « Réglages puis 3 directions »). Absents
+ * du formulaire, ceux d'app.json restent.
+ */
+export interface EffetsDeLApparence { readonly mouvement: (typeof MOUVEMENTS)[number]; readonly verre: boolean; readonly degrade: boolean }
+export const CHAMPS_DES_EFFETS = { mouvement: 'effet_mouvement', verre: 'effet_verre', degrade: 'effet_degrade' } as const;
+export interface Apparence { readonly couleurs: Readonly<Record<(typeof COULEURS)[number], string>>; readonly polices: { readonly titres: string; readonly texte: string }; readonly rayon: (typeof RAYONS)[number]; readonly effets?: EffetsDeLApparence }
 /** Une page : son titre et sa description dans Google ; `cachee` : Google ne la référence pas (noindex, hors du plan du site). */
 export interface ChoixDUnePage { readonly titre?: string; readonly description?: string; readonly cachee?: boolean }
 /** Une ancienne adresse du site, envoyée pour toujours (301) vers une page du site ou une adresse https. */
@@ -67,7 +74,13 @@ export function lApparenceDuFormulaire(f: { get(nom: string): unknown }): { read
   const couleurs = Object.fromEntries(COULEURS.map((k) => [k, lire(k)])) as Apparence['couleurs'];
   const rayon = lire('rayon') as Apparence['rayon'];
   if (COULEURS.some((k) => !/^#[0-9a-fA-F]{6}$/.test(couleurs[k])) || !RAYONS.includes(rayon)) return { lue: false, detail: 'couleur ou arrondi' };
-  return { lue: true, apparence: { couleurs, rayon, polices: { titres: lire(CHAMPS_DES_POLICES.titres), texte: lire(CHAMPS_DES_POLICES.texte) } } };
+  const polices = { titres: lire(CHAMPS_DES_POLICES.titres), texte: lire(CHAMPS_DES_POLICES.texte) };
+  const mouvement = lire(CHAMPS_DES_EFFETS.mouvement), verre = lire(CHAMPS_DES_EFFETS.verre), degrade = lire(CHAMPS_DES_EFFETS.degrade);
+  if (!mouvement && !verre && !degrade) return { lue: true, apparence: { couleurs, rayon, polices } };
+  const ouiNon = (v: string) => (v === 'oui' ? true : v === 'non' ? false : null);
+  const v = ouiNon(verre), g = ouiNon(degrade);
+  if (!(MOUVEMENTS as readonly string[]).includes(mouvement) || v === null || g === null) return { lue: false, detail: 'mouvement, verre ou dégradé' };
+  return { lue: true, apparence: { couleurs, rayon, polices, effets: { mouvement: mouvement as EffetsDeLApparence['mouvement'], verre: v, degrade: g } } };
 }
 export interface ChoixDesIa { readonly assistants: boolean; readonly entrainement: boolean }
 /** Ce que le propriétaire dit de son site dans « Référencement » : son nom, ce qu'il fait, qui le publie (app.json). */
@@ -87,7 +100,7 @@ export function avecLApparence(appJson: string, a: Apparence): { readonly ok: tr
   const direction = (json.direction && typeof json.direction === 'object' ? json.direction : {}) as Record<string, unknown>;
   // Les couleurs que la console ne montre pas (la seconde, l'ancre) restent : enregistrer l'apparence les effaçait (26/11).
   const avant = (direction.couleurs && typeof direction.couleurs === 'object' ? direction.couleurs : {}) as Record<string, unknown>;
-  const suivant = { ...json, direction: { ...direction, couleurs: { ...avant, ...a.couleurs }, polices: { ...a.polices }, rayon: a.rayon, couleursDemandees: true } };
+  const suivant = { ...json, direction: { ...direction, couleurs: { ...avant, ...a.couleurs }, polices: { ...a.polices }, rayon: a.rayon, ...(a.effets ?? {}), couleursDemandees: true } };
   const r = lireLeManifeste(suivant);
   return r.ok ? { ok: true, texte: `${JSON.stringify(suivant, null, 2)}\n` } : { ok: false, detail: r.erreurs.join(' ; ') };
 }
@@ -155,6 +168,30 @@ async function ecrire(d: DependancesDeLaReecriture, id: string, chemin: string, 
 
 export const changerLApparence = (d: DependancesDeLaReecriture, id: string, a: Apparence): Promise<Changement> =>
   ecrire(d, id, 'app.json', (avant) => (avant === undefined ? { ok: false, detail: 'no app.json' } : avecLApparence(avant, a)), 'apparence changée dans la console');
+
+/**
+ * PURE — app.json avec l'autre direction nommée posée comme direction (Antoine, 28/11 : « Réglages puis 3 directions ») :
+ * le logo et l'allure des écrans de travail restent ; la direction qu'elle remplace prend sa place parmi les autres, sous son
+ * nom (sinon « Direction d’origine », dans la langue de l'app), pour qu'on y revienne en un geste. Relu par le manifeste : les mêmes règles que Claude.
+ */
+export function avecLaDirectionChoisie(appJson: string, nom: string): { readonly ok: true; readonly texte: string } | { readonly ok: false; readonly detail: string } {
+  let json: Record<string, unknown>;
+  try { json = JSON.parse(appJson) as Record<string, unknown>; } catch { return { ok: false, detail: 'app.json is not valid JSON' }; }
+  const autres = Array.isArray(json.autresDirections) ? (json.autresDirections as Record<string, unknown>[]) : [];
+  const i = autres.findIndex((a) => a && a.nom === nom);
+  if (i < 0) return { ok: false, detail: `aucune autre direction nommée « ${nom.slice(0, 60)} »` };
+  const langue = (json.langues as { principale?: unknown } | undefined)?.principale;
+  const nomDeLAncienne = langue === 'fr' ? 'Direction d’origine' : 'Original direction';
+  const { logo, travail, ...actuelle } = (json.direction && typeof json.direction === 'object' ? json.direction : {}) as Record<string, unknown>;
+  const suivant = { ...json,
+    direction: { ...autres[i], ...(logo ? { logo } : {}), ...(travail ? { travail } : {}) },
+    autresDirections: autres.map((a, j) => (j === i ? { ...actuelle, nom: typeof actuelle.nom === 'string' && actuelle.nom ? actuelle.nom : nomDeLAncienne } : a)) };
+  const r = lireLeManifeste(suivant);
+  return r.ok ? { ok: true, texte: `${JSON.stringify(suivant, null, 2)}\n` } : { ok: false, detail: r.erreurs.join(' ; ') };
+}
+
+export const changerDeDirection = (d: DependancesDeLaReecriture, id: string, nom: string): Promise<Changement> =>
+  ecrire(d, id, 'app.json', (avant) => (avant === undefined ? { ok: false, detail: 'no app.json' } : avecLaDirectionChoisie(avant, nom)), `direction « ${nom.slice(0, 60)} » posée dans la console`);
 
 /** `image` absente : celle déjà posée reste ; `null` : retirée. `ia`, `redirections` absents : ce qui est posé reste. */
 export const changerLeReferencement = (d: DependancesDeLaReecriture, id: string, pages: Referencement['pages'], o: { readonly image?: string | null; readonly ia?: ChoixDesIa; readonly redirections?: readonly Redirection[] } = {}): Promise<Changement> =>
