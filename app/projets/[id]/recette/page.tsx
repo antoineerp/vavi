@@ -75,6 +75,7 @@ function enMots(e: Etape, fr: boolean): string {
     case 'select': return fr ? `Choisir « ${e.value} » dans « ${e.target} »` : `Choose “${e.value}” in “${e.target}”`;
     case 'check': return fr ? `Cocher « ${e.target} »` : `Tick “${e.target}”`;
     case 'expect': return fr ? `Voir « ${e.text} »` : `See “${e.text}”`;
+    case 'shoot': return fr ? `Photographier « ${e.name} »` : `Take the picture “${e.name}”`;
   }
 }
 

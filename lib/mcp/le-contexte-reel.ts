@@ -22,6 +22,7 @@ import { avecUneMemoire, etatSurSupabase, type EtatDeLAcces } from './l-etat-de-
 import { configurationPublique } from '@/lib/supabase/configuration';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { ouvrirLeNavigateur, preRendre } from '@/lib/seo/le-pre-rendu';
+import { jetonsDeLaPeau, lInitiale } from '@/lib/design/la-peau';
 import { capturer, type NavigateurAPhotographier } from '@/lib/seo/les-captures';
 import { jouerLeParcours, BASE_DU_PARCOURS, type NavigateurDuParcours } from '@/lib/parcours/le-parcours';
 import { avecUneCopie } from '@/lib/parcours/la-copie';
@@ -140,11 +141,16 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         const publique = configurationPublique(process.env);
         const schema = schemaDuProjet(projet);
         if (!publique.lue || !schema) return null;
-        const o = await ouvrirLeNavigateur([publique.valeur.url]);
+        // Le logo déposé (« Gérer le contenu ») est dessiné en icône d'écran d'accueil : son hôte seul s'ajoute au réseau permis.
+        const logo = m.direction.logo ?? null;
+        const o = await ouvrirLeNavigateur([publique.valeur.url, ...(logo ? [new URL(logo).origin] : [])]);
         // La raison remonte au résultat de `build_preview` (« failed: … ») : sans elle, rien ne dit pourquoi le pré-rendu manque.
         if ('raison' in o) throw new Error(`no browser: ${o.raison}`);
+        const j = jetonsDeLaPeau(m.direction);
         return preRendre(o.navigateur, dist, { env: { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet },
-          app: { nom: m.nom, description: m.description, langue: m.langues.principale, autres: m.langues.autres, editeur: m.editeur ?? null } });
+          app: { nom: m.nom, description: m.description, langue: m.langues.principale, autres: m.langues.autres, editeur: m.editeur ?? null },
+          installation: { nom: m.nom, description: m.description, langue: m.langues.principale, fond: j.FOND!, theme: j.FOND!,
+            icone: { initiale: lInitiale(m.nom), accent: j.ACCENT!, surAccent: j.SUR_ACCENT!, fond: j.FOND!, logo } } });
       }),
       capturer: (projet, dist, m) => enFile('captures', async () => {
         const publique = configurationPublique(process.env);
@@ -156,7 +162,7 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         return capturer(o.navigateur as unknown as NavigateurAPhotographier, dist, {
           env: { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema, projet }, langue: m.langues.principale, hotesDesImages: images });
       }),
-      jouer: (projet, empreinte, m, etapes, { copie: surCopie, role }) => enFile('parcours', async () => {
+      jouer: (projet, empreinte, m, etapes, { copie: surCopie, role, ecran }) => enFile('parcours', async () => {
         const publique = configurationPublique(process.env);
         const schema = schemaDuProjet(projet);
         if (!publique.lue || !schema) return { raison: 'the database of the app is not configured' };
@@ -171,7 +177,7 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
           const env = { supabaseUrl: publique.valeur.url, cleAnonyme: publique.valeur.cleAnonyme, schema: s, projet, base: BASE_DU_PARCOURS };
           return jouerLeParcours(o.navigateur as unknown as NavigateurDuParcours, etapes, {
             lire: (segments) => servirUnDist(magasin.magasin, racine, segments, env), base: publique.valeur.url, images, langue: m.langues.principale,
-            copie: surCopie, ...plus });
+            copie: surCopie, ...(ecran ? { ecran } : {}), ...plus });
         };
         if (!surCopie || !cle) return jouer(schema);
         // Sur une copie : ses comptes, son panier, le paiement simulé (`la-plateforme-de-la-copie`) ; avec un rôle, la session
