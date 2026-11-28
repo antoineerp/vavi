@@ -36,6 +36,7 @@ import { ceQuiTrahitLaPage, leDessinDeLaPage, type ReleveVu } from '@/lib/design
 import { lesLiensMorts } from '@/squelette/les-liens';
 import { lesEcartsDeDroit } from '@/squelette/les-droits-des-pages';
 import { lesPagesSansDescription } from '@/squelette/les-descriptions';
+import { lesPagesQuiManquent } from '@/squelette/le-nombre-de-pages';
 import type { Etape as EtapeDuParcours, Parcours } from '@/lib/parcours/le-parcours';
 import { CHEMIN_DU_CAHIER, leBilan, lireLeCahier, type CahierLu } from '@/lib/parcours/le-cahier';
 import { jouerLaRecette, leDernierPassage } from './la-recette';
@@ -784,6 +785,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   const liens = lesLiensMorts(siens);
   const droits = lesEcartsDeDroit(arbre.manifeste, siens);
   const sansDescription = lesPagesSansDescription(siens, f.valeur.get('src/referencement.json'));
+  const manquent = lesPagesQuiManquent(arbre.manifeste, siens);
   return fait({
     project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), owner_url: urlDuProprietaire(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree, timings_ms: temps,
     preview_updated: designe.lu,
@@ -794,6 +796,8 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
       next: 'Measured on the rendered home page: these are the shapes every AI site builder produces, and the drawing. Change each one as said, unless the person asked for it. Never a refusal.' } } : {}),
     ...(liens.length ? { broken_links: { links: liens.slice(0, 20).map((l) => `${l.fichier}:${l.ligne} ${l.lien}`), next: 'Each of these links leads to no page of the app (or to no `id` for an anchor): point it to a page that exists, create the page, or remove the link.' } } : {}),
     ...(droits.length ? { access_checks: { to_fix: droits.slice(0, 20), next: 'Each page here shows a table its audience cannot read, or saves into one it cannot write: change the `acces` of the table with `configure_backend`, or the `acces` of the page.' } } : {}),
+    ...(manquent ? { pages_checks: { ...manquent,
+      next: `A website has at least four public pages: add ${manquent.to_add} (one per thing a visitor comes for, always a contact page), each in the menu, built from what the person gave; a missing fact is a marked "to be completed" placeholder, said to the person, never invented. Unless the person insisted on fewer pages. Never a refusal.` } } : {}),
     ...(sansDescription.length ? { seo_checks: { pages_without_description: sansDescription.slice(0, 30),
       next: 'Each of these public pages shows the app’s description under its Google link, the same on every page: add `export const description = \'…\'` to it, one or two sentences of 70 to 160 characters saying what THIS page offers, in the language of the page.' } } : {}),
     ...(vues?.captures.length ? { _images: vues.captures.map((x) => ({ data: x.jpeg.toString('base64'), mimeType: 'image/jpeg' })) } : {}),

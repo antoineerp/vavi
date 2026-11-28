@@ -20,16 +20,18 @@ const VITRINE = [
   'Alternate at least two compositions on a page (a full-width photo carrying the title, text beside a photo, a mosaic of photos of different sizes, a carousel, cards that each show their own photo). Never three sections in a row with the same grid, never a row of identical icon cards.',
   'Use at least four real photos of the subject, found with `search_images` (the subject in one to three concrete English words: a place, a material, a gesture, an object), shown with `<Photo nom="…" />`; the photo of the first screen has `prioritaire`.',
   'Follow the direction of app.json: its `intention` line by line, its register, its signature on the first screen, its colours (`bg-ancre text-sur-ancre` for dark bands, `text-seconde-texte` for the second hue) and the visual language below.',
-  'The brand links to the home page and is shown with `<Marque />` from `@/briques/chrome` (the logo the owner uploads, else the name); the menu lists the other pages. A one-page site links its menu to the sections of the page (`#id`), never to pages that do not exist.',
+  'The brand links to the home page and is shown with `<Marque />` from `@/briques/chrome` (the logo the owner uploads, else the name); the menu lists the other pages, never a page that does not exist.',
 ] as const;
+
+const QUATRE_PAGES = 'A website has at least four public pages (Antoine, 28/11): its home page plus one page per thing a visitor comes for (what is offered, the approach or the people, the work or the places, the news…), always a contact page (`<Contact>` of `@/briques/sections`, with the details the person gave), each in the menu and as rich as the home page in its own way. The legal pages are served by vavi and do not count. A page is built from what the person gave; a fact they did not give is a marked "to be completed" placeholder, said to them, never invented. If the person asks for a single page, propose these four and say why; build one page only if they insist.';
 
 const PAR_NATURE: Readonly<Partial<Record<Manifeste['nature'], readonly string[]>>> = {
   site: [
-    'Unless the person asks for one page, a site has its home page plus one page per thing a visitor comes for: at least three public pages, always a contact page (`<Contact>` of `@/briques/sections`, with the details the person gave), each page as rich as the home page in its own way.',
+    QUATRE_PAGES,
     'A site that publishes over time (articles, news, recipes, events, a journal) keeps each piece as a row of a table of app.json (title, summary, text, cover photo, section, date), never written in the code: its list page opens on `<ArticleALaUne>` then `<GrilleDArticles>` (the first one larger), filters by section; each piece has its own page with `<EnTeteDArticle>` and `<CorpsDArticle>` at reading width, its date and reading time (`tempsDeLecture`), then two or three related pieces. These are in `@/briques/editorial`.',
     'A site that publishes over time, a shop or a site of events offers its newsletter with `<InscriptionALaLettre>` of `@/briques/editorial`, once on the home page and at the end of each piece; the owner finds each subscriber in the Messages of the console. Not on a site that has nothing new to send.',
   ],
-  boutique: ['The catalogue shows each product by its photo first, a mosaic or a carousel on the home page, a product page with its gallery and characteristics, and the cart always one click away; a contact page and `<InscriptionALaLettre>` of `@/briques/editorial` for its news.'],
+  boutique: [QUATRE_PAGES, 'The catalogue shows each product by its photo first, a mosaic or a carousel on the home page, a product page with its gallery and characteristics, and the cart always one click away; a contact page and `<InscriptionALaLettre>` of `@/briques/editorial` for its news.'],
   app: ['The public home page shows what the person gets from the app (the product itself, its own screens filled with its examples) before it explains; the work screens follow the rules below.'],
 };
 
