@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import { laConsole } from '@/app/_partage/la-console';
 import { construireLApercu as batir, estUnRefus } from '@/lib/mcp/les-gestes';
 import { leContexteReel } from '@/lib/mcp/le-contexte-reel';
-import { changerLApparence, changerLeLogo, changerLeReferencement, changerLeSite, changerUneImage, CHEMIN_DU_REFERENCEMENT, lApparenceDuFormulaire, leReferencementStocke, lesRedirectionsTapees, type Apparence, type Changement } from '@/lib/contenus/le-contenu';
+import { changerDeDirection, changerLApparence, changerLeLogo, changerLeReferencement, changerLeSite, changerUneImage, CHEMIN_DU_REFERENCEMENT, lApparenceDuFormulaire, leReferencementStocke, lesRedirectionsTapees, type Apparence, type Changement } from '@/lib/contenus/le-contenu';
 import { CHEMIN_DES_IMAGES, lireLesImages } from '@/lib/images/la-banque';
 import { banqueDeLaPlateforme } from '@/lib/images/la-banque';
 import { TAILLE_MAX_D_UNE_PHOTO, laCleDeLaPhoto, leFichierDeLaPhoto, leFormatDUnePhoto, sansLesMetadonnees } from '@/lib/images/la-photo-fournie';
@@ -38,6 +38,15 @@ export async function enregistrerLApparence(id: string, f: FormData) {
   const r = await changerLApparence(await lesDependances(id), id, (a as { apparence: Apparence }).apparence);
   if (r.change) console.log(`[contenu] ${id.slice(0, 8)} apparence (version ${r.version}, aperçu ${r.apercu})`);
   retour(id, r, 'apparence');
+}
+
+/** « Poser cette direction » : l'autre direction nommée devient celle de l'app, la posée rejoint les autres ; l'aperçu est rebâti. */
+export async function poserUneDirection(id: string, f: FormData) {
+  if (!ID.test(id)) redirect('/projets');
+  const nom = String(f.get('nom') ?? '').slice(0, 60);
+  const r = await changerDeDirection(await lesDependances(id), id, nom);
+  if (r.change) console.log(`[contenu] ${id.slice(0, 8)} direction « ${nom} » (version ${r.version}, aperçu ${r.apercu})`);
+  retour(id, r, 'direction');
 }
 
 export async function enregistrerLeReferencement(id: string, f: FormData) {

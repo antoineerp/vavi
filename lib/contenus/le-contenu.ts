@@ -169,6 +169,30 @@ async function ecrire(d: DependancesDeLaReecriture, id: string, chemin: string, 
 export const changerLApparence = (d: DependancesDeLaReecriture, id: string, a: Apparence): Promise<Changement> =>
   ecrire(d, id, 'app.json', (avant) => (avant === undefined ? { ok: false, detail: 'no app.json' } : avecLApparence(avant, a)), 'apparence changée dans la console');
 
+/**
+ * PURE — app.json avec l'autre direction nommée posée comme direction (Antoine, 28/11 : « Réglages puis 3 directions ») :
+ * le logo et l'allure des écrans de travail restent ; la direction qu'elle remplace prend sa place parmi les autres, sous son
+ * nom (sinon « Direction d’origine », dans la langue de l'app), pour qu'on y revienne en un geste. Relu par le manifeste : les mêmes règles que Claude.
+ */
+export function avecLaDirectionChoisie(appJson: string, nom: string): { readonly ok: true; readonly texte: string } | { readonly ok: false; readonly detail: string } {
+  let json: Record<string, unknown>;
+  try { json = JSON.parse(appJson) as Record<string, unknown>; } catch { return { ok: false, detail: 'app.json is not valid JSON' }; }
+  const autres = Array.isArray(json.autresDirections) ? (json.autresDirections as Record<string, unknown>[]) : [];
+  const i = autres.findIndex((a) => a && a.nom === nom);
+  if (i < 0) return { ok: false, detail: `aucune autre direction nommée « ${nom.slice(0, 60)} »` };
+  const langue = (json.langues as { principale?: unknown } | undefined)?.principale;
+  const nomDeLAncienne = langue === 'fr' ? 'Direction d’origine' : 'Original direction';
+  const { logo, travail, ...actuelle } = (json.direction && typeof json.direction === 'object' ? json.direction : {}) as Record<string, unknown>;
+  const suivant = { ...json,
+    direction: { ...autres[i], ...(logo ? { logo } : {}), ...(travail ? { travail } : {}) },
+    autresDirections: autres.map((a, j) => (j === i ? { ...actuelle, nom: typeof actuelle.nom === 'string' && actuelle.nom ? actuelle.nom : nomDeLAncienne } : a)) };
+  const r = lireLeManifeste(suivant);
+  return r.ok ? { ok: true, texte: `${JSON.stringify(suivant, null, 2)}\n` } : { ok: false, detail: r.erreurs.join(' ; ') };
+}
+
+export const changerDeDirection = (d: DependancesDeLaReecriture, id: string, nom: string): Promise<Changement> =>
+  ecrire(d, id, 'app.json', (avant) => (avant === undefined ? { ok: false, detail: 'no app.json' } : avecLaDirectionChoisie(avant, nom)), `direction « ${nom.slice(0, 60)} » posée dans la console`);
+
 /** `image` absente : celle déjà posée reste ; `null` : retirée. `ia`, `redirections` absents : ce qui est posé reste. */
 export const changerLeReferencement = (d: DependancesDeLaReecriture, id: string, pages: Referencement['pages'], o: { readonly image?: string | null; readonly ia?: ChoixDesIa; readonly redirections?: readonly Redirection[] } = {}): Promise<Changement> =>
   ecrire(d, id, CHEMIN_DU_REFERENCEMENT, (avant) => {
