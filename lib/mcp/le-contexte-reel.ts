@@ -192,7 +192,7 @@ export async function leContexteReel(compte: string): Promise<ContexteDuServeur>
         const agent = m.agents.find((a) => a.nom === nom);
         if (!agent) return { raison: `app.json declares no agent ${nom}` };
         // Sur une copie de la base (ses lignes d'exemple), pour le propriétaire : rien de réel n'est touché.
-        const r = await avecUneCopie(base, m, compte, null, (c) => faireTournerUnAgent({ base, magasin: magasin.magasin, ouvrir: ouvrirUnSecret, projet, empreinte,
+        const r = await avecUneCopie(base, m, compte, null, (c) => faireTournerUnAgent({ base, magasin: magasin.magasin, ouvrir: ouvrirUnSecret, sceller: scellerUnSecret, projet, empreinte,
           agent, schema: c.schema, compte, declencheur: { type: 'essai', entree } }));
         return r.ok ? r.valeur : { raison: r.raison };
       },

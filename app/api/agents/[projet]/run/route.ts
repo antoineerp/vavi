@@ -10,7 +10,7 @@ import { magasinS3 } from '@/lib/publication/le-magasin';
 import { leManifesteStocke } from '@/lib/projets/l-arbre-d-un-projet';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
 import { agirPourUnCompte } from '@/lib/relais/agir-pour-un-compte';
-import { ouvrirUnSecret } from '@/lib/mcp/les-jetons';
+import { ouvrirUnSecret, scellerUnSecret } from '@/lib/mcp/les-jetons';
 import { faireTournerUnAgent } from '@/lib/agents/l-agent-reel';
 import { leBuildDuBouton } from '@/lib/agents/le-build-du-bouton';
 
@@ -46,7 +46,7 @@ export async function POST(requete: Request, { params }: { params: Promise<{ pro
   if (!empreinte) return reponse(409, { error: 'cette app n’a pas encore de build' });
   const magasin = magasinS3();
   if (!magasin.lu) return reponse(503, { error: 'magasin indisponible' });
-  const c = await faireTournerUnAgent({ base, magasin: magasin.magasin, ouvrir: ouvrirUnSecret, projet, empreinte, agent, schema, compte: personne.compte,
+  const c = await faireTournerUnAgent({ base, magasin: magasin.magasin, ouvrir: ouvrirUnSecret, sceller: scellerUnSecret, projet, empreinte, agent, schema, compte: personne.compte,
     declencheur: { type: 'bouton', entree } });
   if ('raison' in c) return reponse(503, { error: 'l’agent n’a pas pu tourner', detail: c.raison });
   console.log(`[agent] ${projet.slice(0, 8)} ${nom} bouton ${c.ok ? 'fini' : c.etape} en ${c.duree} ms, ${c.ia} appel(s) à l'IA`);

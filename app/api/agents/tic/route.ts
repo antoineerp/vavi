@@ -8,7 +8,7 @@ import { reponse } from '@/app/_partage/les-capacites-reelles';
 import { clientDeService } from '@/lib/supabase/service';
 import { magasinS3 } from '@/lib/publication/le-magasin';
 import { schemaDuProjet } from '@/lib/relais/le-schema-d-une-app';
-import { ouvrirUnSecret } from '@/lib/mcp/les-jetons';
+import { ouvrirUnSecret, scellerUnSecret } from '@/lib/mcp/les-jetons';
 import { faireTournerUnAgent } from '@/lib/agents/l-agent-reel';
 import { faireLesCourses, lirePrise } from '@/lib/agents/les-courses';
 
@@ -37,7 +37,7 @@ export async function POST() {
         if (!projet.data?.apercu_empreinte) return { raison: 'the app has no published version' };
         const magasin = magasinS3();
         if (!magasin.lu) return { raison: 'the storage of the builds is not configured' };
-        return faireTournerUnAgent({ base, magasin: magasin.magasin, ouvrir: ouvrirUnSecret, projet: p.projet, empreinte: projet.data.apercu_empreinte,
+        return faireTournerUnAgent({ base, magasin: magasin.magasin, ouvrir: ouvrirUnSecret, sceller: scellerUnSecret, projet: p.projet, empreinte: projet.data.apercu_empreinte,
           agent: { nom: p.agent, ia_par_jour: p.iaParJour }, schema, compte: projet.data.proprietaire, declencheur: p.declencheur });
       },
       async finir(id, issue) {

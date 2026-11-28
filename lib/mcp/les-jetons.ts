@@ -27,7 +27,7 @@ export interface Code { readonly client: string; readonly redirection: string; r
 /** `emis` : l'instant d'émission (ms), que la déconnexion de Claude compare ; absent sur un jeton d'avant le 24/11. */
 export interface Acces { readonly compte: string; readonly client: string; readonly emis?: number }
 
-type Piece = 'client' | 'code' | 'acces' | 'renouvellement' | 'vue' | `secret:${string}`;
+type Piece = 'client' | 'code' | 'acces' | 'renouvellement' | 'vue' | 'liaison' | `secret:${string}`;
 const PREFIXE = 'vavi.';
 
 /** La clé des jetons, lue de l'environnement : absente ou mal formée, aucune pièce ne s'écrit ni ne se lit. */
@@ -164,3 +164,15 @@ export function lireUnJetonDeVue(jeton: unknown, compte: string, maintenant = Da
   const v = desceller<{ compte?: unknown }>('vue', jeton, maintenant);
   return v.lu && v.valeur.compte === compte;
 }
+
+/* ── LA LIAISON D'UN COMPTE À UN CONNECTEUR (OAuth sortant, 28/11) ───────── */
+
+/**
+ * L'état passé à la page d'accord d'un fournisseur (Google…) quand le propriétaire relie un compte dans la console : le
+ * projet, le modèle, le compte vavi qui l'a demandé, et le vérificateur PKCE. Scellé, valable 10 minutes : le retour ne
+ * relie que ce que ce compte a demandé, pour ce projet.
+ */
+export interface Liaison { readonly projet: string; readonly modele: string; readonly compte: string; readonly verificateur: string }
+export const DUREE_DE_LA_LIAISON_MS = 10 * 60_000;
+export const ecrireUneLiaison = (l: Liaison, maintenant = Date.now()): string => sceller('liaison', l, maintenant + DUREE_DE_LA_LIAISON_MS);
+export const lireUneLiaison = (piece: unknown, maintenant = Date.now()): Issue<Liaison> => desceller<Liaison>('liaison', piece, maintenant);

@@ -51,7 +51,8 @@ describe.runIf(process.env.VAVI_BATIR === 'oui')('une app posée se construit', 
     const code = c.dist.get('_agents/tri.cjs');
     expect(code).toBeDefined();
     const briques = (lignes: unknown[]) => ({ ia: async () => ({ lu: true as const, valeur: 'haute' }), lire: async () => ({ lu: true as const, valeur: lignes }),
-      creer: async () => ({ lu: true as const, valeur: 'x' }), modifier: async () => ({ lu: true as const, valeur: null }) });
+      creer: async () => ({ lu: true as const, valeur: 'x' }), modifier: async () => ({ lu: true as const, valeur: null }),
+      connecteur: async () => ({ lu: true as const, valeur: { ok: true, statut: 200, corps: '{}' } }) });
     expect(await lancerUnAgent({ code: code!, briques: briques([{ id: 'd1', texte: 'fuite' }]), declencheur: { type: 'essai', entree: '' } })).toMatchObject({ ok: true, resultat: '1 classées' });
     const r = await lancerUnAgent({ code: code!, briques: briques([]), declencheur: { type: 'essai', entree: '' } });
     expect(r).toMatchObject({ ok: false, etape: 'agent', erreur: 'rien à classer' });

@@ -1,7 +1,8 @@
 /**
  * LE PROTOCOLE D'UN AGENT — ce que le code d'un agent peut demander à la plateforme, ligne par ligne, depuis son bac à
- * sable (`le-moteur.ts`) : l'IA, lire, créer, modifier une ligne, écrire au journal. Rien d'autre n'existe pour lui :
- * ni réseau, ni disque, ni secret. Chaque demande est relue ici avant d'atteindre une brique ; une forme fausse est un
+ * sable (`le-moteur.ts`) : l'IA, lire, créer, modifier une ligne, appeler un logiciel branché (un connecteur de l'app, par
+ * son nom : la plateforme sort, l'agent ne voit jamais ni clé ni jeton ; 28/11), écrire au journal. Rien d'autre n'existe
+ * pour lui : ni réseau, ni disque, ni secret. Chaque demande est relue ici avant d'atteindre une brique ; une forme fausse est un
  * refus dit à l'agent (son code lance alors une erreur lisible), jamais une exception du serveur. PUR.
  *
  * Neuf dans vavi (Antoine, 26/11, « Quatre briques, Claude écrit l'agent »).
@@ -14,7 +15,13 @@ export interface Briques {
   lire(table: string, egal: Readonly<Record<string, unknown>>, limite: number): Promise<Issue<readonly unknown[]>>;
   creer(table: string, valeurs: Readonly<Record<string, unknown>>): Promise<Issue<string>>;
   modifier(table: string, id: string, valeurs: Readonly<Record<string, unknown>>): Promise<Issue<null>>;
+  /** Un connecteur de l'app, appelé par son nom ; la réponse du service (même un 4xx), ou le refus de la plateforme. */
+  connecteur(nom: string, d: DemandeAUnConnecteur): Promise<Issue<ReponseDUnConnecteur>>;
 }
+
+export interface DemandeAUnConnecteur { readonly chemin: string; readonly methode: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; readonly requete: unknown }
+export interface ReponseDUnConnecteur { readonly ok: boolean; readonly statut: number; readonly donnees?: unknown; readonly corps: string; readonly simule?: true }
+const METHODES = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 
 export const BORNES = { operations: 500, journal: 200, ligneDuJournal: 500, limite: 1000, texte: 200_000 } as const;
 
@@ -65,6 +72,17 @@ export async function executer(op: unknown, args: unknown, b: Briques, c: Compte
       if (typeof a.id !== 'string' || !a.id) return refus('base.modifier: give the id of the row');
       if (!objet(a.valeurs)) return refus('base.modifier: the values are an object { champ: valeur }');
       return b.modifier(table, a.id, a.valeurs);
+    case 'connecteur': {
+      const nom = typeof a.nom === 'string' ? a.nom.toLowerCase().trim() : '';
+      if (!IDENTIFIANT.test(nom)) return refus('connecteur.appeler: name a connector of the app (« gmail », « n8n »…)');
+      const chemin = typeof a.chemin === 'string' ? a.chemin : '';
+      const methode = (typeof a.methode === 'string' ? a.methode.toUpperCase() : 'GET') as DemandeAUnConnecteur['methode'];
+      if (!METHODES.has(methode)) return refus(`connecteur.appeler: the method is one of ${[...METHODES].join(', ')}`);
+      const r = await b.connecteur(nom, { chemin, methode, requete: a.requete ?? null });
+      // Chaque appel au journal : le propriétaire voit ce que son agent a demandé à ses logiciels.
+      inscrire(c, `connecteur ${nom} ${methode} ${chemin.slice(0, 120)} → ${r.lu ? `${r.valeur.simule ? 'not sent (try)' : r.valeur.statut}` : r.pourquoi}`);
+      return r;
+    }
     default:
       return refus(`unknown request ${String(op)}`);
   }
