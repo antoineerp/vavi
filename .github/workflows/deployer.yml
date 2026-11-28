@@ -29,6 +29,8 @@ jobs:
         env:
           VAVI_BASE_URL: ${{ secrets.VAVI_BASE_URL }}
         run: |
+          # Un commit d'avant l'outil (le déploiement d'un main plus ancien) se déploie comme avant.
+          if [ ! -f scripts/appliquer-les-migrations.ts ]; then echo "::warning::pas d'outil de migration dans ce commit"; exit 0; fi
           command -v psql >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client)
           npx --yes tsx@4.19.2 scripts/appliquer-les-migrations.ts
       - uses: superfly/flyctl-actions/setup-flyctl@master
