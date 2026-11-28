@@ -6,7 +6,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { enTexte, leNomDUneLigne, seModifie, type Colonne, type TableDeLaConsole } from '@/lib/donnees/les-donnees';
-import type { Ligne } from '@/lib/donnees/sur-supabase';
+import { FONCTION_ABSENTE, type Ligne } from '@/lib/donnees/sur-supabase';
 import { leProjet } from './le-projet';
 import { enregistrer, importer, supprimer } from './gestes';
 import { MOTS } from './textes';
@@ -56,7 +56,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const message = q.fait === 'importees' ? `${m.importees(importees)}${q.ignorees ? ` ${m.ignorees} ${q.ignorees}.` : ''}`
     : q.fait ? m.fait[q.fait]
     : q.erreur === 'import_coupe' ? `${m.importCoupe(importees, q.ligne ?? '?')} ${q.pourquoi ?? ''}`
+    : q.pourquoi === FONCTION_ABSENTE ? (m.erreurs.miseAJour ?? null)
     : q.erreur ? `${m.erreurs[q.erreur] ?? q.erreur}${q.champ ? ` ${q.champ} (${q.pourquoi})` : q.pourquoi ? ` ${q.pourquoi}` : ''}` : null;
+  const panne = (pourquoi: string): string => (pourquoi === FONCTION_ABSENTE ? (m.erreurs.miseAJour ?? "") : `${m.erreurs.panne} (${pourquoi})`);
   const lien = (o: Record<string, string>) => `/projets/${id}/donnees?${new URLSearchParams({ table: t.nom, ...(cherche ? { q: cherche } : {}), ...(vuePlanning ? { vue: 'planning', semaine: lundi } : {}), ...o })}`;
 
   return (
@@ -105,9 +107,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           </nav>
         )}
         {formulaire && <LeFormulaire id={id} t={t} ligne={enCours} defauts={enCours ? {} : defauts} depuis={vuePlanning ? { vue: 'planning', semaine: lundi } : {}} references={references} m={m} langue={p.langue} annuler={lien({})} />}
-        {vuePlanning ? (duPlanning && !duPlanning.lu ? <p role="alert">{m.erreurs.panne} ({duPlanning.pourquoi})</p>
+        {vuePlanning ? (duPlanning && !duPlanning.lu ? <p role="alert">{panne(duPlanning.pourquoi)}</p>
           : planning && <LePlanning planning={planning} t={t} m={m} langue={p.langue} references={references} lien={lien} semaine={(n) => `/projets/${id}/donnees?table=${t.nom}&vue=planning&semaine=${plusJours(lundi, 7 * n)}`} aujourdhui={`/projets/${id}/donnees?table=${t.nom}&vue=planning`} />)
-        : !lues.lu ? <p role="alert">{m.erreurs.panne} ({lues.pourquoi})</p> : lues.valeur.lignes.length === 0 ? <p className="attenue">{m.aucune}</p> : (
+        : !lues.lu ? <p role="alert">{panne(lues.pourquoi)}</p> : lues.valeur.lignes.length === 0 ? <p className="attenue">{m.aucune}</p> : (
           <>
             <p className="attenue">{m.lignes(lues.valeur.total)}</p>
             <div style={{ overflowX: 'auto' }}>
