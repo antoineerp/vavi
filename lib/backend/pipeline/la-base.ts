@@ -259,6 +259,12 @@ function sqlDeLaTable(m: Manifeste, s: string, t: Table): string[] {
     // Les colonnes nouvelles d'une modification s'ajoutent ; une contrainte « not null » ne s'impose qu'à une table vide.
     ...colonnes.map((c) => `alter table ${T} add column if not exists ${c.replace(' not null', '')};`),
     ...colonnes.filter((c) => c.includes(' not null')).map((c) => `do $nn$ begin if not exists (select 1 from ${T}) then alter table ${T} alter column ${c.split(' ')[0]} set not null; end if; end $nn$;`),
+    // Un champ retiré d'app.json, ou devenu facultatif, n'est plus exigé : sa colonne reste (ses valeurs aussi) mais ne
+    // refuse plus une ligne qui ne la nomme pas (Antoine, 28/11 : « null value in column "statut" », un champ ôté).
+    `do $libre$ declare c text; begin for c in select a.attname from pg_catalog.pg_attribute a where a.attrelid = ${cite(T)}::regclass and a.attnum > 0`
+      + ` and not a.attisdropped and a.attnotnull and not a.atthasdef and a.attidentity = '' and a.attgenerated = ''`
+      + ` and not (a.attname = any(${tableau(['id', ...colonnes.filter((c) => c.includes(' not null')).map((c) => c.split(' ')[0]!)])}))`
+      + ` loop execute format('alter table %s alter column %I drop not null', ${cite(T)}, c); end loop; end $libre$;`,
     ...sqlDesBornes(s, t),
     ...sqlDeLaPeriode(s, m.tables, t),
     ...sqlDesRegles(s, t),

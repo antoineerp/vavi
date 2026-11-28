@@ -26,8 +26,28 @@ const pourquoi = (e: { code?: string; message: string }, fonction: string): stri
     console.error(`[donnees] la fonction ${fonction} manque en base : sa migration est à coller`);
     return FONCTION_ABSENTE;
   }
-  return e.message;
+  return enMots(e);
 };
+
+/**
+ * PURE — un refus de la base, en mots, jamais le message anglais de PostgreSQL : ce que vavi lève lui-même (une règle,
+ * une période prise) reste tel quel ; le reste se dit par son code, la colonne nommée quand il y en a une.
+ */
+export function enMots(e: { code?: string; message: string }): string {
+  const m = e.message ?? '';
+  if (m.startsWith('règle : ') || e.code === '23P01' || e.code === 'P0001' || e.code === '22023') return m;
+  const colonne = /column "([^"]+)"/.exec(m)?.[1];
+  switch (e.code) {
+    case '23502': return colonne ? `le champ « ${colonne} » doit être rempli` : 'un champ obligatoire est vide';
+    case '23505': return 'cette valeur existe déjà';
+    case '23503': return 'la ligne liée n’existe pas, ou plus';
+    case '23514': return 'une valeur n’est pas acceptée (hors des choix ou des limites permis)';
+    case '22P02': case '22007': case '22008': return 'une valeur n’a pas la bonne forme (un nombre, une date)';
+    case '22003': return 'un nombre est trop grand';
+    case '42501': return 'ce geste n’est pas permis';
+    default: return /^[\x20-\x7e]*$/.test(m) ? `la base a refusé (code ${e.code ?? 'inconnu'})` : m;
+  }
+}
 
 export function donneesSurSupabase(base: SupabaseClient): LesDonnees {
   return {
