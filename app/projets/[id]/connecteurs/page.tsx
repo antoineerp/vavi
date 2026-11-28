@@ -2,11 +2,14 @@
  * /projets/<id>/connecteurs — les logiciels que l'app appelle, branchés ici par le propriétaire (`lib/connecteurs`) : un
  * modèle complété (n8n, Algolia, Cloudinary, Cal.com, un autre projet Supabase) ou « autre logiciel » à clé. Leur clé est
  * scellée et ne se montre plus ; l'app les appelle par leur nom. Repris de constructor-v13 (`ConnecteursManager.tsx`).
+ * Les comptes à relier (Gmail, Google Agenda, Google Sheets, 28/11) : un bouton mène à la page d'accord du fournisseur ;
+ * l'accès se renouvelle seul ; un accord retiré se dit « à reconnecter », avec le bouton pour le faire.
  */
 import { MODELES_DE_CONNECTEURS, FORMES_D_ACCES } from '@/lib/connecteurs/l-acces';
+import { FOURNISSEURS, leClient, MODELES_OAUTH } from '@/lib/connecteurs/l-autorisation';
 import { connecteurDuSecret, duSecret, secretDuConnecteur, type Connecteur } from '@/lib/connecteurs/les-connecteurs';
 import { lesSecretsDuProjet } from '@/app/_partage/les-capacites-reelles';
-import { brancherUnConnecteur, retirerUnConnecteur } from '../gestes';
+import { brancherUnConnecteur, relierUnCompte, retirerUnConnecteur } from '../gestes';
 import { leProjet, ERREURS } from '../le-projet';
 
 export const dynamic = 'force-dynamic';
@@ -21,6 +24,10 @@ const MOTS = {
     formes: { bearer: 'Authorization: Bearer', entete: 'En-tête nommé', basique: 'Authorization: Basic (identifiant:secret)', 'entete-et-bearer': 'En-tête nommé + Bearer' } as Record<string, string>,
     demander: (nom: string) => `Ensuite, demandez à Claude, par exemple : « Envoie chaque demande de devis à ${nom} ». Il appellera le connecteur « ${nom} ».`,
     fait: (nom: string) => `« ${nom} » est branché.`, retire: (nom: string) => `« ${nom} » est retiré.`, illisible: 'déclaration illisible : rebranchez-le',
+    comptes: 'Relier un compte', comptesAide: 'Ces logiciels ne donnent pas de clé : vous reliez votre compte sur leur page, une fois. L’accès se renouvelle tout seul ; vous pouvez le retirer ici ou dans votre compte chez eux.',
+    relier: (nom: string) => `Relier ${nom}`, reconnecter: 'Reconnecter', relie: (compte: string | null) => (compte ? `relié à ${compte}` : 'compte relié'),
+    aReconnecter: 'à reconnecter : l’accès a été retiré ou a expiré', bientot: (f: string) => `La liaison avec ${f} s’ouvre bientôt.`,
+    faitRelie: (nom: string) => `Le compte est relié : l’app et ses agents appellent « ${nom} ».`,
   },
   en: {
     titre: 'Connectors', explication: 'Plug in here a software your app must call. Its key is encrypted and never shown again; the app calls it by its name, never by an address it would choose.',
@@ -31,6 +38,10 @@ const MOTS = {
     formes: { bearer: 'Authorization: Bearer', entete: 'Named header', basique: 'Authorization: Basic (id:secret)', 'entete-et-bearer': 'Named header + Bearer' } as Record<string, string>,
     demander: (nom: string) => `Then ask Claude, for instance: “Send every quote request to ${nom}”. It will call the “${nom}” connector.`,
     fait: (nom: string) => `“${nom}” is plugged in.`, retire: (nom: string) => `“${nom}” is removed.`, illisible: 'unreadable declaration: plug it in again',
+    comptes: 'Connect an account', comptesAide: 'These services give no key: you connect your account on their page, once. Access renews by itself; you can remove it here or in your account with them.',
+    relier: (nom: string) => `Connect ${nom}`, reconnecter: 'Reconnect', relie: (compte: string | null) => (compte ? `connected to ${compte}` : 'account connected'),
+    aReconnecter: 'to reconnect: access was removed or expired', bientot: (f: string) => `Connecting ${f} opens soon.`,
+    faitRelie: (nom: string) => `The account is connected: the app and its agents call “${nom}”.`,
   },
 } as const;
 
@@ -44,9 +55,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const branches = noms.lu ? await Promise.all(noms.valeur.map(connecteurDuSecret).filter((n): n is string => n !== null).map(async (nom) => {
     const s = await ouvrir(secretDuConnecteur(nom));
     const lu = s.lu && s.valeur ? duSecret(s.valeur) : null;
-    return { nom, connecteur: lu?.ok ? lu.valeur : null as Connecteur | null };
+    const connecteur = lu?.ok ? lu.valeur : null as Connecteur | null;
+    // Un compte relié (ou une déclaration illisible d'un nom de modèle) se reconnecte par le même bouton.
+    const modeleOAuth = MODELES_OAUTH.find((x) => x.nomDansLApp === nom && (!connecteur || connecteur.oauth))?.id ?? null;
+    return { nom, connecteur, modeleOAuth };
   })) : [];
-  const message = q.fait === 'connecteur' && q.nom ? `${m.fait(q.nom)} ${m.demander(q.nom)}` : q.fait === 'retire' && q.nom ? m.retire(q.nom)
+  const message = q.fait === 'relie' && q.nom ? `${m.faitRelie(q.nom)} ${m.demander(q.nom)}` : q.fait === 'connecteur' && q.nom ? `${m.fait(q.nom)} ${m.demander(q.nom)}` : q.fait === 'retire' && q.nom ? m.retire(q.nom)
     : q.erreur ? `${t.erreur} ${ERREURS[q.erreur]?.[c.langue] ?? q.erreur}${q.detail ? ` ${q.detail}` : ''}` : null;
   const dejaBranche = new Set(branches.map((b) => b.nom));
   return (
@@ -62,12 +76,34 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             {branches.map((b) => (
               <li key={b.nom}>
                 <span><strong>{b.connecteur?.libelle ?? b.nom}</strong> <code>{b.nom}</code>{' '}
-                  <span className="attenue">{b.connecteur ? `${new URL(b.connecteur.baseUrl).hostname} · ${b.connecteur.cle ? m.cle : m.sansCle}` : m.illisible}</span></span>
-                <form action={retirerUnConnecteur.bind(null, id, b.nom)}><button type="submit">{m.retirer}</button></form>
+                  <span className="attenue">{!b.connecteur ? m.illisible : b.connecteur.oauth
+                    ? `${new URL(b.connecteur.baseUrl).hostname} · ${b.connecteur.oauth.perdue ? m.aReconnecter : m.relie(b.connecteur.oauth.compte)}`
+                    : `${new URL(b.connecteur.baseUrl).hostname} · ${b.connecteur.cle ? m.cle : m.sansCle}`}</span></span>
+                <span style={{ display: 'flex', gap: '0.5rem' }}>
+                  {b.modeleOAuth && <form action={relierUnCompte.bind(null, id, b.modeleOAuth)}><button type="submit">{m.reconnecter}</button></form>}
+                  <form action={retirerUnConnecteur.bind(null, id, b.nom)}><button type="submit">{m.retirer}</button></form>
+                </span>
               </li>
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="carte">
+        <h2>{m.comptes}</h2>
+        <p className="attenue">{m.comptesAide}</p>
+        <ul className="liste">
+          {MODELES_OAUTH.map((x) => {
+            const ouvert = leClient(FOURNISSEURS[x.fournisseur]) !== null;
+            return (
+              <li key={x.id}>
+                <span><strong>{x.nom}</strong> <span className="attenue">— {x.aide[c.langue]}</span></span>
+                {ouvert ? <form action={relierUnCompte.bind(null, id, x.id)}><button type="submit">{dejaBranche.has(x.nomDansLApp) ? m.reconnecter : m.relier(x.nom)}</button></form>
+                  : <span className="attenue">{m.bientot(FOURNISSEURS[x.fournisseur].libelle)}</span>}
+              </li>
+            );
+          })}
+        </ul>
       </section>
 
       <section className="carte">

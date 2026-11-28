@@ -53,6 +53,9 @@ async function lancer() {
       creer: (table, valeurs) => demander('creer', { table, valeurs }),
       modifier: (table, id, valeurs) => demander('modifier', { table, id, valeurs }).then(() => undefined),
     }),
+    connecteur: Object.freeze({
+      appeler: (nom, o) => demander('connecteur', { nom, chemin: o && o.chemin, methode: o && o.methode, requete: o && o.requete }),
+    }),
     journal,
   });
   try {

@@ -1,11 +1,13 @@
 /**
  * LES BRIQUES D'UN AGENT, branchées sur le réel : la base de l'app COMME un compte (`voie_neuve_pour` : la RLS de l'app
  * décide, exactement comme pour le navigateur de ce compte), et l'IA sur la clé Anthropic du PROPRIÉTAIRE, dans le
- * plafond quotidien que l'agent déclare (`ia_par_jour`, compté en base). Aucune autre porte.
+ * plafond quotidien que l'agent déclare (`ia_par_jour`, compté en base), et les connecteurs de l'app par la même porte que
+ * ses pages (`appelerUnConnecteur` : clé ou compte relié renouvelé, hôte déclaré seul). Aucune autre porte.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FonctionDuRelais } from '@/lib/relais/agir-pour-un-compte';
 import { appelerLeModele, laRequete, lireLaReponse, NOM_DE_L_OUTIL, SECRET_DE_L_IA, type Appel } from '@/lib/capacites/l-ia';
+import { appelerUnConnecteur, type DependancesDeLAppel } from '@/lib/connecteurs/les-connecteurs';
 import type { Briques, Issue } from './le-protocole';
 
 const refus = (pourquoi: string): Issue<never> => ({ lu: false, pourquoi });
@@ -25,6 +27,10 @@ export function lesBriquesReelles(o: {
   /** Compte un appel à l'IA ; `false` : le plafond du jour est atteint. */
   readonly plafondIA: () => Promise<Issue<boolean>>;
   readonly appel?: Appel;
+  /** Les connecteurs du projet (`lesConnecteursDuProjet`). */
+  readonly connecteurs: DependancesDeLAppel;
+  /** Un essai (`try_agent`) : seules les lectures (GET) sortent ; une écriture est dite, jamais envoyée. */
+  readonly essai: boolean;
 }): Briques {
   // Le relais COMME ce compte (`voie_neuve_pour`), marqué « par un agent » : ce qu'il crée ne réveille aucun agent
   // (`le-sql-des-agents.ts`).
@@ -46,6 +52,12 @@ export function lesBriquesReelles(o: {
       if (v.etat === 'decide') return { lu: true, valeur: v.donnee };
       if (v.etat === 'tronque') return refus('AI: the answer was cut before the end; ask for less, or raise maxTokens');
       return refus('AI: the model returned no data in the requested shape; check the schema');
+    },
+    async connecteur(nom, d) {
+      if (o.essai && d.methode !== 'GET') return { lu: true, valeur: { ok: true, statut: 0, corps: '', simule: true } };
+      const r = await appelerUnConnecteur(nom, d, o.connecteurs);
+      if (!r.ok) return refus(`connecteur ${nom}: ${r.erreur} — ${r.detail}`);
+      return { lu: true, valeur: { ok: r.repondu, statut: r.statut, corps: r.corps, ...(r.donnees !== undefined ? { donnees: r.donnees } : {}) } };
     },
     async lire(table, egal, limite) {
       const r = await relais('voie_neuve_lire', { p_table: table, p_egal: egal, p_limite: limite });

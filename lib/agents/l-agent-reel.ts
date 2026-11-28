@@ -11,6 +11,7 @@ import { DOSSIER_DES_AGENTS } from '@/lib/publication/servir';
 import { leSecretScelle } from '@/lib/projets/les-projets';
 import { MODELE_PAR_DEFAUT, SECRET_DE_L_IA } from '@/lib/capacites/l-ia';
 import { IA_PAR_JOUR, type Agent } from '@/lib/backend/app/les-agents';
+import { lesConnecteursDuProjet } from '@/lib/connecteurs/les-connecteurs-du-projet';
 import { lancerUnAgent, type Course } from './le-moteur';
 import { lesBriquesReelles } from './les-briques';
 
@@ -18,6 +19,8 @@ export interface AgentAFaireTourner {
   readonly base: SupabaseClient; readonly magasin: Magasin;
   /** Ouvre un secret scellé du projet (`lib/mcp/les-jetons`). */
   readonly ouvrir: (projet: string, nom: string, scelle: unknown) => { readonly lu: true; readonly valeur: string } | { readonly lu: false; readonly pourquoi: string };
+  /** Scelle un secret du projet : un compte relié renouvelé y est gardé. */
+  readonly sceller: (projet: string, nom: string, valeur: string) => string;
   readonly projet: string; readonly empreinte: string; readonly agent: Pick<Agent, 'nom' | 'ia_par_jour'>;
   /** Le schéma où il agit : celui de l'app, ou d'une copie. */
   readonly schema: string; readonly compte: string; readonly declencheur: Record<string, unknown>;
@@ -35,6 +38,8 @@ export async function faireTournerUnAgent(o: AgentAFaireTourner): Promise<Course
     briques: lesBriquesReelles({
       base: o.base, schema: o.schema, compte: o.compte, cleIA: ouverte?.lu ? ouverte.valeur : null,
       modele: process.env.VAVI_MODELE_DES_APPS || MODELE_PAR_DEFAUT,
+      connecteurs: lesConnecteursDuProjet(o.base, o.projet, { ouvrir: o.ouvrir, sceller: o.sceller }),
+      essai: o.declencheur.type === 'essai',
       plafondIA: async () => {
         const r = await o.base.rpc('vavi_plafond', { p_cle: `agent-ia:${o.projet}:${o.agent.nom}:${max}`, p_fenetre_s: 86_400, p_max: max });
         return r.error ? { lu: false, pourquoi: r.error.message } : { lu: true, valeur: r.data === true };

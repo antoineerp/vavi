@@ -20,6 +20,11 @@ function desBriques(): Briques & { ecrits: unknown[] } {
     lire: async (table) => (table === 'demandes' ? { lu: true, valeur: [{ id: 'd1', texte: 'fuite' }, { id: 'd2', texte: 'bruit' }] } : { lu: false, pourquoi: `table ${table} inconnue` }),
     creer: async (table, valeurs) => { ecrits.push({ table, valeurs }); return { lu: true, valeur: 'n1' }; },
     modifier: async (table, id, valeurs) => { ecrits.push({ table, id, valeurs }); return { lu: true, valeur: null }; },
+    connecteur: async (nom, d) => {
+      ecrits.push({ nom, ...d });
+      return nom === 'gmail' ? { lu: true, valeur: { ok: true, statut: 200, corps: '{"messages":[{"id":"m1"}]}', donnees: { messages: [{ id: 'm1' }] } } }
+        : { lu: false, pourquoi: `connecteur ${nom}: connecteur inconnu` };
+    },
   };
 }
 
@@ -41,6 +46,21 @@ describe('le moteur d’un agent', () => {
   it('dit l’erreur de l’agent, et un refus de la plateforme devient une erreur qu’il peut lire', async () => {
     const r = await lancerUnAgent({ lanceur: direct, briques: desBriques(), declencheur: { type: 'essai', entree: '' }, code: code(`await ctx.base.lire('clients');`) });
     expect(r).toMatchObject({ ok: false, etape: 'agent', erreur: 'table clients inconnue' });
+  }, 20_000);
+  it('appelle un connecteur de l’app par son nom, lit sa réponse, et chaque appel est au journal (28/11)', async () => {
+    const b = desBriques();
+    const r = await lancerUnAgent({ lanceur: direct, briques: b, declencheur: { type: 'essai', entree: '' }, code: code(`
+      const l = await ctx.connecteur.appeler('gmail', { chemin: '/messages?q=is:unread' });
+      await ctx.connecteur.appeler('gmail', { chemin: '/messages/m1/modify', methode: 'post', requete: { addLabelIds: ['L1'] } });
+      return l.donnees.messages.length + ' message(s)';`) });
+    expect(r).toMatchObject({ ok: true, resultat: '1 message(s)' });
+    expect(b.ecrits).toEqual([
+      { nom: 'gmail', chemin: '/messages?q=is:unread', methode: 'GET', requete: null },
+      { nom: 'gmail', chemin: '/messages/m1/modify', methode: 'POST', requete: { addLabelIds: ['L1'] } },
+    ]);
+    expect(r.journal).toEqual(expect.arrayContaining(['connecteur gmail GET /messages?q=is:unread → 200']));
+    const refus = await lancerUnAgent({ lanceur: direct, briques: desBriques(), declencheur: { type: 'essai', entree: '' }, code: code(`await ctx.connecteur.appeler('crm');`) });
+    expect(refus).toMatchObject({ ok: false, etape: 'agent', erreur: 'connecteur crm: connecteur inconnu' });
   }, 20_000);
   it('arrête un agent qui dépasse son délai', async () => {
     const r = await lancerUnAgent({ lanceur: direct, briques: desBriques(), delaiMs: 800, declencheur: { type: 'essai', entree: '' }, code: code('await new Promise(() => {});') });

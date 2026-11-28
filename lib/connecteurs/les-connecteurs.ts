@@ -10,6 +10,7 @@
  */
 import { isIP } from 'node:net';
 import { ACCES_PAR_DEFAUT, entetesDeLAcces, lireLAcces, type AccesDeConnecteur } from './l-acces';
+import { lireLAutorisation, type AutorisationOAuth } from './l-autorisation';
 import type { OptionsSortie, ReponseSortante, SortieRefusee } from './la-sortie';
 
 type Issue<T> = { readonly ok: true; readonly valeur: T } | { readonly ok: false; readonly raison: string };
@@ -30,8 +31,10 @@ export interface Connecteur {
   readonly libelle: string | null;
   readonly baseUrl: string;
   readonly acces: AccesDeConnecteur;
-  /** `''` : le service ne demande aucune clé. */
+  /** `''` : le service ne demande aucune clé (ou le connecteur est un compte relié). */
   readonly cle: string;
+  /** Un compte relié par OAuth (`l-autorisation.ts`) : son jeton d'accès part en Bearer, renouvelé à l'appel. */
+  readonly oauth?: AutorisationOAuth;
 }
 
 /** PURE — la forme d'une déclaration, chaque manque nommé. */
@@ -53,8 +56,10 @@ export function lireUnConnecteur(brut: unknown): Issue<Connecteur> {
   const libelle = typeof o.libelle === 'string' && o.libelle.trim() ? o.libelle.trim().slice(0, 120) : null;
   const acces = lireLAcces(o.acces);
   if (!acces.ok) fautes.push(acces.raison);
+  const oauth = o.oauth === undefined || o.oauth === null ? null : lireLAutorisation(o.oauth);
+  if (oauth && !oauth.ok) fautes.push(oauth.raison);
   if (fautes.length > 0) return { ok: false, raison: fautes.join(' ; ') };
-  return { ok: true, valeur: { nom, libelle, baseUrl: baseUrl.replace(/\/+$/, ''), acces: acces.ok ? acces.valeur : ACCES_PAR_DEFAUT, cle } };
+  return { ok: true, valeur: { nom, libelle, baseUrl: baseUrl.replace(/\/+$/, ''), acces: acces.ok ? acces.valeur : ACCES_PAR_DEFAUT, cle, ...(oauth?.ok ? { oauth: oauth.valeur } : {}) } };
 }
 
 /** PURE — ce que le secret garde, scellé ; relu par `lireUnConnecteur`. */
@@ -90,7 +95,17 @@ export interface DependancesDeLAppel {
   /** Le connecteur, ouvert ; `null` : il n'est pas branché. */
   readonly lire: (nom: string) => Promise<Issue<Connecteur | null>>;
   readonly sortir: (url: string, o: OptionsSortie) => Promise<ReponseSortante | SortieRefusee>;
+  /**
+   * Un compte relié dont le jeton expire : le renouvelle ET garde le connecteur renouvelé (ou marqué `perdue`) dans son
+   * secret. Absent : un compte relié ne se renouvelle pas (il échoue quand son jeton expire, et le dit).
+   */
+  readonly renouveler?: (c: Connecteur) => Promise<{ readonly ok: true; readonly valeur: Connecteur } | { readonly ok: false; readonly perdue: boolean; readonly raison: string }>;
+  readonly maintenant?: () => number;
 }
+
+/** Un jeton à moins d'une minute de sa fin se renouvelle avant l'appel. */
+export const MARGE_DU_JETON_MS = 60_000;
+const aReconnecter = (nom: string): string => `the account behind « ${nom} » must be connected again: the owner clicks « Reconnect » in the vavi console (Connectors)`;
 
 const METHODES = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 export const MAX_CORPS = 200_000;
@@ -109,15 +124,38 @@ export async function appelerUnConnecteur(nomBrut: unknown, demande: DemandeDApp
       detail: connus.length > 0 ? `« ${nom} » n’est pas branché. Connecteurs de cette app : ${connus.join(', ')}.`
         : 'Aucun logiciel n’est branché sur cette app : le propriétaire le branche dans la console vavi (Connecteurs).' };
   }
-  const u = urlDeLAppel(c.valeur, typeof demande.chemin === 'string' ? demande.chemin : '');
+  let conn = c.valeur;
+  if (conn.oauth?.perdue) return { ok: false, statut: 503, erreur: 'connecteur à reconnecter', detail: aReconnecter(nom) };
+  const renouveler = async (): Promise<{ readonly ok: false; readonly statut: 503; readonly erreur: string; readonly detail: string } | null> => {
+    if (!d.renouveler) return { ok: false, statut: 503, erreur: 'connecteur expiré', detail: `the access of « ${nom} » expired and this server cannot renew it` };
+    const r = await d.renouveler(conn).catch((e: unknown) => ({ ok: false as const, perdue: false, raison: String((e as Error)?.message ?? e).slice(0, 160) }));
+    if (!r.ok) return { ok: false, statut: 503, erreur: r.perdue ? 'connecteur à reconnecter' : 'connecteur non renouvelé', detail: r.perdue ? aReconnecter(nom) : r.raison };
+    conn = r.valeur;
+    return null;
+  };
+  const maintenant = d.maintenant ?? Date.now;
+  if (conn.oauth && conn.oauth.expire - MARGE_DU_JETON_MS < maintenant()) {
+    const refus = await renouveler();
+    if (refus) return refus;
+  }
+  const u = urlDeLAppel(conn, typeof demande.chemin === 'string' ? demande.chemin : '');
   if (!u.ok) return { ok: false, statut: 400, erreur: 'chemin refusé', detail: u.raison };
   const methode = METHODES.has(String(demande.methode ?? '').toUpperCase()) ? String(demande.methode).toUpperCase() : 'GET';
   const corps = demande.requete === undefined || demande.requete === null ? undefined : JSON.stringify(demande.requete);
   if (corps !== undefined && corps.length > MAX_REQUETE) return { ok: false, statut: 400, erreur: 'requête trop grosse', detail: `au plus ${MAX_REQUETE} caractères envoyés` };
   // La question part ; jamais l'identité de qui la pose (ni cookie, ni jeton de l'app).
-  const entetes: Record<string, string> = { 'content-type': 'application/json', accept: 'application/json', ...entetesDeLAcces(c.valeur.acces, c.valeur.cle || null) };
-  const r = await d.sortir(u.valeur, { hotesAutorises: [new URL(c.valeur.baseUrl).hostname], methode, entetes, ...(methode !== 'GET' && corps !== undefined ? { corps } : {}) })
-    .catch((x: unknown) => ({ ok: false as const, raison: 'injoignable' as const, detail: String((x as Error)?.message ?? x).slice(0, 160) }));
+  const sortir = () => d.sortir(u.valeur, {
+    hotesAutorises: [new URL(conn.baseUrl).hostname], methode,
+    entetes: { 'content-type': 'application/json', accept: 'application/json', ...entetesDeLAcces(conn.oauth ? ACCES_PAR_DEFAUT : conn.acces, conn.oauth ? conn.oauth.jeton : conn.cle || null) },
+    ...(methode !== 'GET' && corps !== undefined ? { corps } : {}),
+  }).catch((x: unknown) => ({ ok: false as const, raison: 'injoignable' as const, detail: String((x as Error)?.message ?? x).slice(0, 160) }));
+  let r = await sortir();
+  // Un jeton refusé avant sa fin annoncée (retiré, tourné) : renouvelé une fois, l'appel rejoué une fois.
+  if (conn.oauth && !('raison' in r) && r.statut === 401) {
+    const refus = await renouveler();
+    if (refus) return refus;
+    r = await sortir();
+  }
   if ('raison' in r) return { ok: false, statut: r.raison === 'injoignable' ? 502 : 400, erreur: 'appel refusé', detail: r.detail };
   const texte = r.corps.length > MAX_CORPS ? r.corps.slice(0, MAX_CORPS) : r.corps;
   let donnees: unknown;
