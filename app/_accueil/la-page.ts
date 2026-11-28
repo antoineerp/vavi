@@ -203,7 +203,7 @@ section{padding-block:64px}
 .titre-et-appel .appel p{margin:0}
 @media (max-width:900px){.ouverture.une-colonne .texte.titre-et-appel{grid-template-columns:1fr}}
 .ecran-claude,.capture-console{margin:0;display:grid;gap:10px;min-width:0}
-.ecran-claude img,.capture-console img{width:100%;height:auto;display:block;border:1px solid var(--trait);border-radius:14px;box-shadow:0 1px 0 var(--trait),0 30px 60px -34px var(--ombre);background:var(--carte)}
+.ecran-claude video,.ecran-claude img,.capture-console img{width:100%;height:auto;display:block;border:1px solid var(--trait);border-radius:14px;box-shadow:0 1px 0 var(--trait),0 30px 60px -34px var(--ombre);background:var(--carte)}
 .ecran-claude figcaption,.capture-console figcaption{font-family:var(--f-mono);font-size:.8rem;color:var(--encre-douce)}
 .tourne{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:36px;align-items:start}
 .ce-qui-tourne{list-style:none;margin:0;padding:0;display:grid;gap:18px}
@@ -501,8 +501,10 @@ details p{margin-top:10px;color:var(--encre-douce)}
       </div>
     </div>
     <figure class="ecran-claude">
-      <img src="__IMAGES__/claude-et-planning.png" alt="Claude.ai : la conversation à gauche, l'app de planning de chantiers dans le panneau vavi à droite, avec le bouton Publier" width="1607" height="852">
-      <figcaption>Capture réelle : vous parlez à Claude à gauche, votre site se construit à droite.</figcaption>
+      <video controls preload="metadata" playsinline width="1280" height="720" poster="__IMAGES__/demo-affiche.jpg" aria-label="Démonstration de vavi : brancher vavi à Claude, Claude construit l'app, puis la console vavi">
+        <source src="__IMAGES__/demo.mp4" type="video/mp4">
+      </video>
+      <figcaption>Démonstration en anglais, sous-titrée en français (52 s) : vavi branché à Claude, l'app construite, puis la console.</figcaption>
     </figure>
   </div>
 </div>
