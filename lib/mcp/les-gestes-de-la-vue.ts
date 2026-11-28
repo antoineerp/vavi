@@ -66,24 +66,27 @@ export async function mettreEnLigneDepuisLaVue(c: Contexte, a: { project: string
  */
 /** L'icône d'un bouton (Antoine, 27/11 : « des boutons visibles », une icône devant chaque mot) ; la page la dessine. */
 export type IconeDuBouton = 'panneau' | 'apercu' | 'publier' | 'offre' | 'site' | 'domaine' | 'console';
-export interface BoutonDeLaFiche { readonly do: 'link' | 'publish' | 'panel'; readonly label: { readonly fr: string; readonly en: string }; readonly url?: string; readonly main?: boolean; readonly icon?: IconeDuBouton }
+/** `note` : l'état qui accompagne le bouton (l'offre pleine…), dit à côté de lui en petit, jamais dans son libellé (28/11). */
+export interface BoutonDeLaFiche { readonly do: 'link' | 'publish' | 'panel'; readonly label: { readonly fr: string; readonly en: string }; readonly url?: string; readonly main?: boolean; readonly icon?: IconeDuBouton; readonly note?: { readonly fr: string; readonly en: string } }
 
 export function lesBoutonsDeLaFiche(f: { readonly preview_url: string | null; readonly state: string; readonly console_url: string;
   readonly can_publish?: boolean | null; readonly plan_url?: string; readonly raison?: string | null; readonly online_url?: string | null }): BoutonDeLaFiche[] {
   // Sans offre, « Publier » ne pourrait que refuser (Antoine, 27/11 : le refus passait inaperçu) : le bouton mène à l'offre,
-  // et dit pourquoi (« est-ce que l'utilisateur aura un message lui donnant la raison ? », 27/11).
+  // et dit pourquoi (« est-ce que l'utilisateur aura un message lui donnant la raison ? », 27/11). Le libellé reste
+  // « Publier » ; la raison est sa note, dite à côté (Antoine, 28/11 : « Publier : votre offre est pleine… » cassait la barre).
   const sansOffre = f.state === 'a_publier' && f.can_publish === false && f.plan_url;
   const POURQUOI: Record<string, { fr: string; en: string }> = {
-    nature: { fr: 'Publier : une app demande l’offre Boutique ou app', en: 'Publish: an app needs the Shop or app offer' },
-    quota: { fr: 'Publier : votre offre est pleine, ajoutez une place', en: 'Publish: your offer is full, add a place' },
-    suspendu: { fr: 'Publier : un paiement manque', en: 'Publish: a payment is missing' },
+    nature: { fr: 'Une app demande l’offre Boutique ou app', en: 'An app needs the Shop or app offer' },
+    quota: { fr: 'Votre offre est pleine : ajoutez une place', en: 'Your offer is full: add a place' },
+    suspendu: { fr: 'Un paiement manque', en: 'A payment is missing' },
   };
   return [
     // « Afficher à droite », en premier et en vert (Antoine, 26/11 17h02) : Claude.ai n'ouvre son panneau qu'après un clic.
     { do: 'panel' as const, label: { fr: 'Afficher à droite', en: 'Show on the right' }, main: true, icon: 'panneau' as const },
     // Par la console, qui y fait entrer le propriétaire déjà connecté (`/projets/<id>/entrer`, 27/11).
     ...(f.preview_url ? [{ do: 'link' as const, label: { fr: 'Voir l’aperçu', en: 'See the preview' }, url: `${f.console_url}/entrer`, icon: 'apercu' as const }] : []),
-    ...(sansOffre ? [{ do: 'link' as const, label: POURQUOI[f.raison ?? ''] ?? { fr: 'Publier : choisir une offre', en: 'Publish: choose a plan' }, url: f.plan_url, main: true, icon: 'offre' as const }]
+    ...(sansOffre ? [{ do: 'link' as const, label: { fr: 'Publier', en: 'Publish' }, url: f.plan_url, main: true, icon: 'offre' as const,
+      note: POURQUOI[f.raison ?? ''] ?? { fr: 'Choisissez une offre pour publier', en: 'Choose a plan to publish' } }]
       : f.state === 'a_publier' ? [{ do: 'publish' as const, label: { fr: 'Publier', en: 'Publish' }, main: true, icon: 'publier' as const }] : []),
     // EN LIGNE, CE QUI SUIT (Antoine, 27/11 : « je n'ai aucun message confirmant la publication », « à aucun moment je n'ai
     // eu de message si je voulais publier sur mon nom de domaine ») : le site lui-même, et son nom de domaine.

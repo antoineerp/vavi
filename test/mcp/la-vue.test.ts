@@ -197,11 +197,15 @@ describe('les boutons de la fiche viennent du serveur (26/11 : Claude.ai gardait
     expect(lesBoutonsDeLaFiche({ preview_url: null, state: 'en_ligne', console_url: 'https://c' }).map((x) => x.do)).toEqual(['panel', 'link']);
     // INCIDENT 27/11 (Antoine : le refus « Publishing needs a plan » passait inaperçu) : sans offre, le bouton mène à l'offre.
     const sans = lesBoutonsDeLaFiche({ preview_url: 'https://a/p', state: 'a_publier', console_url: 'https://c/projets/x', can_publish: false, plan_url: 'https://c/abonnement' });
-    expect(sans.find((x) => x.main && x.do !== 'panel')).toEqual({ do: 'link', label: { fr: 'Publier : choisir une offre', en: 'Publish: choose a plan' }, url: 'https://c/abonnement', main: true, icon: 'offre' });
+    expect(sans.find((x) => x.main && x.do !== 'panel')).toEqual({ do: 'link', label: { fr: 'Publier', en: 'Publish' }, url: 'https://c/abonnement', main: true, icon: 'offre',
+      note: { fr: 'Choisissez une offre pour publier', en: 'Choose a plan to publish' } });
     expect(sans.some((x) => x.do === 'publish')).toBe(false);
-    // Et la raison, dans le bouton même (27/11) : une app sur l'offre Site.
+    // Et la raison (27/11), dite à côté du bouton et non dans son libellé (28/11 : la barre passait sur deux lignes).
+    const pleine = lesBoutonsDeLaFiche({ preview_url: 'https://a/p', state: 'a_publier', console_url: 'https://c/projets/x', can_publish: false, plan_url: 'https://c/abonnement', raison: 'quota' })
+      .find((x) => x.main && x.do === 'link');
+    expect([pleine?.label.fr, pleine?.note?.fr]).toEqual(['Publier', 'Votre offre est pleine : ajoutez une place']);
     expect(lesBoutonsDeLaFiche({ preview_url: 'https://a/p', state: 'a_publier', console_url: 'https://c/projets/x', can_publish: false, plan_url: 'https://c/abonnement', raison: 'nature' })
-      .find((x) => x.main && x.do === 'link')?.label.fr).toBe('Publier : une app demande l’offre Boutique ou app');
+      .find((x) => x.main && x.do === 'link')?.note?.fr).toBe('Une app demande l’offre Boutique ou app');
     // INCIDENT 27/11 (Antoine : « je n'ai aucun message confirmant la publication », « à aucun moment je n'ai eu de message
     // si je voulais publier sur mon nom de domaine ») : en ligne, la fiche mène au site et au nom de domaine, et le dit.
     const { laNoteEnLigne } = await import('@/lib/mcp/les-gestes-de-la-vue');
