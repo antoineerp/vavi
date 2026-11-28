@@ -50,6 +50,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const enCours = q.ligne && ID.test(q.ligne)
     ? (lues.lu ? lues.valeur.lignes.find((l) => l.id === q.ligne) : undefined) ?? (duPlanning?.lu ? duPlanning.valeur.find((l) => l.id === q.ligne) : undefined) ?? null : null;
   const formulaire = q.nouvelle === '1' ? 'nouvelle' : enCours ? 'modifier' : null;
+  // Une ligne nouvelle ouverte d'une case libre du planning arrive avec sa ressource et ses dates (`pre.<champ>`).
+  const defauts = Object.fromEntries(t.colonnes.filter((c) => c.ecrivable && typeof q[`pre.${c.nom}`] === 'string').map((c) => [c.nom, String(q[`pre.${c.nom}`]).slice(0, 200)]));
   const importees = Number.parseInt(q.importees ?? '0', 10) || 0;
   const message = q.fait === 'importees' ? `${m.importees(importees)}${q.ignorees ? ` ${m.ignorees} ${q.ignorees}.` : ''}`
     : q.fait ? m.fait[q.fait]
@@ -102,7 +104,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             {vuePlanning ? <strong>{m.planning}</strong> : <Link href={`/projets/${id}/donnees?table=${t.nom}&vue=planning`}>{m.planning}</Link>}
           </nav>
         )}
-        {formulaire && <LeFormulaire id={id} t={t} ligne={enCours} references={references} m={m} langue={p.langue} annuler={lien({})} />}
+        {formulaire && <LeFormulaire id={id} t={t} ligne={enCours} defauts={enCours ? {} : defauts} depuis={vuePlanning ? { vue: 'planning', semaine: lundi } : {}} references={references} m={m} langue={p.langue} annuler={lien({})} />}
         {vuePlanning ? (duPlanning && !duPlanning.lu ? <p role="alert">{m.erreurs.panne} ({duPlanning.pourquoi})</p>
           : planning && <LePlanning planning={planning} t={t} m={m} langue={p.langue} references={references} lien={lien} semaine={(n) => `/projets/${id}/donnees?table=${t.nom}&vue=planning&semaine=${plusJours(lundi, 7 * n)}`} aujourdhui={`/projets/${id}/donnees?table=${t.nom}&vue=planning`} />)
         : !lues.lu ? <p role="alert">{m.erreurs.panne} ({lues.pourquoi})</p> : lues.valeur.lignes.length === 0 ? <p className="attenue">{m.aucune}</p> : (
@@ -148,10 +150,10 @@ async function lesReferences(p: Extract<Awaited<ReturnType<typeof leProjet>>, { 
 }
 
 
-function LeFormulaire({ id, t, ligne, references, m, langue, annuler }: { id: string; t: TableDeLaConsole; ligne: Ligne | null; references: References; m: Mots; langue: 'fr' | 'en'; annuler: string }) {
+function LeFormulaire({ id, t, ligne, defauts = {}, depuis, references, m, langue, annuler }: { id: string; t: TableDeLaConsole; ligne: Ligne | null; defauts?: Readonly<Record<string, string>>; depuis: { vue?: string; semaine?: string }; references: References; m: Mots; langue: 'fr' | 'en'; annuler: string }) {
   const valeur = (c: Colonne): string => {
     const v = ligne?.[c.nom];
-    if (v === null || v === undefined) return '';
+    if (v === null || v === undefined) return defauts[c.nom] ?? '';
     if (c.type === 'date_heure' && typeof v === 'string') return new Date(v).toISOString().slice(0, 16);
     return String(v);
   };
@@ -159,7 +161,7 @@ function LeFormulaire({ id, t, ligne, references, m, langue, annuler }: { id: st
   return (
     <div className="carte">
       <h2>{ligne ? leNomDUneLigne(t, ligne) : m.nouvelle}</h2>
-      <form action={enregistrer.bind(null, id, t.nom, ligneId)}>
+      <form action={enregistrer.bind(null, id, t.nom, ligneId, depuis)}>
         {t.colonnes.map((c) => (
           <div key={c.nom} style={{ margin: '0.6rem 0' }}>
             <label htmlFor={`c-${c.nom}`}>{c.libelle}{c.obligatoire && c.ecrivable ? ' *' : ''}</label>

@@ -98,7 +98,7 @@ export function exigencesDuGeste(t: Table, T: string): string[] {
  * `capacite` (une seule par défaut), hors des états `libre` : le déclencheur `<table>_occupe` refuse (23P01), quel que
  * soit qui écrit. Il lit TOUTES les lignes, sous son propriétaire : la RLS cache à un visiteur les réservations des
  * autres, pas leur place. Le verrou de la ressource rend deux réservations simultanées de la dernière place impossibles.
- * Une date seule occupe sa journée entière. La foule se compte au début de chaque ligne qui recouvre la nouvelle : c'est
+ * Une date seule occupe sa journée entière, sauf une période `nuits` : le jour de sa fin se libère. La foule se compte au début de chaque ligne qui recouvre la nouvelle : c'est
  * là qu'elle est la plus grande.
  *
  * `<table>_occupations(du, au, ressource)` rend ce qui est pris, sans rien d'autre (ni qui, ni quoi) : les périodes, leur
@@ -111,10 +111,14 @@ export function sqlDeLaPeriode(s: string, tables: readonly Table[], t: Table): s
   if (!p) return [];
   const T = `${s}.${t.nom}`;
   const nom = `${t.nom}_periode_ordonnee`;
+  // En nuits, le jour de la fin se libère : la période va de son début à sa fin, exclue, et dure au moins une nuit.
+  const dates = [p.debut, p.fin].every((n) => t.champs.find((c) => c.nom === n)?.type === 'date');
+  const enNuits = Boolean(p.nuits) && dates;
+  const finDuJour = t.champs.find((c) => c.nom === p.fin)?.type === 'date' && !enNuits;
   const pose = [`alter table ${T} drop constraint if exists ${nom};`,
-    `alter table ${T} add constraint ${nom} check (${p.debut} is null or ${p.fin} is null or ${p.fin} >= ${p.debut}) not valid;`];
+    `alter table ${T} add constraint ${nom} check (${p.debut} is null or ${p.fin} is null or ${p.fin} ${enNuits ? '>' : '>='} ${p.debut}) not valid;`];
   const plage = (l: string): string => {
-    const fin = t.champs.find((c) => c.nom === p.fin)?.type === 'date' ? `(${l}.${p.fin} + 1)::timestamptz` : `${l}.${p.fin}::timestamptz`;
+    const fin = finDuJour ? `(${l}.${p.fin} + 1)::timestamptz` : `${l}.${p.fin}::timestamptz`;
     return `tstzrange(${l}.${p.debut}::timestamptz, ${fin}, '[)')`;
   };
   const retrait = [`drop trigger if exists ${t.nom}_occupe on ${T};`, `drop function if exists ${s}.${t.nom}_occupations(timestamptz, timestamptz, text);`];

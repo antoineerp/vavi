@@ -1,7 +1,9 @@
-/** Le planning d'une table à période, dans « Données » : la semaine, une rangée par ressource (`lib/donnees/le-planning`). */
+/** Le planning d'une table à période, dans « Données » : la semaine, une rangée par ressource (`lib/donnees/le-planning`) ;
+ * une case libre s'ouvre sur une ligne nouvelle, sa ressource et son jour déjà posés (une réservation prise au téléphone, une
+ * chambre fermée ce jour-là). */
 import Link from 'next/link';
 import { leNomDUneLigne, type TableDeLaConsole } from '@/lib/donnees/les-donnees';
-import type { Planning } from '@/lib/donnees/le-planning';
+import { estLibreLeJour, laLigneDuJour, type Planning } from '@/lib/donnees/le-planning';
 import { laCellule, type Mots, type References } from './la-cellule';
 
 export function LePlanning({ planning, t, m, langue, references, lien, semaine, aujourdhui }: { planning: Planning; t: TableDeLaConsole; m: Mots; langue: 'fr' | 'en'; references: References;
@@ -37,6 +39,7 @@ export function LePlanning({ planning, t, m, langue, references, lien, semaine, 
                         {t.cycle && <span className="attenue"> · {t.cycle.libelles[String(o.ligne.etat)] ?? String(o.ligne.etat ?? '')}</span>}
                       </div>
                     ))}
+                    {estLibreLeJour(occ) && <Link className="attenue" href={lien({ nouvelle: '1', ...laLigneDuJour(t, r.cle, planning.jours[i]!) })} title={m.prendreLeJour}>{m.libre}</Link>}
                   </td>
                 ))}
               </tr>
