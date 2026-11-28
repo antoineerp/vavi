@@ -377,4 +377,7 @@ button.danger { color: var(--alerte); border-color: rgba(248, 113, 113, 0.35); b
 .chiffre-du-compte .courbe { margin-top: 0.4rem; max-width: 100%; }
 button.google { width: 100%; justify-content: center; background: #fff; color: #1f1f1f; border-color: #dadce0; font-weight: 600; }
 button.google:hover { background: #f8f9fa; }
+.integre { border: 1px solid var(--bord-fort); border-radius: 10px; padding: 0.8rem 0.9rem; background: var(--surface-haute); }
+.integre p { margin: 0 0 0.6rem; }
+.integre .bouton { display: flex; width: 100%; justify-content: center; }
 .ou { text-align: center; margin: 0.8rem 0 0.4rem; font-size: 0.9rem; }
