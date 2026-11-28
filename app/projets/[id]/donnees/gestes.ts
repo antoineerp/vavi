@@ -12,7 +12,11 @@ import { leProjet } from './le-projet';
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const retour = (id: string, q: Record<string, string>): never => redirect(`/projets/${id}/donnees?${new URLSearchParams(q)}`);
 
-export async function enregistrer(id: string, table: string, ligne: string | null, formulaire: FormData) {
+/** Où revenir après un geste : le planning de la semaine d'où il part, sinon la liste. */
+const laVue = (v: { vue?: string; semaine?: string }): Record<string, string> =>
+  (v.vue === 'planning' ? { vue: 'planning', ...(v.semaine && /^\d{4}-\d{2}-\d{2}$/.test(v.semaine) ? { semaine: v.semaine } : {}) } : {});
+
+export async function enregistrer(id: string, table: string, ligne: string | null, depuis: { vue?: string; semaine?: string }, formulaire: FormData) {
   if (!ID.test(id) || (ligne !== null && !ID.test(ligne))) redirect('/projets');
   const p = await leProjet(id);
   if (!p.ok) retour(id, { erreur: p.pourquoi });
@@ -22,13 +26,14 @@ export async function enregistrer(id: string, table: string, ligne: string | nul
   const saisie: Record<string, string> = {};
   for (const [k, v] of formulaire.entries()) if (typeof v === 'string') saisie[k] = v;
   const r = relireLaSaisie(t!, saisie, ligne === null);
-  if (!r.ok) retour(id, { table, ...(ligne ? { ligne } : { nouvelle: '1' }), erreur: 'saisie', champ: r.champ, pourquoi: r.pourquoi });
+  const vue = laVue(depuis);
+  if (!r.ok) retour(id, { table, ...vue, ...(ligne ? { ligne } : { nouvelle: '1' }), erreur: 'saisie', champ: r.champ, pourquoi: r.pourquoi });
   if (!r.ok) return;
   const e = await p.donnees.ecrire(p.schema, table, ligne, r.valeurs, p.compte, t!.cycle ? t!.cycle.ouverts : null);
-  if (!e.lu) retour(id, { table, ...(ligne ? { ligne } : { nouvelle: '1' }), erreur: 'base', pourquoi: e.pourquoi });
-  if (e.lu && !e.valeur) retour(id, { table, erreur: 'figee' });
+  if (!e.lu) retour(id, { table, ...vue, ...(ligne ? { ligne } : { nouvelle: '1' }), erreur: 'base', pourquoi: e.pourquoi });
+  if (e.lu && !e.valeur) retour(id, { table, ...vue, erreur: 'figee' });
   console.log(`[donnees] ${id.slice(0, 8)} ${table} ${ligne ? 'modifiée' : 'ajoutée'}`);
-  retour(id, { table, fait: ligne ? 'modifiee' : 'ajoutee' });
+  retour(id, { table, ...vue, fait: ligne ? 'modifiee' : 'ajoutee' });
 }
 
 export async function supprimer(id: string, table: string, ligne: string) {

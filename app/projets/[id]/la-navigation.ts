@@ -4,13 +4,13 @@
  * bord de constructor, avec les seules fonctions qui marchent.
  */
 export type Langue = 'fr' | 'en';
-export type Ecran = '' | 'gerer' | 'textes' | 'donnees' | 'utilisateurs' | 'messages' | 'visites' | 'fonctions' | 'contenu' | 'referencement' | 'versions' | 'paiements' | 'confidentialite' | 'secrets' | 'connecteurs' | 'domaine' | 'recette' | 'regles';
+export type Ecran = '' | 'gerer' | 'textes' | 'donnees' | 'utilisateurs' | 'messages' | 'visites' | 'fonctions' | 'contenu' | 'referencement' | 'versions' | 'paiements' | 'confidentialite' | 'secrets' | 'connecteurs' | 'domaine' | 'recette' | 'regles' | 'planning';
 
 const NOMS: Record<Langue, Record<Ecran, string>> = {
   fr: { '': 'Vue d’ensemble', gerer: 'Gérer le contenu', textes: 'Textes', donnees: 'Données', utilisateurs: 'Utilisateurs', messages: 'Messages', visites: 'Visites', fonctions: 'Fonctions',
-    contenu: 'Apparence et titres', referencement: 'Référencement (SEO)', versions: 'Versions', paiements: 'Paiements', confidentialite: 'Confidentialité', secrets: 'Clés secrètes', connecteurs: 'Connecteurs', domaine: 'Domaine', recette: 'Recette (tests)', regles: 'Règles' },
+    contenu: 'Apparence et titres', referencement: 'Référencement (SEO)', versions: 'Versions', paiements: 'Paiements', confidentialite: 'Confidentialité', secrets: 'Clés secrètes', connecteurs: 'Connecteurs', domaine: 'Domaine', recette: 'Recette (tests)', regles: 'Règles', planning: 'Planning' },
   en: { '': 'Overview', gerer: 'Manage content', textes: 'Texts', donnees: 'Data', utilisateurs: 'Users', messages: 'Messages', visites: 'Visits', fonctions: 'Functions',
-    contenu: 'Appearance and titles', referencement: 'Search (SEO)', versions: 'Versions', paiements: 'Payments', confidentialite: 'Privacy', secrets: 'Secret keys', connecteurs: 'Connectors', domaine: 'Domain', recette: 'Acceptance tests', regles: 'Rules' },
+    contenu: 'Appearance and titles', referencement: 'Search (SEO)', versions: 'Versions', paiements: 'Payments', confidentialite: 'Privacy', secrets: 'Secret keys', connecteurs: 'Connectors', domaine: 'Domain', recette: 'Acceptance tests', regles: 'Rules', planning: 'Schedule' },
 };
 
 export interface Rubrique { readonly titre: string; readonly ecrans: readonly { readonly ecran: Ecran; readonly nom: string }[] }
@@ -20,14 +20,15 @@ export interface Rubrique { readonly titre: string; readonly ecrans: readonly { 
  * pages vivent dans le référencement ; « Utilisateurs » dès que l'app a des comptes (le propriétaire seul compris, 27/11) ;
  * connecteurs et clés à part, pour qui fait appeler un logiciel (essai de la console du 26/11, choix d'Antoine « Simplifier
  * puis enrichir »). « Textes » et « Apparence et titres » mènent à « Gérer le contenu ». « Règles » dès que l'app a des
- * tables : ce que la base tient sur leurs lignes (Antoine, 27/11).
+ * tables : ce que la base tient sur leurs lignes (Antoine, 27/11). « Planning » dès qu'une table occupe des périodes (une
+ * réservation, un rendez-vous) : Antoine (28/11) ne le trouvait pas, rangé dans « Données ».
  */
-export function leMenu(langue: Langue, o: { readonly vend: boolean; readonly comptes?: boolean; readonly donnees?: boolean }): readonly Rubrique[] {
+export function leMenu(langue: Langue, o: { readonly vend: boolean; readonly comptes?: boolean; readonly donnees?: boolean; readonly planning?: boolean }): readonly Rubrique[] {
   const n = NOMS[langue];
   const e = (xs: readonly Ecran[]) => xs.map((ecran) => ({ ecran, nom: n[ecran] }));
   return [
     { titre: langue === 'fr' ? 'Projet' : 'Project', ecrans: e(['', 'gerer', 'recette', 'referencement', 'versions']) },
-    { titre: langue === 'fr' ? 'Activité' : 'Activity', ecrans: e(['donnees', ...(o.comptes ? ['utilisateurs' as const] : []), 'messages', 'visites', ...(o.vend ? ['paiements' as const] : [])]) },
+    { titre: langue === 'fr' ? 'Activité' : 'Activity', ecrans: e([...(o.planning ? ['planning' as const] : []), 'donnees', ...(o.comptes ? ['utilisateurs' as const] : []), 'messages', 'visites', ...(o.vend ? ['paiements' as const] : [])]) },
     { titre: langue === 'fr' ? 'Réglages' : 'Settings', ecrans: e(['domaine', 'fonctions', ...(o.donnees ? ['regles' as const] : []), 'confidentialite']) },
     { titre: langue === 'fr' ? 'Pour les développeurs' : 'For developers', ecrans: e(['connecteurs', 'secrets']) },
   ];

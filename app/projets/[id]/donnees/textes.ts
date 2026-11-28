@@ -17,6 +17,7 @@ export const MOTS = {
     sansTable: 'Cette app ne déclare aucune table.',
     vues: 'Affichage', liste: 'Liste', planning: 'Planning', semainePrecedente: '← Semaine précédente', semaineSuivante: 'Semaine suivante →', cetteSemaine: 'Cette semaine',
     semaineDu: (a: string, b: string) => `Du ${a} au ${b} (heure de Paris)`, semaineVide: 'Rien de prévu cette semaine.', sansRessource: 'Sans ressource',
+    libre: '+ libre', prendreLeJour: 'Ajouter une ligne ce jour-là (une réservation prise au téléphone, une fermeture)',
   },
   en: {
     titre: 'Data', retour: 'Back to the project', chercher: 'Search', ajouter: 'Add a row', exporter: 'Export as CSV',
@@ -35,5 +36,6 @@ export const MOTS = {
     sansTable: 'This app declares no table.',
     vues: 'View', liste: 'List', planning: 'Schedule', semainePrecedente: '← Previous week', semaineSuivante: 'Next week →', cetteSemaine: 'This week',
     semaineDu: (a: string, b: string) => `From ${a} to ${b} (Paris time)`, semaineVide: 'Nothing scheduled this week.', sansRessource: 'No resource',
+    libre: '+ free', prendreLeJour: 'Add a row on this day (a booking taken by phone, a closure)',
   },
 } as const;

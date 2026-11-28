@@ -2,7 +2,7 @@
  * LE PLANNING D'UNE TABLE À PÉRIODE DANS LA CONSOLE — PUR. Une semaine, du lundi au dimanche, à l'heure de Paris : une
  * rangée par ressource (la salle, la personne ; une seule rangée sans ressource), une case par jour, et dans chaque case
  * les lignes qui l'occupent, avec leurs heures. Une ligne sur plusieurs jours est dans chacun ; une ligne rendue
- * (`libre`, annulée) est marquée, elle ne tient plus sa place. Rien n'est deviné : une ligne sans début n'y est pas.
+ * (`libre`, annulée) est marquée, elle ne tient plus sa place ; une période en `nuits` libère le jour du départ. Rien n'est deviné : une ligne sans début n'y est pas.
  *
  * Ce qu'il remplace : rien ; le propriétaire ne voyait ses réservations qu'en liste, par date de création.
  */
@@ -32,10 +32,11 @@ export const plusJours = (date: string, n: number): string => new Date(Date.pars
 export const laFenetre = (lundi: string): { du: Date; au: Date } => ({ du: new Date(Date.parse(`${plusJours(lundi, -1)}T00:00:00Z`)), au: new Date(Date.parse(`${plusJours(lundi, 8)}T00:00:00Z`)) });
 
 /** Le premier et le dernier jour (AAAA-MM-JJ, à Paris) qu'une ligne occupe ; `null` sans début lisible. */
-function sesJours(v: unknown, w: unknown): { premier: string; dernier: string; debut: string | null; fin: string | null } | null {
+function sesJours(v: unknown, w: unknown, nuits = false): { premier: string; dernier: string; debut: string | null; fin: string | null } | null {
   if (typeof v !== 'string') return null;
   if (DATE.test(v)) {
-    const fin = typeof w === 'string' && DATE.test(w) && w >= v ? w : v;
+    // En nuits, le jour du départ est libre : la ligne occupe ses nuits, de l'arrivée à la veille du départ.
+    const fin = typeof w === 'string' && DATE.test(w) && w >= v ? (nuits && w > v ? plusJours(w, -1) : w) : v;
     return { premier: v, dernier: fin, debut: null, fin: null };
   }
   const a = Date.parse(v);
@@ -54,7 +55,7 @@ export function lePlanning(t: TableDeLaConsole, lignes: readonly Ligne[], lundi:
   const cles: (string | null)[] = p.ressource ? [...ressources] : [null];
   const cases = new Map<string | null, Occupation[][]>(cles.map((c) => [c, jours.map(() => [])]));
   for (const l of lignes) {
-    const s = sesJours(l[p.debut], l[p.fin]);
+    const s = sesJours(l[p.debut], l[p.fin], p.nuits);
     if (!s || typeof l.id !== 'string') continue;
     const cle = p.ressource ? (l[p.ressource] === null || l[p.ressource] === undefined ? '' : String(l[p.ressource])) : null;
     if (!cases.has(cle)) { cles.push(cle); cases.set(cle, jours.map(() => [])); }
@@ -68,4 +69,24 @@ export function lePlanning(t: TableDeLaConsole, lignes: readonly Ligne[], lundi:
     jours.forEach((j, i) => { if (j >= s.premier && j <= s.dernier) cases.get(cle)![i]!.push({ id: l.id as string, heures: heures(j), ligne: l, rendue }); });
   }
   return { jours, rangees: cles.map((cle) => ({ cle, jours: cases.get(cle)! })) };
+}
+
+/** Une case libre est-elle à prendre ? Vraie quand aucune ligne qui tient sa place ne l'occupe. PUR. */
+export const estLibreLeJour = (occupations: readonly Occupation[]): boolean => occupations.every((o) => o.rendue);
+
+/**
+ * PURE — ce qu'une case libre pose d'avance dans une ligne nouvelle (`pre.<champ>` dans l'adresse) : sa ressource, et le
+ * jour sur ses deux dates ; en nuits, une nuit (le départ le lendemain). Une date avec heure garde le jour, l'heure est
+ * à choisir (minuit, à changer).
+ */
+export function laLigneDuJour(t: TableDeLaConsole, cle: string | null, jour: string): Record<string, string> {
+  const p = t.periode;
+  if (!p || !DATE.test(jour)) return {};
+  const type = (n: string): string | undefined => t.colonnes.find((c) => c.nom === n)?.type;
+  const date = (n: string, j: string): string => (type(n) === 'date_heure' ? `${j}T00:00` : j);
+  return {
+    ...(p.ressource && cle ? { [`pre.${p.ressource}`]: cle } : {}),
+    [`pre.${p.debut}`]: date(p.debut, jour),
+    ...(p.fin !== p.debut ? { [`pre.${p.fin}`]: date(p.fin, p.nuits && type(p.fin) === 'date' ? plusJours(jour, 1) : jour) } : {}),
+  };
 }

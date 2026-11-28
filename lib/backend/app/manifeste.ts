@@ -159,6 +159,7 @@ export const Table = z.object({
     exclusive: z.boolean().default(false).describe('deux lignes ne se chevauchent jamais (une réservation, un rendez-vous, une location, un planning) : la base refuse la seconde, quel que soit qui l’écrit'),
     ressource: Identifiant.optional().describe('avec `exclusive` : le champ qui nomme ce que la ligne occupe (une référence vers la salle, la personne, le véhicule ; un choix) ; deux lignes de ressources différentes peuvent se chevaucher'),
     libre: z.array(Identifiant).default([]).describe('avec `exclusive` et un cycle : les états où la ligne ne tient plus sa place (annulée, refusée)'),
+    nuits: z.boolean().default(false).describe('sur deux champs date : la ligne se compte en nuits (un séjour à l’hôtel, une location saisonnière, un camping) : elle occupe de son début à la veille de sa fin, le jour de la fin se libère pour l’arrivée suivante, et la fin vient après le début ; absente, une date occupe sa journée entière (une location du 10 au 12 prend le 12)'),
     capacite: z.union([z.number().int().min(1).max(100000), Identifiant]).optional().describe('avec `exclusive` : combien de lignes tiennent en même temps sur une ressource (les places d’un cours, les tables d’un restaurant) : un nombre, ou le champ entier de la table de la `ressource` qui le dit (salles.places) ; absente : une seule'),
   }).optional().describe('chaque ligne occupe une période, de son début à sa fin (la base refuse une fin avant le début) : elle se montre aussi sur une frise'),
   personnes: Identifiant.optional()

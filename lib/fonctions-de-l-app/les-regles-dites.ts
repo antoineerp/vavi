@@ -30,6 +30,7 @@ const M = {
     bornes: (c: string, x: string) => `${c} ${x}.`, min: (n: string) => `n’est jamais sous ${n}`, max: (n: string) => `ne dépasse jamais ${n}`, auPlusChamp: (c: string) => `ne dépasse jamais ${c}`,
     bornesTitre: (c: string) => `Les limites de ${c}`,
     periodeTitre: 'Pas de chevauchement', periodeComment: (r: string | null, cap: string) => `Deux lignes ne se chevauchent pas${r ? ` sur un même ${r}` : ''}${cap}.`, capacite: (n: string) => ` (au plus ${n} à la fois)`,
+    nuits: ' Elles se comptent en nuits : le jour du départ se libère pour l’arrivée suivante.',
   },
   en: {
     etat: 'the state', oui: 'yes', non: 'no', auj: 'today', dans: (n: number) => `in ${n} day${n > 1 ? 's' : ''}`, ilYa: (n: number) => `${n} day${n > 1 ? 's' : ''} ago`,
@@ -43,6 +44,7 @@ const M = {
     bornes: (c: string, x: string) => `${c} ${x}.`, min: (n: string) => `is never under ${n}`, max: (n: string) => `never goes over ${n}`, auPlusChamp: (c: string) => `never goes over ${c}`,
     bornesTitre: (c: string) => `The limits of ${c}`,
     periodeTitre: 'No overlap', periodeComment: (r: string | null, cap: string) => `Two rows never overlap${r ? ` on the same ${r}` : ''}${cap}.`, capacite: (n: string) => ` (at most ${n} at a time)`,
+    nuits: ' They count in nights: the departure day is free for the next arrival.',
   },
 } as const;
 
@@ -103,7 +105,7 @@ export function lesReglesDeLaTable(m: Manifeste, t: Table, l: Langue): UneRegleD
   if (t.periode?.exclusive) {
     const cap = t.periode.capacite;
     rendu.push({ titre: x.periodeTitre, comment: x.periodeComment(t.periode.ressource ? nomDuChamp(t, t.periode.ressource, l) : null,
-      typeof cap === 'number' && cap > 1 ? x.capacite(nombre(cap)) : typeof cap === 'string' ? x.capacite(minuscule(cap)) : '') });
+      typeof cap === 'number' && cap > 1 ? x.capacite(nombre(cap)) : typeof cap === 'string' ? x.capacite(minuscule(cap)) : '') + (t.periode.nuits ? x.nuits : '') });
   }
   return rendu;
 }

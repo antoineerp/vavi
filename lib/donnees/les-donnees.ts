@@ -31,7 +31,7 @@ export interface TableDeLaConsole {
   /** Le cycle : les libellés de ses états, et ceux où la ligne change encore. */
   readonly cycle: { readonly libelles: Readonly<Record<string, string>>; readonly ouverts: readonly string[] } | null;
   /** La période d'app.json : ses deux champs, la ressource qu'elle occupe, les états qui rendent la place. */
-  readonly periode: { readonly debut: string; readonly fin: string; readonly ressource: string | null; readonly libre: readonly string[] } | null;
+  readonly periode: { readonly debut: string; readonly fin: string; readonly ressource: string | null; readonly libre: readonly string[]; readonly nuits?: boolean } | null;
 }
 
 /** PURE — les tables de l'app, dans l'ordre d'app.json. */
@@ -45,7 +45,7 @@ export function lesTablesDeLaConsole(m: Manifeste): readonly TableDeLaConsole[] 
       ...(c.valeurs ? { valeurs: c.valeurs } : {}), ...(c.table ? { table: c.table } : {}),
     }));
     return { nom: t.nom, libelle: t.libelle, colonnes: [...mere, ...champs], cycle: t.cycle ? { libelles: t.cycle.libelles, ouverts: etatsOuverts(t.cycle) } : null,
-      periode: t.periode ? { debut: t.periode.debut, fin: t.periode.fin, ressource: t.periode.ressource ?? null, libre: t.periode.libre } : null };
+      periode: t.periode ? { debut: t.periode.debut, fin: t.periode.fin, ressource: t.periode.ressource ?? null, libre: t.periode.libre, nuits: Boolean(t.periode.nuits) } : null };
   });
 }
 
