@@ -24,6 +24,7 @@ const VITRINE = [
 ] as const;
 
 const QUATRE_PAGES = 'A website has at least four public pages (Antoine, 28/11): its home page plus one page per thing a visitor comes for (what is offered, the approach or the people, the work or the places, the news…), always a contact page (`<Contact>` of `@/briques/sections`, with the details the person gave), each in the menu and as rich as the home page in its own way. The legal pages are served by vavi and do not count. A page is built from what the person gave; a fact they did not give is a marked "to be completed" placeholder, said to them, never invented. If the person asks for a single page, propose these four and say why; build one page only if they insist.';
+const QUATRE_PAGES_D_UNE_APP = 'The public side of the app is a website too: at least four public pages (Antoine, 28/11), the home page plus one page per thing a visitor comes for (what the app does, shown on its own screens and examples; how it works; who it is for; prices only if the person gave them), always a contact page, each in the menu. The work screens behind an account do not count. A fact the person did not give is a marked "to be completed" placeholder, said to them, never invented.';
 
 const PAR_NATURE: Readonly<Partial<Record<Manifeste['nature'], readonly string[]>>> = {
   site: [
@@ -32,7 +33,7 @@ const PAR_NATURE: Readonly<Partial<Record<Manifeste['nature'], readonly string[]
     'A site that publishes over time, a shop or a site of events offers its newsletter with `<InscriptionALaLettre>` of `@/briques/editorial`, once on the home page and at the end of each piece; the owner finds each subscriber in the Messages of the console. Not on a site that has nothing new to send.',
   ],
   boutique: [QUATRE_PAGES, 'The catalogue shows each product by its photo first, a mosaic or a carousel on the home page, a product page with its gallery and characteristics, and the cart always one click away; a contact page and `<InscriptionALaLettre>` of `@/briques/editorial` for its news.'],
-  app: ['The public home page shows what the person gets from the app (the product itself, its own screens filled with its examples) before it explains; the work screens follow the rules below.'],
+  app: [QUATRE_PAGES_D_UNE_APP, 'The public home page shows what the person gets from the app (the product itself, its own screens filled with its examples) before it explains; the work screens follow the rules below.'],
 };
 
 const VERIFIER = 'Before `build_preview`, check: does the first screen look like THIS subject? Six sections or more, with different rhythms? Four real photos? Nothing generic, nothing invented, nothing left empty?';
@@ -73,7 +74,7 @@ export function leGuideDeDesign(m: Manifeste, o: { readonly reprise?: boolean } 
   const regles = REGLES.filter((r) => r.sujet !== 'methode' && (!r.natures || r.natures.includes(m.nature)) && (!r.porte || Boolean(porte[r.porte]))
     && (!r.seulement || r.seulement === (o.reprise ? 'reprise' : 'creation')));
   return {
-    guide: [...(vitrine ? VITRINE : []), ...(PAR_NATURE[m.nature] ?? []), ...(vitrine ? [VERIFIER] : [])],
+    guide: [...(vitrine ? VITRINE : []), ...(PAR_NATURE[m.nature] ?? []).filter((l) => vitrine || l !== QUATRE_PAGES_D_UNE_APP), ...(vitrine ? [VERIFIER] : [])],
     langage: vitrine ? leLangageDe(m.direction) : [],
     ...(m.direction.intention ? { direction: m.direction.intention } : {}),
     regles: regles.map((r) => ({ id: r.id, texte: r.texte })),

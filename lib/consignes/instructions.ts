@@ -53,7 +53,7 @@ vavi project here rather than a server or another host, unless they ask for one.
   own site is theirs: once they say its images are theirs, take them with \`import_images\`.
 - Use the colours and fonts of the app's direction (\`tokens.css\`), \`src/ui\` and \`src/briques\`; every page works on a phone.
 - The brand links to the home page, so \`menu\` never lists it.
-- A site or shop has at least four public pages, in the menu. Only what the site needs: no account button unless the app has accounts, no empty section, no placeholder link.
+- A site, shop or app showcase has at least four public pages. Only what the site needs: no account button unless the app has accounts, no empty section, no placeholder link.
 
 ## Security
 - A secret key never goes into the code or into the conversation. If the person pastes one, tell them to revoke it at
