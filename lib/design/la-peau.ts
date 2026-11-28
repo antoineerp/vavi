@@ -143,6 +143,9 @@ export function lesEffets(direction: Manifeste['direction']): string {
   ].filter(Boolean).join('\n');
 }
 
+/** L'initiale du nom, en capitale : la lettre de l'icône de l'onglet et de l'écran d'accueil. PURE. */
+export const lInitiale = (nom: string): string => (/[\p{L}\p{N}]/u.exec(nom)?.[0] ?? '·').toLocaleUpperCase('fr');
+
 /**
  * L'icône de l'onglet : l'initiale du nom sur l'accent de la direction, en SVG, sa couleur lisible sur l'accent. Chaque
  * app a la sienne, tirée d'app.json ; sans elle, le navigateur montre la même icône pour toutes. Un logo déposé la remplace.
@@ -150,7 +153,7 @@ export function lesEffets(direction: Manifeste['direction']): string {
 export function iconeDeLOnglet(nom: string, direction: Manifeste['direction']): string {
   // Le logo que le propriétaire a déposé dans la console (« Gérer le contenu ») est l'icône de l'onglet.
   if (direction.logo) return direction.logo;
-  const initiale = (/[\p{L}\p{N}]/u.exec(nom)?.[0] ?? '·').toLocaleUpperCase('fr');
+  const initiale = lInitiale(nom);
   const { ACCENT, SUR_ACCENT } = jetonsDeLaPeau(direction);
   const echappee = initiale.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="${ACCENT}"/>`

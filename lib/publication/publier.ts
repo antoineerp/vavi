@@ -39,7 +39,7 @@ const TYPES: Readonly<Record<string, string>> = {
   css: 'text/css; charset=utf-8', json: 'application/json; charset=utf-8', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
   gif: 'image/gif', svg: 'image/svg+xml', ico: 'image/x-icon', woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf',
   webp: 'image/webp', avif: 'image/avif', mp4: 'video/mp4', webm: 'video/webm', pdf: 'application/pdf',
-  txt: 'text/plain; charset=utf-8', xml: 'application/xml', map: 'application/json', stl: 'model/stl',
+  txt: 'text/plain; charset=utf-8', xml: 'application/xml', map: 'application/json', stl: 'model/stl', webmanifest: 'application/manifest+json',
 };
 export const typeDe = (chemin: string): string => TYPES[chemin.split('.').pop()?.toLowerCase() ?? ''] ?? 'application/octet-stream';
 

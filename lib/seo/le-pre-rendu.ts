@@ -17,6 +17,7 @@ import type { AddressInfo } from 'node:net';
 import { poserLEnvironnement, type EnvDeLApp } from '@/lib/publication/servir';
 import { typeDe } from '@/lib/publication/publier';
 import { DOSSIER_DU_PRE_RENDU, FICHIER_DE_DECOUVERTE, lesRedirectionsLues, MARQUE_DU_PRE_RENDU, TEXTE_D_UNE_PAGE, type Editeur } from './la-decouverte';
+import { lesFichiersDeLInstallation, type Installation, type NavigateurDesIcones } from './l-installation';
 
 export const BASE_DU_PRE_RENDU = '/__vavi_base__/';
 
@@ -126,6 +127,8 @@ function leReferencementDuBuild(dist: ReadonlyMap<string, Buffer>): { ia: { assi
 export async function preRendre(navigateur: UnNavigateur, dist: ReadonlyMap<string, Buffer>, o: {
   readonly env: Omit<EnvDeLApp, 'base'>;
   readonly app: { readonly nom: string; readonly description: string; readonly langue: string; readonly autres: readonly string[]; readonly editeur: Editeur | null };
+  /** L'app sur l'écran d'accueil (`l-installation.ts`) : son manifeste et ses icônes rejoignent le dist. */
+  readonly installation?: Installation;
 }): Promise<PreRendu> {
   const faits = JSON.parse(dist.get('faits.json')?.toString('utf8') ?? '{"pages":[]}') as Faits;
   const prefixes = ['', ...o.app.autres.map((l) => `/${l}`)];
@@ -135,6 +138,7 @@ export async function preRendre(navigateur: UnNavigateur, dist: ReadonlyMap<stri
   const { adresse: site, serveur } = await servir(dist, o.env);
   const gardees: { adresse: string; html: string; titre: string; description: string; texte: string }[] = [];
   const ecartees: { adresse: string; pourquoi: string }[] = [];
+  let installation: Awaited<ReturnType<typeof lesFichiersDeLInstallation>> | null = null;
   try {
     for (const adresse of adresses) {
       // Mouvement réduit : une page gardée en pleine entrée garderait ses blocs à opacité nulle.
@@ -163,11 +167,16 @@ export async function preRendre(navigateur: UnNavigateur, dist: ReadonlyMap<stri
         await page.close().catch(() => undefined);
       }
     }
+    if (o.installation) {
+      installation = await lesFichiersDeLInstallation(navigateur as unknown as NavigateurDesIcones, o.installation);
+      if (installation.manquees.length) console.error(`[pre-rendu] icônes manquées : ${installation.manquees.join(' | ')}`);
+    }
   } finally {
     await navigateur.close().catch(() => undefined);
     serveur.close();
   }
   const fichiers = new Map<string, Buffer>(gardees.map((g) => [fichierDuPreRendu(g.adresse), Buffer.from(g.html, 'utf8')]));
+  for (const [chemin, octets] of installation?.fichiers ?? []) fichiers.set(chemin, octets);
   const ref = leReferencementDuBuild(dist);
   // Une page cachée l'est dans chaque langue : `/en/cours` suit le choix fait pour `/cours`.
   const cachee = (a: string) => ref.cachees.has(a) || prefixes.some((x) => x && (a === x ? ref.cachees.has('/') : a.startsWith(`${x}/`) && ref.cachees.has(a.slice(x.length))));

@@ -29,7 +29,13 @@ export type Etape =
   | { readonly action: 'fill'; readonly target: string; readonly value: string }
   | { readonly action: 'select'; readonly target: string; readonly value: string }
   | { readonly action: 'check'; readonly target: string }
-  | { readonly action: 'expect'; readonly text: string };
+  | { readonly action: 'expect'; readonly text: string }
+  /** Photographier l'écran tel qu'il est (le kit App Store, `lib/app-store`) : jamais offert à `try_journey`. */
+  | { readonly action: 'shoot'; readonly name: string };
+
+/** L'écran du navigateur : sa taille en points et sa densité (3 : un iPhone, 1320 × 2868 pour 440 × 956). */
+export interface EcranDuParcours { readonly width: number; readonly height: number; readonly echelle: number }
+export interface Photo { readonly nom: string; readonly jpeg: Buffer }
 
 export interface EtapeJouee { readonly n: number; readonly etape: string; readonly ok: boolean; readonly fait: string; readonly adresse: string }
 export interface Parcours {
@@ -39,6 +45,8 @@ export interface Parcours {
   /** Ce qui aurait été écrit ou envoyé, dans l'ordre. */
   readonly simule: readonly string[];
   readonly erreursDeLaPage: readonly string[];
+  /** Les écrans photographiés (`shoot`), dans l'ordre. */
+  readonly photos?: readonly Photo[];
 }
 
 /* ── Ce que le parcours emploie de Playwright (le paquet du serveur, chargé à l'exécution) ── */
@@ -72,7 +80,7 @@ interface PageJouee {
   close(): Promise<void>;
 }
 export interface NavigateurDuParcours {
-  newPage(o: { viewport: { width: number; height: number }; locale: string; reducedMotion: 'reduce' }): Promise<PageJouee>;
+  newPage(o: { viewport: { width: number; height: number }; locale: string; reducedMotion: 'reduce'; deviceScaleFactor?: number; isMobile?: boolean; hasTouch?: boolean }): Promise<PageJouee>;
   close(): Promise<void>;
 }
 
@@ -85,6 +93,7 @@ export function laLigne(e: Etape): string {
     case 'select': return `select « ${e.value} » in « ${e.target} »`;
     case 'check': return `check « ${e.target} »`;
     case 'expect': return `expect « ${e.text} »`;
+    case 'shoot': return `take the picture « ${e.name} »`;
   }
 }
 
@@ -162,14 +171,20 @@ export async function jouerLeParcours(navigateur: NavigateurDuParcours, etapes: 
   readonly plateforme?: (chemin: string, corps: string | null) => Promise<{ readonly statut: number; readonly corps: unknown; readonly dit?: string } | null>;
   /** Sur une copie, les écritures sont réelles (même sans session : on s'y inscrit). */
   readonly copie?: boolean;
+  /** L'écran joué ; absent : un ordinateur (1280 × 800). Plus étroit qu'un ordinateur, il est tactile. */
+  readonly ecran?: EcranDuParcours;
 }): Promise<Parcours> {
   const { adresse: site, serveur } = await servirLeBuild(o.lire);
   const jouees: EtapeJouee[] = [];
   const simule: string[] = [];
   const erreurs: string[] = [];
+  const photos: Photo[] = [];
   let arret: Parcours['arret'] = null;
   try {
-    const page = await navigateur.newPage({ viewport: { width: 1280, height: 800 }, locale: o.langue, reducedMotion: 'reduce' });
+    const ecran = o.ecran ?? { width: 1280, height: 800, echelle: 1 };
+    const tactile = ecran.width < 1100;
+    const page = await navigateur.newPage({ viewport: { width: ecran.width, height: ecran.height }, locale: o.langue, reducedMotion: 'reduce',
+      ...(o.ecran ? { deviceScaleFactor: ecran.echelle, isMobile: tactile, hasTouch: tactile } : {}) });
     page.on('pageerror', (e) => { if (erreurs.length < 10) erreurs.push(message(e)); });
     // En texte : une fonction compilée porterait des aides du compilateur que la page n'a pas (`les-captures.ts`).
     if (o.session) await page.addInitScript(`try { localStorage.setItem(${JSON.stringify(o.session.cle)}, ${JSON.stringify(JSON.stringify(o.session.valeur))}); } catch (e) {}`);
@@ -203,7 +218,12 @@ export async function jouerLeParcours(navigateur: NavigateurDuParcours, etapes: 
           else if (e.action === 'fill') await champ(e.target).fill(e.value, { timeout: ATTENTE_MS });
           else if (e.action === 'select') await champ(e.target).selectOption({ label: e.value }, { timeout: ATTENTE_MS });
           else if (e.action === 'check') await page.getByRole('checkbox', { name: e.target }).or(page.getByRole('radio', { name: e.target })).or(page.getByLabel(e.target)).first().check({ timeout: ATTENTE_MS });
-          else await page.getByText(e.text).first().waitFor({ state: 'visible', timeout: ATTENTE_MS });
+          else if (e.action === 'expect') await page.getByText(e.text).first().waitFor({ state: 'visible', timeout: ATTENTE_MS });
+          else {
+            // JPEG : Apple refuse une capture à couche alpha, et le JPEG n'en a pas.
+            await page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => undefined);
+            photos.push({ nom: e.name, jpeg: await page.screenshot({ type: 'jpeg', quality: 90 }) });
+          }
           if (e.action === 'click') await page.waitForLoadState('networkidle', { timeout: 3_000 }).catch(() => undefined);
           jouees.push({ n, etape: laLigne(e), ok: true, fait: 'done', adresse: ici() });
         } catch (err) {
@@ -222,5 +242,5 @@ export async function jouerLeParcours(navigateur: NavigateurDuParcours, etapes: 
     await navigateur.close().catch(() => undefined);
     serveur.close();
   }
-  return { etapes: jouees, arret, simule, erreursDeLaPage: erreurs };
+  return { etapes: jouees, arret, simule, erreursDeLaPage: erreurs, photos };
 }
