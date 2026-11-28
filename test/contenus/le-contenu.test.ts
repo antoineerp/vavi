@@ -106,3 +106,38 @@ describe('le logo déposé', () => {
     expect(avecLeLogo(APP_JSON, 'http://x.fr/logo.png').ok).toBe(false);
   });
 });
+
+// 28/11 (Antoine : « Réglages puis 3 directions ») : le mouvement, le verre et le dégradé, que la peau applique sans modèle,
+// se changent dans la console. Avant, le formulaire ne les envoyait pas et app.json les gardait tels que Claude les avait posés.
+describe('les effets de l’apparence', () => {
+  const formulaire = async (effets: Record<string, string>) => {
+    const { CHAMPS_DES_POLICES } = await import('@/lib/contenus/le-contenu');
+    const f = new FormData();
+    for (const [k, v] of Object.entries({ fond: '#f6f1ea', texte: '#2a211b', accent: '#2f6b4f', surface: '#fffaf4', bordure: '#e2d6c6', rayon: 'doux', [CHAMPS_DES_POLICES.titres]: 'Fraunces', [CHAMPS_DES_POLICES.texte]: 'Inter', ...effets })) f.append(k, v);
+    return f;
+  };
+  it('le formulaire les rend, et app.json les reçoit, le reste gardé', async () => {
+    const { lApparenceDuFormulaire, avecLApparence, CHAMPS_DES_EFFETS } = await import('@/lib/contenus/le-contenu');
+    const a = lApparenceDuFormulaire(await formulaire({ [CHAMPS_DES_EFFETS.mouvement]: 'immobile', [CHAMPS_DES_EFFETS.verre]: 'non', [CHAMPS_DES_EFFETS.degrade]: 'non' }));
+    if (!a.lue) throw new Error(a.detail);
+    expect(a.apparence.effets).toEqual({ mouvement: 'immobile', verre: false, degrade: false });
+    const r = avecLApparence(APP_JSON, a.apparence);
+    if (!r.ok) throw new Error(r.detail);
+    expect(JSON.parse(r.texte).direction).toMatchObject({ mouvement: 'immobile', verre: false, degrade: false, rayon: 'doux' });
+  });
+  it('absents du formulaire, ceux d’app.json restent ; mal formés, refusés', async () => {
+    const { lApparenceDuFormulaire, avecLApparence, CHAMPS_DES_EFFETS } = await import('@/lib/contenus/le-contenu');
+    const app = JSON.parse(APP_JSON);
+    app.direction = { ...app.direction, mouvement: 'discret', verre: false };
+    const a = lApparenceDuFormulaire(await formulaire({}));
+    if (!a.lue) throw new Error(a.detail);
+    const r = avecLApparence(JSON.stringify(app), a.apparence);
+    if (!r.ok) throw new Error(r.detail);
+    expect(JSON.parse(r.texte).direction).toMatchObject({ mouvement: 'discret', verre: false });
+    expect(lApparenceDuFormulaire(await formulaire({ [CHAMPS_DES_EFFETS.mouvement]: 'tourbillon', [CHAMPS_DES_EFFETS.verre]: 'oui', [CHAMPS_DES_EFFETS.degrade]: 'oui' })).lue).toBe(false);
+  });
+  it('la page envoie les trois champs', async () => {
+    const page = (await import('node:fs')).readFileSync('app/projets/[id]/gerer/l-apparence.tsx', 'utf8');
+    for (const champ of ['CHAMPS_DES_EFFETS.mouvement', 'CHAMPS_DES_EFFETS.verre', 'CHAMPS_DES_EFFETS.degrade']) expect(page).toContain(`name={${champ}}`);
+  });
+});
