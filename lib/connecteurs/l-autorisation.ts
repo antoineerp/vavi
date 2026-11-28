@@ -7,7 +7,9 @@
  * Google Sheets n'en donnent pas : ils demandent l'accord du titulaire du compte, et un jeton d'accès qui expire en une
  * heure, renouvelé par un jeton de renouvellement. Google Drive avait été retiré des modèles « faute d'API à clé ».
  *
- * LA RÈGLE : un FOURNISSEUR se déclare (ses adresses, son client lu de l'environnement de vavi) ; un MODÈLE (Gmail…)
+ * LA RÈGLE : un FOURNISSEUR se déclare (ses adresses) ; son CLIENT OAuth est celui du PROPRIÉTAIRE de l'app (décision
+ * d'Antoine du 28/11 : la page d'accord porte le nom de son app, et c'est lui qui fait vérifier l'accès par le fournisseur),
+ * collé dans la console et gardé comme un secret scellé du projet (`OAUTH_<FOURNISSEUR>`) ; un MODÈLE (Gmail…)
  * nomme son fournisseur, ses portées et sa base. Le propriétaire relie son compte dans la console ; ce qui revient de
  * Google est gardé dans le MÊME secret scellé que tout connecteur (`CONNECTEUR_<NOM>`), et l'appel le renouvelle quand il
  * expire (`appelerUnConnecteur`). Aucun cas particulier dans l'appel : il lit la déclaration. Chaque échange HTTP sort par
@@ -29,9 +31,8 @@ export interface Fournisseur {
   readonly libelle: string;
   readonly autoriser: string;
   readonly jeton: string;
-  /** Les variables d'environnement de vavi qui portent son client OAuth. */
-  readonly envId: string;
-  readonly envSecret: string;
+  /** Où le propriétaire crée son client OAuth (dit dans la console). */
+  readonly console: string;
   /** Portées demandées en plus de celles du modèle (savoir quel compte est relié). */
   readonly identite: readonly string[];
   /** Paramètres fixes de la page d'accord (Google : un jeton de renouvellement à chaque accord). */
@@ -42,7 +43,7 @@ export const FOURNISSEURS: Readonly<Record<NomDeFournisseur, Fournisseur>> = {
   google: {
     nom: 'google', libelle: 'Google',
     autoriser: 'https://accounts.google.com/o/oauth2/v2/auth', jeton: 'https://oauth2.googleapis.com/token',
-    envId: 'VAVI_GOOGLE_CLIENT_ID', envSecret: 'VAVI_GOOGLE_CLIENT_SECRET',
+    console: 'https://console.cloud.google.com/apis/credentials',
     identite: ['openid', 'email'],
     parametres: { access_type: 'offline', prompt: 'consent', include_granted_scopes: 'true' },
   },
@@ -106,10 +107,22 @@ export function lireLAutorisation(brut: unknown): Issue<AutorisationOAuth> {
 
 export interface ClientOAuth { readonly id: string; readonly secret: string }
 
-/** Le client OAuth de vavi chez ce fournisseur ; `null` : l'hébergeur ne l'a pas posé (le bouton ne s'offre pas). */
-export function leClient(f: Fournisseur, env: Readonly<Record<string, string | undefined>> = process.env): ClientOAuth | null {
-  const id = env[f.envId]?.trim(), secret = env[f.envSecret]?.trim();
-  return id && secret ? { id, secret } : null;
+/** Le secret du projet qui garde le client OAuth du propriétaire chez ce fournisseur. */
+export const secretDuClient = (f: NomDeFournisseur): string => `OAUTH_${f.toUpperCase()}`;
+export const PREFIXE_DU_CLIENT = 'OAUTH_';
+
+/** PURE — un client collé dans la console, relu ; chaque faute nommée. */
+export function lireLeClient(brut: unknown): Issue<ClientOAuth> {
+  const o = (brut && typeof brut === 'object' ? brut : {}) as Record<string, unknown>;
+  const id = typeof o.id === 'string' ? o.id.trim() : '', secret = typeof o.secret === 'string' ? o.secret.trim() : '';
+  if (!/^[\w.-]{8,300}$/.test(id)) return { ok: false, raison: 'l’identifiant du client (Client ID) est celui que la console du fournisseur donne, sans espace' };
+  if (!/^\S{8,300}$/.test(secret)) return { ok: false, raison: 'le secret du client (Client secret) est celui que la console du fournisseur donne, sans espace' };
+  return { ok: true, valeur: { id, secret } };
+}
+export const enTexteDuClient = (c: ClientOAuth): string => JSON.stringify(c);
+export function duTexteDuClient(texte: string | null): ClientOAuth | null {
+  if (!texte) return null;
+  try { const c = lireLeClient(JSON.parse(texte)); return c.ok ? c.valeur : null; } catch { return null; }
 }
 
 /** PKCE (RFC 7636) : le vérificateur gardé dans l'état scellé, son défi envoyé. */

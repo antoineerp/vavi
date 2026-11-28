@@ -1,6 +1,7 @@
 /** /projets/<id>/secrets — les clés secrètes de l'app : posées ici, chiffrées, leurs noms seuls montrés. */
 import { poserUnSecret } from '../gestes';
 import { connecteurDuSecret } from '@/lib/connecteurs/les-connecteurs';
+import { PREFIXE_DU_CLIENT } from '@/lib/connecteurs/l-autorisation';
 import { leProjet, ERREURS } from '../le-projet';
 
 export const dynamic = 'force-dynamic';
@@ -9,9 +10,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const { id } = await params;
   const q = await searchParams;
   const { c, t } = await leProjet(id, 'secrets');
-  // Les connecteurs ont leur écran : leurs secrets n'apparaissent pas ici.
+  // Les connecteurs (et les clients OAuth du propriétaire) ont leur écran : leurs secrets n'apparaissent pas ici.
   const tous = await c.projets.nomsDesSecrets(c.compte, id);
-  const secrets = tous.lu ? { lu: true as const, valeur: tous.valeur.filter((n) => connecteurDuSecret(n) === null) } : tous;
+  const secrets = tous.lu ? { lu: true as const, valeur: tous.valeur.filter((n) => connecteurDuSecret(n) === null && !n.startsWith(PREFIXE_DU_CLIENT)) } : tous;
   const message = q.fait === 'secret' && q.nom ? t.secretPose(q.nom) : q.erreur ? `${t.erreur} ${ERREURS[q.erreur]?.[c.langue] ?? q.erreur}` : null;
   return (
     <main className="console">

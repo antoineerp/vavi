@@ -2,14 +2,16 @@
  * /projets/<id>/connecteurs — les logiciels que l'app appelle, branchés ici par le propriétaire (`lib/connecteurs`) : un
  * modèle complété (n8n, Algolia, Cloudinary, Cal.com, un autre projet Supabase) ou « autre logiciel » à clé. Leur clé est
  * scellée et ne se montre plus ; l'app les appelle par leur nom. Repris de constructor-v13 (`ConnecteursManager.tsx`).
- * Les comptes à relier (Gmail, Google Agenda, Google Sheets, 28/11) : un bouton mène à la page d'accord du fournisseur ;
+ * Les comptes à relier (Gmail, Google Agenda, Google Sheets, 28/11) : par le client OAuth du PROPRIÉTAIRE, collé ici
+ * (décision d'Antoine du 28/11 : son nom sur la page d'accord, sa vérification) ; un bouton mène à la page d'accord ;
  * l'accès se renouvelle seul ; un accord retiré se dit « à reconnecter », avec le bouton pour le faire.
  */
 import { MODELES_DE_CONNECTEURS, FORMES_D_ACCES } from '@/lib/connecteurs/l-acces';
-import { FOURNISSEURS, leClient, MODELES_OAUTH } from '@/lib/connecteurs/l-autorisation';
+import { FOURNISSEURS, FOURNISSEURS_CONNUS, MODELES_OAUTH, RETOUR_DE_LA_LIAISON, secretDuClient } from '@/lib/connecteurs/l-autorisation';
+import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 import { connecteurDuSecret, duSecret, secretDuConnecteur, type Connecteur } from '@/lib/connecteurs/les-connecteurs';
 import { lesSecretsDuProjet } from '@/app/_partage/les-capacites-reelles';
-import { brancherUnConnecteur, relierUnCompte, retirerUnConnecteur } from '../gestes';
+import { brancherUnConnecteur, poserLeClient, relierUnCompte, retirerLeClient, retirerUnConnecteur } from '../gestes';
 import { leProjet, ERREURS } from '../le-projet';
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +28,11 @@ const MOTS = {
     fait: (nom: string) => `« ${nom} » est branché.`, retire: (nom: string) => `« ${nom} » est retiré.`, illisible: 'déclaration illisible : rebranchez-le',
     comptes: 'Relier un compte', comptesAide: 'Ces logiciels ne donnent pas de clé : vous reliez votre compte sur leur page, une fois. L’accès se renouvelle tout seul ; vous pouvez le retirer ici ou dans votre compte chez eux.',
     relier: (nom: string) => `Relier ${nom}`, reconnecter: 'Reconnecter', relie: (compte: string | null) => (compte ? `relié à ${compte}` : 'compte relié'),
-    aReconnecter: 'à reconnecter : l’accès a été retiré ou a expiré', bientot: (f: string) => `La liaison avec ${f} s’ouvre bientôt.`,
+    aReconnecter: 'à reconnecter : l’accès a été retiré ou a expiré', bientot: (f: string) => `Collez d’abord votre client ${f} ci-dessous.`,
+    client: (f: string) => `Votre client ${f}`, clientPose: 'Client posé : la page d’accord porte le nom de votre application.', clientRetirer: 'Retirer le client',
+    clientAide: (f: string) => `${f} demande que chaque application ait son propre client OAuth : c’est le nom de votre application qui s’affiche sur la page d’accord, et c’est vous qui faites vérifier l’accès par ${f} (obligatoire pour Gmail au-delà de 100 personnes ; en mode test, l’accès expire après 7 jours).`,
+    clientEtapes: 'Dans la console Google Cloud : créez un projet, activez l’API voulue (Gmail, Calendar, Sheets), réglez l’écran de consentement, puis Identifiants → Créer → ID client OAuth → Application Web, avec cette URI de redirection autorisée :',
+    clientId: 'Client ID', clientSecret: 'Client secret', poser: 'Garder le client', faitClient: 'Le client est gardé, chiffré.', faitClientRetire: 'Le client est retiré.',
     faitRelie: (nom: string) => `Le compte est relié : l’app et ses agents appellent « ${nom} ».`,
   },
   en: {
@@ -40,7 +46,11 @@ const MOTS = {
     fait: (nom: string) => `“${nom}” is plugged in.`, retire: (nom: string) => `“${nom}” is removed.`, illisible: 'unreadable declaration: plug it in again',
     comptes: 'Connect an account', comptesAide: 'These services give no key: you connect your account on their page, once. Access renews by itself; you can remove it here or in your account with them.',
     relier: (nom: string) => `Connect ${nom}`, reconnecter: 'Reconnect', relie: (compte: string | null) => (compte ? `connected to ${compte}` : 'account connected'),
-    aReconnecter: 'to reconnect: access was removed or expired', bientot: (f: string) => `Connecting ${f} opens soon.`,
+    aReconnecter: 'to reconnect: access was removed or expired', bientot: (f: string) => `Paste your ${f} client below first.`,
+    client: (f: string) => `Your ${f} client`, clientPose: 'Client saved: the consent page shows the name of your application.', clientRetirer: 'Remove the client',
+    clientAide: (f: string) => `${f} requires each application to have its own OAuth client: the consent page shows your application's name, and you get the access verified by ${f} (required for Gmail beyond 100 people; in test mode, access expires after 7 days).`,
+    clientEtapes: 'In the Google Cloud console: create a project, enable the API you need (Gmail, Calendar, Sheets), set up the consent screen, then Credentials → Create → OAuth client ID → Web application, with this authorised redirect URI:',
+    clientId: 'Client ID', clientSecret: 'Client secret', poser: 'Save the client', faitClient: 'The client is saved, encrypted.', faitClientRetire: 'The client is removed.',
     faitRelie: (nom: string) => `The account is connected: the app and its agents call “${nom}”.`,
   },
 } as const;
@@ -60,9 +70,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     const modeleOAuth = MODELES_OAUTH.find((x) => x.nomDansLApp === nom && (!connecteur || connecteur.oauth))?.id ?? null;
     return { nom, connecteur, modeleOAuth };
   })) : [];
-  const message = q.fait === 'relie' && q.nom ? `${m.faitRelie(q.nom)} ${m.demander(q.nom)}` : q.fait === 'connecteur' && q.nom ? `${m.fait(q.nom)} ${m.demander(q.nom)}` : q.fait === 'retire' && q.nom ? m.retire(q.nom)
+  const message = q.fait === 'client' ? m.faitClient : q.fait === 'client_retire' ? m.faitClientRetire : q.fait === 'relie' && q.nom ? `${m.faitRelie(q.nom)} ${m.demander(q.nom)}` : q.fait === 'connecteur' && q.nom ? `${m.fait(q.nom)} ${m.demander(q.nom)}` : q.fait === 'retire' && q.nom ? m.retire(q.nom)
     : q.erreur ? `${t.erreur} ${ERREURS[q.erreur]?.[c.langue] ?? q.erreur}${q.detail ? ` ${q.detail}` : ''}` : null;
   const dejaBranche = new Set(branches.map((b) => b.nom));
+  const clients = new Set(FOURNISSEURS_CONNUS.filter((f) => noms.lu && noms.valeur.includes(secretDuClient(f))));
   return (
     <main className="console">
       <h1>{m.titre}</h1>
@@ -94,7 +105,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <p className="attenue">{m.comptesAide}</p>
         <ul className="liste">
           {MODELES_OAUTH.map((x) => {
-            const ouvert = leClient(FOURNISSEURS[x.fournisseur]) !== null;
+            const ouvert = clients.has(x.fournisseur);
             return (
               <li key={x.id}>
                 <span><strong>{x.nom}</strong> <span className="attenue">— {x.aide[c.langue]}</span></span>
@@ -104,6 +115,19 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             );
           })}
         </ul>
+        {FOURNISSEURS_CONNUS.map((f) => (
+          <details key={f} open={!clients.has(f)} style={{ borderTop: '1px solid var(--bord)', padding: '0.6rem 0' }}>
+            <summary style={{ cursor: 'pointer' }}><strong>{m.client(FOURNISSEURS[f].libelle)}</strong>{clients.has(f) && <span className="attenue"> · {m.clientPose}</span>}</summary>
+            <p className="attenue">{m.clientAide(FOURNISSEURS[f].libelle)}</p>
+            <p className="attenue">{m.clientEtapes} <code>{`${adresseDeLaPlateforme()}${RETOUR_DE_LA_LIAISON}`}</code> (<a href={FOURNISSEURS[f].console} target="_blank" rel="noreferrer">console</a>)</p>
+            <form action={poserLeClient.bind(null, id, f)} autoComplete="off">
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>{m.clientId}<input name="id" required style={{ width: '100%' }} /></label>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>{m.clientSecret}<input name="secret" type="password" required style={{ width: '100%' }} /></label>
+              <button type="submit">{m.poser}</button>
+            </form>
+            {clients.has(f) && <form action={retirerLeClient.bind(null, id, f)} style={{ marginTop: '0.5rem' }}><button type="submit">{m.clientRetirer}</button></form>}
+          </details>
+        ))}
       </section>
 
       <section className="carte">

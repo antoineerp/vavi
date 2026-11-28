@@ -4,13 +4,13 @@
  * bord de constructor, avec les seules fonctions qui marchent.
  */
 export type Langue = 'fr' | 'en';
-export type Ecran = '' | 'gerer' | 'textes' | 'donnees' | 'utilisateurs' | 'messages' | 'visites' | 'fonctions' | 'contenu' | 'referencement' | 'versions' | 'paiements' | 'confidentialite' | 'secrets' | 'connecteurs' | 'domaine' | 'recette' | 'regles';
+import { ECRANS, type Ecran } from '@/lib/consignes/la-console';
+export type { Ecran };
 
+// Les noms des écrans : une seule source, celle que Claude lit aussi (`lib/consignes/la-console.ts`, 28/11).
 const NOMS: Record<Langue, Record<Ecran, string>> = {
-  fr: { '': 'Vue d’ensemble', gerer: 'Gérer le contenu', textes: 'Textes', donnees: 'Données', utilisateurs: 'Utilisateurs', messages: 'Messages', visites: 'Visites', fonctions: 'Fonctions',
-    contenu: 'Apparence et titres', referencement: 'Référencement (SEO)', versions: 'Versions', paiements: 'Paiements', confidentialite: 'Confidentialité', secrets: 'Clés secrètes', connecteurs: 'Connecteurs', domaine: 'Domaine', recette: 'Recette (tests)', regles: 'Règles' },
-  en: { '': 'Overview', gerer: 'Manage content', textes: 'Texts', donnees: 'Data', utilisateurs: 'Users', messages: 'Messages', visites: 'Visits', fonctions: 'Functions',
-    contenu: 'Appearance and titles', referencement: 'Search (SEO)', versions: 'Versions', paiements: 'Payments', confidentialite: 'Privacy', secrets: 'Secret keys', connecteurs: 'Connectors', domaine: 'Domain', recette: 'Acceptance tests', regles: 'Rules' },
+  fr: Object.fromEntries(Object.entries(ECRANS).map(([e, x]) => [e, x.fr])) as Record<Ecran, string>,
+  en: Object.fromEntries(Object.entries(ECRANS).map(([e, x]) => [e, x.en])) as Record<Ecran, string>,
 };
 
 export interface Rubrique { readonly titre: string; readonly ecrans: readonly { readonly ecran: Ecran; readonly nom: string }[] }

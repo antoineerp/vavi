@@ -25,8 +25,15 @@ const METHODES = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
 
 export const BORNES = { operations: 500, journal: 200, ligneDuJournal: 500, limite: 1000, texte: 200_000 } as const;
 
-export interface Compteurs { operations: number; ia: number; readonly journal: string[] }
-export const nouveauxCompteurs = (): Compteurs => ({ operations: 0, ia: 0, journal: [] });
+/**
+ * `essai` (`try_agent`, sur une copie de la base) : UNE règle pour tout geste qui sort de vavi (un connecteur, et tout geste
+ * à venir qui écrit dehors) — les lectures partent, une écriture est dite au journal et rend `simule`, jamais envoyée.
+ */
+export interface Compteurs { operations: number; ia: number; readonly journal: string[]; readonly essai: boolean }
+export const nouveauxCompteurs = (essai = false): Compteurs => ({ operations: 0, ia: 0, journal: [], essai });
+
+/** Ce qu'un geste qui sort rend pendant un essai, sans être parti. */
+export const SIMULE = { ok: true, statut: 0, corps: '', simule: true } as const;
 
 const IDENTIFIANT = /^[a-z][a-z0-9_]{0,62}$/;
 const objet = (x: unknown): x is Record<string, unknown> => Boolean(x) && typeof x === 'object' && !Array.isArray(x);
@@ -78,7 +85,7 @@ export async function executer(op: unknown, args: unknown, b: Briques, c: Compte
       const chemin = typeof a.chemin === 'string' ? a.chemin : '';
       const methode = (typeof a.methode === 'string' ? a.methode.toUpperCase() : 'GET') as DemandeAUnConnecteur['methode'];
       if (!METHODES.has(methode)) return refus(`connecteur.appeler: the method is one of ${[...METHODES].join(', ')}`);
-      const r = await b.connecteur(nom, { chemin, methode, requete: a.requete ?? null });
+      const r = c.essai && methode !== 'GET' ? { lu: true as const, valeur: SIMULE } : await b.connecteur(nom, { chemin, methode, requete: a.requete ?? null });
       // Chaque appel au journal : le propriétaire voit ce que son agent a demandé à ses logiciels.
       inscrire(c, `connecteur ${nom} ${methode} ${chemin.slice(0, 120)} → ${r.lu ? `${r.valeur.simule ? 'not sent (try)' : r.valeur.statut}` : r.pourquoi}`);
       return r;

@@ -15,7 +15,9 @@ import { mettreLApercuEnLigne, uneAUneParCompte } from '@/lib/projets/la-mise-en
 import { magasinS3 } from '@/lib/publication/le-magasin';
 import { revenirDepuisLaConsole } from '@/lib/versions/revenir';
 import { ecrireUneLiaison, scellerUnSecret } from '@/lib/mcp/les-jetons';
-import { adresseDAccord, FOURNISSEURS, leClient, MODELES_OAUTH, RETOUR_DE_LA_LIAISON, unVerificateur } from '@/lib/connecteurs/l-autorisation';
+import { adresseDAccord, enTexteDuClient, FOURNISSEURS_CONNUS, lireLeClient, MODELES_OAUTH, PREFIXE_DU_CLIENT, RETOUR_DE_LA_LIAISON, secretDuClient, unVerificateur, type NomDeFournisseur } from '@/lib/connecteurs/l-autorisation';
+import { leClientDuProjet } from '@/lib/connecteurs/les-connecteurs-du-projet';
+import { ouvrirUnSecret } from '@/lib/mcp/les-jetons';
 import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 import { construireLApercu as batir, estUnRefus } from '@/lib/mcp/les-gestes';
 import { leContexteReel } from '@/lib/mcp/le-contexte-reel';
@@ -120,7 +122,7 @@ export async function poserUnSecret(id: string, formulaire: FormData) {
   const nom = String(formulaire.get('nom') ?? '').trim();
   const valeur = String(formulaire.get('valeur') ?? '');
   if (!/^[A-Z][A-Z0-9_]{1,63}$/.test(nom) || valeur.length === 0 || valeur.length > 8000) retour(id, { erreur: 'secret_mal_forme' }, 'secrets');
-  if (nom.startsWith(PREFIXE_DU_SECRET)) retour(id, { erreur: 'secret_d_un_connecteur' }, 'secrets');
+  if (nom.startsWith(PREFIXE_DU_SECRET) || nom.startsWith(PREFIXE_DU_CLIENT)) retour(id, { erreur: 'secret_d_un_connecteur' }, 'secrets');
   const c = await laConsole(`/projets/${id}`);
   const r = await c.projets.poserUnSecret(c.compte, id, nom, scellerUnSecret(id, nom, valeur));
   retour(id, r.lu ? { fait: 'secret', nom } : { erreur: 'panne' }, 'secrets');
@@ -148,16 +150,34 @@ export async function brancherUnConnecteur(id: string, modele: string, formulair
   retour(id, r.lu ? { fait: 'connecteur', nom: lu.valeur.nom } : { erreur: 'panne' }, 'connecteurs');
 }
 
-/** Relie un compte (Gmail…) : la page d'accord du fournisseur, l'état scellé au compte et au projet (PKCE). */
+/** Le client OAuth du propriétaire chez un fournisseur (décision d'Antoine du 28/11 : son client, pas celui de vavi), scellé. */
+export async function poserLeClient(id: string, fournisseur: string, formulaire: FormData) {
+  if (!ID.test(id) || !FOURNISSEURS_CONNUS.includes(fournisseur as NomDeFournisseur)) redirect('/projets');
+  const lu = lireLeClient({ id: String(formulaire.get('id') ?? '').slice(0, 400), secret: String(formulaire.get('secret') ?? '').slice(0, 400) });
+  if (!lu.ok) return retour(id, { erreur: 'client_mal_forme', detail: lu.raison }, 'connecteurs');
+  const c = await laConsole(`/projets/${id}/connecteurs`);
+  const nom = secretDuClient(fournisseur as NomDeFournisseur);
+  const r = await c.projets.poserUnSecret(c.compte, id, nom, scellerUnSecret(id, nom, enTexteDuClient(lu.valeur)));
+  retour(id, r.lu ? { fait: 'client' } : { erreur: 'panne' }, 'connecteurs');
+}
+
+export async function retirerLeClient(id: string, fournisseur: string) {
+  if (!ID.test(id) || !FOURNISSEURS_CONNUS.includes(fournisseur as NomDeFournisseur)) redirect('/projets');
+  const c = await laConsole(`/projets/${id}/connecteurs`);
+  const r = await c.projets.retirerUnSecret(c.compte, id, secretDuClient(fournisseur as NomDeFournisseur));
+  retour(id, r.lu ? { fait: 'client_retire' } : { erreur: 'panne' }, 'connecteurs');
+}
+
+/** Relie un compte (Gmail…) : la page d'accord du fournisseur, par le client du propriétaire, l'état scellé au compte et au projet (PKCE). */
 export async function relierUnCompte(id: string, modele: string) {
   if (!ID.test(id)) redirect('/projets');
   const m = MODELES_OAUTH.find((x) => x.id === modele);
   if (!m) redirect(`/projets/${id}/connecteurs`);
-  const client = leClient(FOURNISSEURS[m.fournisseur]);
-  if (!client) return retour(id, { erreur: 'liaison_indisponible' }, 'connecteurs');
   const c = await laConsole(`/projets/${id}/connecteurs`);
   const p = await c.projets.lire(c.compte, id);
   if (!p.lu || !p.valeur) redirect('/projets');
+  const client = await leClientDuProjet(c.base, id, m.fournisseur, { ouvrir: ouvrirUnSecret, sceller: scellerUnSecret });
+  if (!client) return retour(id, { erreur: 'liaison_indisponible' }, 'connecteurs');
   const verificateur = unVerificateur();
   redirect(adresseDAccord(m, client, `${adresseDeLaPlateforme()}${RETOUR_DE_LA_LIAISON}`, ecrireUneLiaison({ projet: id, modele: m.id, compte: c.compte, verificateur }), verificateur));
 }

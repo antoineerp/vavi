@@ -39,7 +39,6 @@ export async function faireTournerUnAgent(o: AgentAFaireTourner): Promise<Course
       base: o.base, schema: o.schema, compte: o.compte, cleIA: ouverte?.lu ? ouverte.valeur : null,
       modele: process.env.VAVI_MODELE_DES_APPS || MODELE_PAR_DEFAUT,
       connecteurs: lesConnecteursDuProjet(o.base, o.projet, { ouvrir: o.ouvrir, sceller: o.sceller }),
-      essai: o.declencheur.type === 'essai',
       plafondIA: async () => {
         const r = await o.base.rpc('vavi_plafond', { p_cle: `agent-ia:${o.projet}:${o.agent.nom}:${max}`, p_fenetre_s: 86_400, p_max: max });
         return r.error ? { lu: false, pourquoi: r.error.message } : { lu: true, valeur: r.data === true };

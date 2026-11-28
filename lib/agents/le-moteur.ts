@@ -44,7 +44,7 @@ export async function lancerUnAgent(o: {
   readonly lanceur?: Lanceur; readonly delaiMs?: number; readonly maintenant?: Date;
 }): Promise<Course> {
   const debut = Date.now();
-  const c = nouveauxCompteurs();
+  const c = nouveauxCompteurs(o.declencheur.type === 'essai');
   const dossier = mkdtempSync(join(tmpdir(), 'vavi-agent-'));
   const fin = (x: { ok: true; resultat: string | null } | { ok: false; etape: 'bac_a_sable' | 'delai' | 'agent'; erreur: string; pile: string | null }): Course =>
     ({ ...x, journal: c.journal, ia: c.ia, operations: c.operations, duree: Date.now() - debut }) as Course;

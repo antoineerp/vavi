@@ -10,6 +10,8 @@
  *   - on ne publie que le build vert de l'arbre courant.
  * Les dépendances (base, magasin, build) sont passées : les essais jouent les gestes sans réseau.
  */
+import { laConsoleDuProjet, unReglage } from '@/lib/consignes/la-console';
+import { FOURNISSEURS_CONNUS, RETOUR_DE_LA_LIAISON, secretDuClient } from '@/lib/connecteurs/l-autorisation';
 import { lAdresseDeLApp } from '@/lib/publication/les-adresses-des-apps';
 import { derive } from '@/squelette/poser';
 import { lesFonctionsPasEncoreServies, ceQueClaudeEnFait } from '@/squelette/les-types-des-tables';
@@ -313,6 +315,13 @@ export async function lEtatDuProjet(c: Contexte, a: { project: string }): Promis
     ...vueDuProjet(c, p.valeur),
     ...(plan ? { plan } : {}),
     connectors: connecteurs ?? 'unknown',
+    // La console (Antoine, 28/11) : chaque écran, son adresse pour ce projet, ce qu'il permet ; les réglages que la personne
+    // fait elle-même, pas à pas, pour l'y guider.
+    console: {
+      screens: laConsoleDuProjet(c.adresse, a.project),
+      oauth_clients: secrets.lu ? FOURNISSEURS_CONNUS.filter((x) => secrets.valeur.includes(secretDuClient(x))) : 'unknown',
+      how_to: { google_client: unReglage('client_google', `${c.adresse}${RETOUR_DE_LA_LIAISON}`) },
+    },
     work_session: ch ? { id: ch.id, intention: ch.intention, opened_at: ch.ouvertLe, last_change_at: ch.dernierGesteLe, changes: ch.gestes, done: ch.fait, remaining: ch.reste,
       how_to_continue: commentContinuer(ch.dernierGesteLe, Date.now()) } : null,
     project_notes: await lesNotesMontrees(c, a.project),

@@ -29,8 +29,6 @@ export function lesBriquesReelles(o: {
   readonly appel?: Appel;
   /** Les connecteurs du projet (`lesConnecteursDuProjet`). */
   readonly connecteurs: DependancesDeLAppel;
-  /** Un essai (`try_agent`) : seules les lectures (GET) sortent ; une écriture est dite, jamais envoyée. */
-  readonly essai: boolean;
 }): Briques {
   // Le relais COMME ce compte (`voie_neuve_pour`), marqué « par un agent » : ce qu'il crée ne réveille aucun agent
   // (`le-sql-des-agents.ts`).
@@ -54,7 +52,6 @@ export function lesBriquesReelles(o: {
       return refus('AI: the model returned no data in the requested shape; check the schema');
     },
     async connecteur(nom, d) {
-      if (o.essai && d.methode !== 'GET') return { lu: true, valeur: { ok: true, statut: 0, corps: '', simule: true } };
       const r = await appelerUnConnecteur(nom, d, o.connecteurs);
       if (!r.ok) return refus(`connecteur ${nom}: ${r.erreur} — ${r.detail}`);
       return { lu: true, valeur: { ok: r.repondu, statut: r.statut, corps: r.corps, ...(r.donnees !== undefined ? { donnees: r.donnees } : {}) } };

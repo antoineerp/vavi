@@ -49,7 +49,7 @@ describe('le moteur d’un agent', () => {
   }, 20_000);
   it('appelle un connecteur de l’app par son nom, lit sa réponse, et chaque appel est au journal (28/11)', async () => {
     const b = desBriques();
-    const r = await lancerUnAgent({ lanceur: direct, briques: b, declencheur: { type: 'essai', entree: '' }, code: code(`
+    const r = await lancerUnAgent({ lanceur: direct, briques: b, declencheur: { type: 'bouton', entree: '' }, code: code(`
       const l = await ctx.connecteur.appeler('gmail', { chemin: '/messages?q=is:unread' });
       await ctx.connecteur.appeler('gmail', { chemin: '/messages/m1/modify', methode: 'post', requete: { addLabelIds: ['L1'] } });
       return l.donnees.messages.length + ' message(s)';`) });
@@ -60,6 +60,12 @@ describe('le moteur d’un agent', () => {
     ]);
     expect(r.journal).toEqual(expect.arrayContaining(['connecteur gmail GET /messages?q=is:unread → 200']));
     const refus = await lancerUnAgent({ lanceur: direct, briques: desBriques(), declencheur: { type: 'essai', entree: '' }, code: code(`await ctx.connecteur.appeler('crm');`) });
+    // Pendant un essai, l'écriture ne part pas : la brique ne la voit jamais.
+    const e = desBriques();
+    const essai = await lancerUnAgent({ lanceur: direct, briques: e, declencheur: { type: 'essai', entree: '' }, code: code(`
+      const r = await ctx.connecteur.appeler('gmail', { chemin: '/messages/m1/modify', methode: 'POST' }); return String(r.simule);`) });
+    expect(essai).toMatchObject({ ok: true, resultat: 'true' });
+    expect(e.ecrits).toEqual([]);
     expect(refus).toMatchObject({ ok: false, etape: 'agent', erreur: 'connecteur crm: connecteur inconnu' });
   }, 20_000);
   it('arrête un agent qui dépasse son délai', async () => {

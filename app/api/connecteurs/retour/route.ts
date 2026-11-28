@@ -1,17 +1,18 @@
 /**
  * GET /api/connecteurs/retour?code&state — le retour de la page d'accord d'un fournisseur (Google…) quand le propriétaire
  * relie un compte dans la console (`relierUnCompte`). L'état scellé dit quel projet, quel modèle, quel compte vavi : le
- * compte connecté doit être celui-là, et le projet le sien. Le code s'échange (PKCE) ; l'autorisation est gardée dans le
+ * compte connecté doit être celui-là, et le projet le sien. Le code s'échange (PKCE) par le client du propriétaire ; l'autorisation est gardée dans le
  * secret scellé du connecteur, jamais montrée. Puis retour à l'écran Connecteurs, qui dit ce qui s'est passé.
  */
 import { NextResponse } from 'next/server';
 import { compteConnecte } from '@/lib/supabase/serveur';
 import { clientDeService } from '@/lib/supabase/service';
 import { projetsSurSupabase } from '@/lib/projets/les-projets';
-import { echangerLeCode, FOURNISSEURS, leClient, MODELES_OAUTH, RETOUR_DE_LA_LIAISON } from '@/lib/connecteurs/l-autorisation';
+import { echangerLeCode, FOURNISSEURS, MODELES_OAUTH, RETOUR_DE_LA_LIAISON } from '@/lib/connecteurs/l-autorisation';
+import { leClientDuProjet } from '@/lib/connecteurs/les-connecteurs-du-projet';
 import { fetchSortant } from '@/lib/connecteurs/la-sortie';
 import { enSecret, lireUnConnecteur, secretDuConnecteur } from '@/lib/connecteurs/les-connecteurs';
-import { lireUneLiaison, scellerUnSecret } from '@/lib/mcp/les-jetons';
+import { lireUneLiaison, ouvrirUnSecret, scellerUnSecret } from '@/lib/mcp/les-jetons';
 import { adresseDeLaPlateforme } from '@/lib/mcp/l-adresse';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +32,7 @@ export async function GET(requete: Request) {
   const c = await compteConnecte();
   if (!c.connecte) return NextResponse.redirect(`${base}/connexion?suite=${encodeURIComponent(`/projets/${projet}/connecteurs`)}`);
   if (c.utilisateur.id !== compte) return ecran({ erreur: 'liaison_refusee', detail: 'la liaison a été commencée par un autre compte vavi.' });
-  const client = leClient(FOURNISSEURS[m.fournisseur]);
+  const client = await leClientDuProjet(clientDeService(), projet, m.fournisseur, { ouvrir: ouvrirUnSecret, sceller: scellerUnSecret });
   if (!client) return ecran({ erreur: 'liaison_indisponible' });
   const code = q.get('code');
   if (!code || code.length > 2000) return ecran({ erreur: 'liaison_refusee', detail: 'aucun code reçu.' });

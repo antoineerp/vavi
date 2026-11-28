@@ -117,18 +117,33 @@ describe('appeler un compte relié', () => {
 });
 
 describe('un agent et ses connecteurs', () => {
-  it('pendant un essai, seules les lectures sortent ; une écriture est dite simulée', async () => {
+  it('pendant un essai, seules les lectures sortent ; une écriture est dite simulée, au journal (une règle, dans le protocole)', async () => {
     const { lesBriquesReelles } = await import('@/lib/agents/les-briques');
+    const { executer, nouveauxCompteurs } = await import('@/lib/agents/le-protocole');
     const sorties: string[] = [];
     const c: Connecteur = { nom: 'gmail', libelle: null, baseUrl: GMAIL.baseUrl, acces: { forme: 'bearer' }, cle: 'k' };
     const connecteurs = {
       noms: async () => ({ ok: true as const, valeur: ['gmail'] }), lire: async () => ({ ok: true as const, valeur: c }),
       sortir: (url: string, o: OptionsSortie) => { sorties.push(`${o.methode} ${url}`); return fetchSortant(url, { ...o, resolveur: PUBLIC, transport: (async () => Response.json({ a: 1 })) as unknown as typeof fetch }); },
     };
-    const b = (essai: boolean) => lesBriquesReelles({ base: {} as never, schema: 's', compte: 'c', cleIA: null, modele: 'm', plafondIA: async () => ({ lu: true, valeur: true }), connecteurs, essai });
-    expect(await b(true).connecteur('gmail', { chemin: '/messages/1/modify', methode: 'POST', requete: {} })).toEqual({ lu: true, valeur: { ok: true, statut: 0, corps: '', simule: true } });
-    expect(await b(true).connecteur('gmail', { chemin: '/messages', methode: 'GET', requete: null })).toMatchObject({ lu: true, valeur: { ok: true, statut: 200, donnees: { a: 1 } } });
-    expect(await b(false).connecteur('gmail', { chemin: '/messages/1/modify', methode: 'POST', requete: {} })).toMatchObject({ lu: true, valeur: { statut: 200 } });
+    const b = lesBriquesReelles({ base: {} as never, schema: 's', compte: 'c', cleIA: null, modele: 'm', plafondIA: async () => ({ lu: true, valeur: true }), connecteurs });
+    const essai = nouveauxCompteurs(true);
+    expect(await executer('connecteur', { nom: 'gmail', chemin: '/messages/1/modify', methode: 'POST', requete: {} }, b, essai)).toEqual({ lu: true, valeur: { ok: true, statut: 0, corps: '', simule: true } });
+    expect(await executer('connecteur', { nom: 'gmail', chemin: '/messages' }, b, essai)).toMatchObject({ lu: true, valeur: { ok: true, statut: 200, donnees: { a: 1 } } });
+    expect(essai.journal).toEqual(['connecteur gmail POST /messages/1/modify → not sent (try)', 'connecteur gmail GET /messages → 200']);
+    expect(await executer('connecteur', { nom: 'gmail', chemin: '/messages/1/modify', methode: 'POST', requete: {} }, b, nouveauxCompteurs())).toMatchObject({ lu: true, valeur: { statut: 200 } });
     expect(sorties).toEqual([`GET ${GMAIL.baseUrl}/messages`, `POST ${GMAIL.baseUrl}/messages/1/modify`]);
+  });
+});
+
+describe('le client OAuth du propriétaire (décision d’Antoine du 28/11)', () => {
+  it('se colle, se relit, et une forme fausse est dite ; son secret est à part des autres', async () => {
+    const { lireLeClient, enTexteDuClient, duTexteDuClient, secretDuClient } = await import('@/lib/connecteurs/l-autorisation');
+    expect(lireLeClient({ id: ' 123-abc.apps.googleusercontent.com ', secret: 'GOCSPX-xyz12345' })).toEqual({ ok: true, valeur: { id: '123-abc.apps.googleusercontent.com', secret: 'GOCSPX-xyz12345' } });
+    expect(lireLeClient({ id: 'a b', secret: 'GOCSPX-xyz12345' }).ok).toBe(false);
+    expect(lireLeClient({ id: '123-abc.apps.googleusercontent.com', secret: '' }).ok).toBe(false);
+    expect(duTexteDuClient(enTexteDuClient({ id: CLIENT.id, secret: 'GOCSPX-abc123' }))).toEqual({ id: CLIENT.id, secret: 'GOCSPX-abc123' });
+    expect(duTexteDuClient('illisible')).toBeNull();
+    expect(secretDuClient('google')).toBe('OAUTH_GOOGLE');
   });
 });

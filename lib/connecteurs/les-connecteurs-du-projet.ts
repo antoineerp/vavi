@@ -5,7 +5,7 @@
  * Le scellement est injecté (`lib/mcp/les-jetons`) : ce module n'en connaît pas la clé.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { FOURNISSEURS, leClient, renouvelerLAutorisation } from './l-autorisation';
+import { duTexteDuClient, FOURNISSEURS, renouvelerLAutorisation, secretDuClient } from './l-autorisation';
 import { fetchSortant } from './la-sortie';
 import { connecteurDuSecret, duSecret, enSecret, secretDuConnecteur, type Connecteur, type DependancesDeLAppel } from './les-connecteurs';
 
@@ -23,25 +23,36 @@ export async function garderUnConnecteur(base: SupabaseClient, projet: string, c
   return r.error ? { lu: false, pourquoi: r.error.message } : { lu: true, valeur: true };
 }
 
-export function lesConnecteursDuProjet(base: SupabaseClient, projet: string, s: Scellement, env: Readonly<Record<string, string | undefined>> = process.env): DependancesDeLAppel {
+/** Un secret du projet, ouvert ; `null` : absent. */
+async function unSecret(base: SupabaseClient, projet: string, nom: string, s: Scellement): Promise<{ ok: true; valeur: string | null } | { ok: false; raison: string }> {
+  const r = await base.from('vavi_secrets').select('valeur').eq('projet', projet).eq('nom', nom).maybeSingle<{ valeur: string }>();
+  if (r.error) return { ok: false, raison: r.error.message };
+  if (!r.data) return { ok: true, valeur: null };
+  const o = s.ouvrir(projet, nom, r.data.valeur);
+  return o.lu ? { ok: true, valeur: o.valeur } : { ok: false, raison: o.pourquoi };
+}
+
+/** Le client OAuth que le propriétaire a collé pour ce fournisseur ; `null` : absent ou illisible. */
+export async function leClientDuProjet(base: SupabaseClient, projet: string, fournisseur: keyof typeof FOURNISSEURS, s: Scellement) {
+  const t = await unSecret(base, projet, secretDuClient(fournisseur), s);
+  return t.ok ? duTexteDuClient(t.valeur) : null;
+}
+
+export function lesConnecteursDuProjet(base: SupabaseClient, projet: string, s: Scellement): DependancesDeLAppel {
   return {
     async noms() {
       const r = await base.from('vavi_secrets').select('nom').eq('projet', projet).returns<{ nom: string }[]>();
       return r.error ? { ok: false, raison: r.error.message } : { ok: true, valeur: r.data.map((x) => connecteurDuSecret(x.nom)).filter((n): n is string => n !== null) };
     },
     async lire(nom) {
-      const secret = secretDuConnecteur(nom);
-      const r = await base.from('vavi_secrets').select('valeur').eq('projet', projet).eq('nom', secret).maybeSingle<{ valeur: string }>();
-      if (r.error) return { ok: false, raison: r.error.message };
-      if (!r.data) return { ok: true, valeur: null };
-      const o = s.ouvrir(projet, secret, r.data.valeur);
-      return o.lu ? duSecret(o.valeur) : { ok: false, raison: o.pourquoi };
+      const t = await unSecret(base, projet, secretDuConnecteur(nom), s);
+      return !t.ok ? t : t.valeur === null ? { ok: true, valeur: null } : duSecret(t.valeur);
     },
     sortir: fetchSortant,
     async renouveler(c) {
       if (!c.oauth) return { ok: false, perdue: false, raison: 'not a connected account' };
-      const client = leClient(FOURNISSEURS[c.oauth.fournisseur], env);
-      if (!client) return { ok: false, perdue: false, raison: `vavi has no ${FOURNISSEURS[c.oauth.fournisseur].libelle} client configured (the host sets ${FOURNISSEURS[c.oauth.fournisseur].envId})` };
+      const client = await leClientDuProjet(base, projet, c.oauth.fournisseur, s);
+      if (!client) return { ok: false, perdue: false, raison: `the owner's ${FOURNISSEURS[c.oauth.fournisseur].libelle} OAuth client is missing: the owner pastes it again in the vavi console (Connectors)` };
       const r = await renouvelerLAutorisation(c.oauth, client, fetchSortant);
       if (!r.ok) {
         if (r.perdue) await garderUnConnecteur(base, projet, { ...c, oauth: { ...c.oauth, perdue: true } }, s);
