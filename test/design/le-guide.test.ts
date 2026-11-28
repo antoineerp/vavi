@@ -12,7 +12,7 @@ import { unManifeste } from '../aides/un-manifeste';
 describe('le guide de design', () => {
   it('un site reçoit le guide de la vitrine, ses pages, sa vérification ; aucune règle de méthode', () => {
     const g = leGuideDeDesign(unManifeste({ nature: 'site' }));
-    expect(g.guide.join(' ')).toMatch(/six real sections[\s\S]*at least three public pages, always a contact page[\s\S]*Before `build_preview`, check/);
+    expect(g.guide.join(' ')).toMatch(/six real sections[\s\S]*at least four public pages[\s\S]*always a contact page[\s\S]*Before `build_preview`, check/);
     expect(g.regles.map((r) => r.id)).toContain('des-photos-reelles');
     expect(g.regles.map((r) => r.id)).not.toContain('iterer');
     expect(g.regles.map((r) => r.id)).not.toContain('la-mise-en-page-reprise');
