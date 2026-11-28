@@ -19,6 +19,10 @@ const BOUTIQUE = unManifeste({ nature: 'boutique', fonctions: { panier: true },
   vente: { pays: 'FR', devise: 'EUR', livraison: { pays: ['FR'], prix: 5 } } });
 const APP = unManifeste({ nature: 'app', roles: [{ nom: 'gerant', libelle: 'Gérant', obtenu: 'proprietaire' }],
   tables: [{ nom: 'note', libelle: 'Notes', appartenance: 'personnelle', lecture: ['gerant'], ecriture: ['gerant'], champs: [{ nom: 'texte', libelle: 'Texte', type: 'texte' }] }] });
+const SITE = unManifeste({ nature: 'site' });
+const VITRINE_D_APP = unManifeste({ nature: 'app', roles: [{ nom: 'gerant', libelle: 'Gérant', obtenu: 'proprietaire' }, { nom: 'client', libelle: 'Client', obtenu: 'inscription' }],
+  resultat: 'note', tables: [{ nom: 'note', libelle: 'Notes', appartenance: 'personnelle', lecture: ['client', 'gerant'], ecriture: ['client', 'gerant'],
+    champs: [{ nom: 'texte', libelle: 'Texte', type: 'texte' }], exemples: [{ texte: 'Une note' }] }] });
 const arbre = (pages: readonly string[], autres: Record<string, string> = {}) =>
   new Map<string, string>([...pages.map((p) => [`src/pages/${p}.tsx`, PUBLIQUE] as [string, string]), ...Object.entries(autres), ['src/Chrome.tsx', 'export default function C() { return null; }']]);
 
@@ -28,13 +32,14 @@ describe('quatre pages au moins pour un site', () => {
   });
   it('un site ou une boutique de trois pages reçoit la page qui manque ; à quatre, rien', () => {
     const trois = arbre(['index', 'offre', 'contact']);
-    expect(lesPagesQuiManquent({ nature: 'site' }, trois)).toEqual({ public_pages: ['/', '/contact', '/offre'], to_add: 1 });
-    expect(lesPagesQuiManquent({ nature: 'boutique' }, trois)?.to_add).toBe(1);
-    expect(lesPagesQuiManquent({ nature: 'site' }, arbre(['index']))?.to_add).toBe(3);
-    expect(lesPagesQuiManquent({ nature: 'site' }, arbre(['index', 'offre', 'approche', 'contact']))).toBeUndefined();
+    expect(lesPagesQuiManquent(SITE, trois)).toEqual({ public_pages: ['/', '/contact', '/offre'], to_add: 1 });
+    expect(lesPagesQuiManquent(BOUTIQUE, trois)?.to_add).toBe(1);
+    expect(lesPagesQuiManquent(SITE, arbre(['index']))?.to_add).toBe(3);
+    expect(lesPagesQuiManquent(SITE, arbre(['index', 'offre', 'approche', 'contact']))).toBeUndefined();
   });
-  it('une app, un jeu ou un document ne sont pas des sites : rien n’est compté', () => {
-    for (const nature of ['app', 'jeu', 'document'] as const) expect(lesPagesQuiManquent({ nature }, arbre(['index']))).toBeUndefined();
+  it('la vitrine d’une app est comptée (Antoine, 28/11 12h) ; une app privée ne l’est pas, ses écrans de travail non plus', () => {
+    expect(lesPagesQuiManquent(VITRINE_D_APP, arbre(['index', 'contact'], { 'src/pages/espace.tsx': RESERVEE }))).toEqual({ public_pages: ['/', '/contact'], to_add: 2 });
+    expect(lesPagesQuiManquent(APP, arbre(['index']))).toBeUndefined();
   });
   it('le guide d’un site et d’une boutique dit quatre pages, sans rien inventer ; les consignes ne parlent plus d’un site d’une page', () => {
     for (const m of [unManifeste({ nature: 'site' }), BOUTIQUE]) {
@@ -43,6 +48,7 @@ describe('quatre pages au moins pour un site', () => {
       expect(g).not.toMatch(/one-page site/);
     }
     expect(leGuideDeDesign(APP).guide.join(' ')).not.toMatch(/four public pages/);
+    expect(leGuideDeDesign(VITRINE_D_APP).guide.join(' ')).toMatch(/at least four public pages[\s\S]*prices only if the person gave them[\s\S]*never invented/);
     expect(INSTRUCTIONS).toMatch(/at least four public pages/);
     expect(INSTRUCTIONS).not.toMatch(/one-page site has no menu/);
   });
