@@ -30,7 +30,8 @@ export async function enregistrer(id: string, table: string, ligne: string | nul
   if (!r.ok) retour(id, { table, ...vue, ...(ligne ? { ligne } : { nouvelle: '1' }), erreur: 'saisie', champ: r.champ, pourquoi: r.pourquoi });
   if (!r.ok) return;
   const e = await p.donnees.ecrire(p.schema, table, ligne, r.valeurs, p.compte, t!.cycle ? t!.cycle.ouverts : null);
-  if (!e.lu) retour(id, { table, ...vue, ...(ligne ? { ligne } : { nouvelle: '1' }), erreur: 'base', pourquoi: e.pourquoi });
+  // Le champ que la base nomme, dit par son libellé.
+  if (!e.lu) retour(id, { table, ...vue, ...(ligne ? { ligne } : { nouvelle: '1' }), erreur: 'base', pourquoi: t!.colonnes.reduce((a, c) => a.replace(`« ${c.nom} »`, `« ${c.libelle} »`), e.pourquoi) });
   if (e.lu && !e.valeur) retour(id, { table, ...vue, erreur: 'figee' });
   console.log(`[donnees] ${id.slice(0, 8)} ${table} ${ligne ? 'modifiée' : 'ajoutée'}`);
   retour(id, { table, ...vue, fait: ligne ? 'modifiee' : 'ajoutee' });
