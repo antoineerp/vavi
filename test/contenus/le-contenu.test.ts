@@ -106,3 +106,88 @@ describe('le logo déposé', () => {
     expect(avecLeLogo(APP_JSON, 'http://x.fr/logo.png').ok).toBe(false);
   });
 });
+
+// 28/11 (Antoine : « Réglages puis 3 directions ») : le mouvement, le verre et le dégradé, que la peau applique sans modèle,
+// se changent dans la console. Avant, le formulaire ne les envoyait pas et app.json les gardait tels que Claude les avait posés.
+describe('les effets de l’apparence', () => {
+  const formulaire = async (effets: Record<string, string>) => {
+    const { CHAMPS_DES_POLICES } = await import('@/lib/contenus/le-contenu');
+    const f = new FormData();
+    for (const [k, v] of Object.entries({ fond: '#f6f1ea', texte: '#2a211b', accent: '#2f6b4f', surface: '#fffaf4', bordure: '#e2d6c6', rayon: 'doux', [CHAMPS_DES_POLICES.titres]: 'Fraunces', [CHAMPS_DES_POLICES.texte]: 'Inter', ...effets })) f.append(k, v);
+    return f;
+  };
+  it('le formulaire les rend, et app.json les reçoit, le reste gardé', async () => {
+    const { lApparenceDuFormulaire, avecLApparence, CHAMPS_DES_EFFETS } = await import('@/lib/contenus/le-contenu');
+    const a = lApparenceDuFormulaire(await formulaire({ [CHAMPS_DES_EFFETS.mouvement]: 'immobile', [CHAMPS_DES_EFFETS.verre]: 'non', [CHAMPS_DES_EFFETS.degrade]: 'non' }));
+    if (!a.lue) throw new Error(a.detail);
+    expect(a.apparence.effets).toEqual({ mouvement: 'immobile', verre: false, degrade: false });
+    const r = avecLApparence(APP_JSON, a.apparence);
+    if (!r.ok) throw new Error(r.detail);
+    expect(JSON.parse(r.texte).direction).toMatchObject({ mouvement: 'immobile', verre: false, degrade: false, rayon: 'doux' });
+  });
+  it('absents du formulaire, ceux d’app.json restent ; mal formés, refusés', async () => {
+    const { lApparenceDuFormulaire, avecLApparence, CHAMPS_DES_EFFETS } = await import('@/lib/contenus/le-contenu');
+    const app = JSON.parse(APP_JSON);
+    app.direction = { ...app.direction, mouvement: 'discret', verre: false };
+    const a = lApparenceDuFormulaire(await formulaire({}));
+    if (!a.lue) throw new Error(a.detail);
+    const r = avecLApparence(JSON.stringify(app), a.apparence);
+    if (!r.ok) throw new Error(r.detail);
+    expect(JSON.parse(r.texte).direction).toMatchObject({ mouvement: 'discret', verre: false });
+    expect(lApparenceDuFormulaire(await formulaire({ [CHAMPS_DES_EFFETS.mouvement]: 'tourbillon', [CHAMPS_DES_EFFETS.verre]: 'oui', [CHAMPS_DES_EFFETS.degrade]: 'oui' })).lue).toBe(false);
+  });
+  it('la page envoie les trois champs', async () => {
+    const page = (await import('node:fs')).readFileSync('app/projets/[id]/gerer/l-apparence.tsx', 'utf8');
+    for (const champ of ['CHAMPS_DES_EFFETS.mouvement', 'CHAMPS_DES_EFFETS.verre', 'CHAMPS_DES_EFFETS.degrade']) expect(page).toContain(`name={${champ}}`);
+  });
+});
+
+// 28/11 (Antoine : « Réglages puis 3 directions ») : Claude propose deux autres directions dans app.json ; la console en pose
+// une, sans modèle, et la posée rejoint les autres pour qu'on y revienne.
+describe('les autres directions', () => {
+  const app = () => {
+    const a = JSON.parse(APP_JSON);
+    a.direction = { ...a.direction, nom: 'Atelier', logo: 'https://exemple.fr/logo.png', travail: 'sobre' };
+    a.autresDirections = [
+      { nom: 'Brut', couleurs: { fond: '#111111', texte: '#f5f5f5', accent: '#e4572e', surface: '#1c1c1c', bordure: '#333333' }, polices: { titres: 'Archivo', texte: 'Inter' }, rayon: 'net', registre: 'brut', mouvement: 'discret', verre: false },
+      { nom: 'Jardin', couleurs: { fond: '#f4f1e8', texte: '#1f2a1f', accent: '#4f7a3a', surface: '#fbfaf4', bordure: '#dcd6c4' }, polices: { titres: 'Fraunces', texte: 'DM Sans' }, rayon: 'doux' },
+    ];
+    return a;
+  };
+  it('le manifeste les lit, et refuse une autre direction violette comme la direction', async () => {
+    const { lireLeManifeste } = await import('@/lib/backend/app/manifeste');
+    const r = lireLeManifeste(app());
+    if (!r.ok) throw new Error(r.erreurs.join(' ; '));
+    expect(r.manifeste.autresDirections?.map((d) => d.nom)).toEqual(['Brut', 'Jardin']);
+    const violette = app();
+    violette.autresDirections[0].couleurs.accent = '#6d28d9';
+    expect(lireLeManifeste(violette).ok).toBe(false);
+  });
+  it('poser « Brut » : elle devient la direction, le logo et l’allure des écrans de travail restent, « Atelier » rejoint les autres', async () => {
+    const { avecLaDirectionChoisie } = await import('@/lib/contenus/le-contenu');
+    const r = avecLaDirectionChoisie(JSON.stringify(app()), 'Brut');
+    if (!r.ok) throw new Error(r.detail);
+    const j = JSON.parse(r.texte);
+    expect(j.direction).toMatchObject({ nom: 'Brut', registre: 'brut', verre: false, logo: 'https://exemple.fr/logo.png', travail: 'sobre', polices: { titres: 'Archivo' } });
+    expect(j.autresDirections.map((d: { nom: string }) => d.nom)).toEqual(['Atelier', 'Jardin']);
+    expect(j.autresDirections[0].logo).toBeUndefined();
+    // Et l'on revient en un geste.
+    const retour = avecLaDirectionChoisie(r.texte, 'Atelier');
+    if (!retour.ok) throw new Error(retour.detail);
+    expect(JSON.parse(retour.texte).direction).toMatchObject({ nom: 'Atelier', polices: app().direction.polices, logo: 'https://exemple.fr/logo.png' });
+  });
+  it('une direction sans nom prend « Direction d’origine » ; un nom inconnu est refusé', async () => {
+    const { avecLaDirectionChoisie } = await import('@/lib/contenus/le-contenu');
+    const a = app();
+    delete a.direction.nom;
+    const r = avecLaDirectionChoisie(JSON.stringify(a), 'Jardin');
+    if (!r.ok) throw new Error(r.detail);
+    expect(JSON.parse(r.texte).autresDirections[1].nom).toBe(a.langues.principale === 'fr' ? 'Direction d’origine' : 'Original direction');
+    expect(avecLaDirectionChoisie(JSON.stringify(a), 'Inconnue').ok).toBe(false);
+  });
+  it('enregistrer l’apparence garde les autres directions', () => {
+    const r = avecLApparence(JSON.stringify(app()), { couleurs: { fond: '#ffffff', texte: '#111111', accent: '#2f6b4f', surface: '#fafafa', bordure: '#dddddd' }, rayon: 'net', polices: { titres: 'Fraunces', texte: 'Inter' } });
+    if (!r.ok) throw new Error(r.detail);
+    expect(JSON.parse(r.texte).autresDirections).toHaveLength(2);
+  });
+});

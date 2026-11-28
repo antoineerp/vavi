@@ -36,8 +36,10 @@ import { ceQuiTrahitLaPage, leDessinDeLaPage, type ReleveVu } from '@/lib/design
 import { lesLiensMorts } from '@/squelette/les-liens';
 import { lesEcartsDeDroit } from '@/squelette/les-droits-des-pages';
 import { lesPagesSansDescription } from '@/squelette/les-descriptions';
-import type { Etape as EtapeDuParcours, Parcours } from '@/lib/parcours/le-parcours';
+import { lesPagesQuiManquent } from '@/squelette/le-nombre-de-pages';
+import type { EcranDuParcours, Etape as EtapeDuParcours, Parcours, Photo } from '@/lib/parcours/le-parcours';
 import { CHEMIN_DU_CAHIER, leBilan, lireLeCahier, type CahierLu } from '@/lib/parcours/le-cahier';
+import { APPAREILS, cleDuKit, laLocaleDApple, leZipDuKit, lesEtapesDuKit, relireLesFiches, type Appareil } from '@/lib/app-store/la-fiche';
 import { jouerLaRecette, leDernierPassage } from './la-recette';
 import { CHEMIN_DES_IMAGES, CleDeLaBanqueRefusee, poserLesImages, type Banque, type DemandeDImage } from '@/lib/images/la-banque';
 import { REPRISES_MAX, reprendreLesImages } from '@/lib/images/la-reprise';
@@ -74,7 +76,7 @@ export interface Contexte {
   /** Les builds rouges de suite, par compte et projet ; absent : une mémoire du processus. */
   readonly buildsRouges?: Map<string, number>;
   /** Joue un parcours de visiteur sur le build vert d'empreinte donnée (`lib/parcours`) ; absent ou sans navigateur : la raison. */
-  readonly jouer?: (projet: string, empreinte: string, manifeste: Manifeste, etapes: readonly EtapeDuParcours[], o: { readonly copie: boolean; readonly role: string | null }) => Promise<Parcours | { readonly raison: string }>;
+  readonly jouer?: (projet: string, empreinte: string, manifeste: Manifeste, etapes: readonly EtapeDuParcours[], o: { readonly copie: boolean; readonly role: string | null; readonly ecran?: EcranDuParcours }) => Promise<Parcours | { readonly raison: string }>;
   /** Les chantiers où Claude a lu le guide de design (compte|projet|chantier) ; absent : une mémoire du processus. */
   readonly guidesLus?: Set<string>;
   /** L'abonnement du compte, tel que Claude le lit (l'offre, ce qu'elle publie, où la choisir) ; absent : non dit. */
@@ -784,6 +786,7 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
   const liens = lesLiensMorts(siens);
   const droits = lesEcartsDeDroit(arbre.manifeste, siens);
   const sansDescription = lesPagesSansDescription(siens, f.valeur.get('src/referencement.json'));
+  const manquent = lesPagesQuiManquent(arbre.manifeste, siens);
   return fait({
     project: a.project, green: true, preview_url: urlDeLApercu(c, a.project), owner_url: urlDuProprietaire(c, a.project), draft_url: urlDuBrouillon(c, a.project, arbre.empreinte), fingerprint: arbre.empreinte, duration_ms: b.duree, timings_ms: temps,
     preview_updated: designe.lu,
@@ -794,6 +797,8 @@ export async function construireLApercu(c: Contexte, a: { project: string }): Pr
       next: 'Measured on the rendered home page: these are the shapes every AI site builder produces, and the drawing. Change each one as said, unless the person asked for it. Never a refusal.' } } : {}),
     ...(liens.length ? { broken_links: { links: liens.slice(0, 20).map((l) => `${l.fichier}:${l.ligne} ${l.lien}`), next: 'Each of these links leads to no page of the app (or to no `id` for an anchor): point it to a page that exists, create the page, or remove the link.' } } : {}),
     ...(droits.length ? { access_checks: { to_fix: droits.slice(0, 20), next: 'Each page here shows a table its audience cannot read, or saves into one it cannot write: change the `acces` of the table with `configure_backend`, or the `acces` of the page.' } } : {}),
+    ...(manquent ? { pages_checks: { ...manquent,
+      next: `A website has at least four public pages: add ${manquent.to_add} (one per thing a visitor comes for, always a contact page), each in the menu, built from what the person gave; a missing fact is a marked "to be completed" placeholder, said to the person, never invented. Unless the person insisted on fewer pages. Never a refusal.` } } : {}),
     ...(sansDescription.length ? { seo_checks: { pages_without_description: sansDescription.slice(0, 30),
       next: 'Each of these public pages shows the app’s description under its Google link, the same on every page: add `export const description = \'…\'` to it, one or two sentences of 70 to 160 characters saying what THIS page offers, in the language of the page.' } } : {}),
     ...(vues?.captures.length ? { _images: vues.captures.map((x) => ({ data: x.jpeg.toString('base64'), mimeType: 'image/jpeg' })) } : {}),
@@ -847,6 +852,69 @@ export async function jouerUnParcours(c: Contexte, a: { project: string; steps: 
       : copie ? { on_copy: 'played without an account on a temporary copy of the database (its example rows, nothing of the real data), deleted after the journey: writes, sign-up and sign-in were real there' } : {}),
     not_checked: copie ? 'emails are not sent (a sign-up on the copy needs no confirmation, sign-in links are listed in `simulated`); payment is simulated (Stripe does not open, so what it grants is not checked); forms are simulated.'
       : 'nothing was written or sent: writes, forms, sign-up and payment are simulated or unavailable, so the rules of the database (required fields, duplicates) are not checked here; play it with `on_copy: true` (or `as_role`) to check them on a copy.',
+  });
+}
+
+/**
+ * LE KIT DE LA FICHE APP STORE (Antoine, 28/11, voie 1 de l'étude) : les écrans que Claude nomme, photographiés aux tailles
+ * d'Apple dans chaque langue de la fiche, sur le build vert (avec un rôle : sur une copie de la base, ses lignes d'exemple),
+ * et les textes qu'il a écrits, relus aux limites d'Apple ; le tout en zip, que le propriétaire télécharge de la console.
+ */
+export async function faireLeKitAppStore(c: Contexte, a: { project: string; listings: readonly { language: string; name: string; subtitle: string; promotional_text?: string; description: string; keywords: string }[];
+  screens: readonly { name: string; path: string; steps?: readonly EtapeDuParcours[] }[]; as_role?: string; ipad?: boolean }): Promise<Rendu> {
+  const p = await leProjet(c, a.project);
+  if (!p.ok) return p.refus;
+  const f = await lesFichiers(c, a.project);
+  if (!f.ok) return f.refus;
+  const arbre = await lArbreLu(f.valeur, c.magasin);
+  if (!arbre.lu) return refuser('app_json_refuse', `app.json does not hold: ${arbre.erreurs.join(' | ')}`, { fichier: 'app.json' });
+  const m = arbre.manifeste;
+  const langues = [m.langues.principale, ...m.langues.autres];
+  const lues = relireLesFiches(a.listings.map((l) => ({ langue: l.language, nom: l.name, sousTitre: l.subtitle, promo: l.promotional_text ?? '', description: l.description, motsCles: l.keywords })), langues);
+  if (!lues.ok) return refuser('texte_trop_long', `The listing does not fit Apple's rules: ${lues.ecarts.join(' | ')}.`);
+  const roles = m.roles.map((x) => x.nom);
+  if (a.as_role && !roles.includes(a.as_role)) {
+    return refuser('app_json_refuse', `app.json declares no role « ${a.as_role} »${roles.length ? ` (its roles: ${roles.join(', ')})` : ''}.`, { fichier: 'app.json', geste: 'Use one of the roles of app.json, or no `as_role` to photograph the screens as a visitor.' });
+  }
+  const b = await c.projets.leBuild(c.compte, a.project, arbre.empreinte);
+  if (!b.lu) return panne(b.pourquoi);
+  if (!b.valeur) return refuser('build_perime', 'The current version has not been built: the screenshots are taken on its green build.');
+  if (!b.valeur.vert) return refuser('build_rouge', 'The last build of the current version is red: fix it before making the kit.');
+  if (!c.jouer || !c.magasin) return refuser('plateforme_en_panne', 'Screenshots are not available on this vavi server.');
+  // Les langues de la fiche, dans l'ordre de l'app : la principale d'abord.
+  const fiches = [...lues.fiches].sort((x, y) => langues.indexOf(x.langue) - langues.indexOf(y.langue));
+  const etapes = lesEtapesDuKit(a.screens.map((e) => ({ nom: e.name, adresse: e.path, etapes: e.steps ?? [] })), fiches.map((x) => x.langue), m.langues.principale);
+  const appareils: Appareil[] = a.ipad ? ['iphone', 'ipad'] : ['iphone'];
+  const photos = new Map<Appareil, readonly Photo[]>();
+  const t = Date.now();
+  for (const ap of appareils) {
+    const r = await c.jouer(a.project, arbre.empreinte, m, etapes, { copie: Boolean(a.as_role), role: a.as_role ?? null, ecran: APPAREILS[ap].ecran })
+      .catch((e: unknown) => ({ raison: String((e as Error)?.message ?? e).slice(0, 300) }));
+    if ('raison' in r) return refuser('plateforme_en_panne', `The screens could not be photographed: ${r.raison}. This is not caused by your files.`);
+    if (r.arret) {
+      const e = r.etapes.find((x) => !x.ok)!;
+      return fait({ project: a.project, kit: 'not made', device: APPAREILS[ap].libelle, stopped_at: { step: e.etape, why: e.fait, at: e.adresse },
+        ...(r.arret.capture ? { _images: [{ data: r.arret.capture.toString('base64'), mimeType: 'image/jpeg' }] } : {}),
+        next: 'Fix the screen (or the steps given for it) where it stopped, build if you changed a page, and call `app_store_kit` again.' });
+    }
+    photos.set(ap, r.photos ?? []);
+  }
+  const zip = leZipDuKit({ nom: m.nom, le: new Date().toISOString(), fiches, photos });
+  try {
+    await c.magasin.poser(cleDuKit(a.project), zip, { type: 'application/zip', cache: 'no-store' });
+  } catch (e) {
+    return refuser('plateforme_en_panne', `The kit is made but could not be stored (${(e as Error).message}).`);
+  }
+  const premiere = photos.get('iphone')?.[0];
+  console.log(`[app_store_kit] ${a.project} ${[...photos.values()].reduce((n, x) => n + x.length, 0)} captures en ${Date.now() - t} ms, ${zip.length} octets`);
+  return fait({
+    project: a.project, kit_url: `${c.adresse}/api/app-store/${a.project}`,
+    contents: { languages: fiches.map((x) => laLocaleDApple(x.langue)), screenshots: appareils.map((ap) => `${photos.get(ap)!.length / fiches.length} per language for ${APPAREILS[ap].libelle} (${APPAREILS[ap].pixels})`),
+      texts: 'name, subtitle, promotional text, keywords and description per language, within Apple\'s limits', size_bytes: zip.length },
+    ...(lues.ajuste.length ? { adjusted: lues.ajuste } : {}),
+    ...(a.as_role ? { signed_in_as: `a test account with the role « ${a.as_role} », on a temporary copy of the database (its example rows): the screenshots show those rows, never real data` } : {}),
+    ...(premiere ? { _images: [{ data: premiere.jpeg.toString('base64'), mimeType: 'image/jpeg' }] } : {}),
+    next: 'Look at the first screenshot below; if a screen looks wrong, fix it and make the kit again. Then give the person the link `kit_url` (it downloads the kit while they are signed in to vavi), and say plainly: vavi does not build the iPhone app itself (it needs a Mac and Xcode), Apple wants it sent from their own Apple Developer account (99 $ a year), and an app that is only a website is refused (guideline 4.2).',
   });
 }
 

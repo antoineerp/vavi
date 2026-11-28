@@ -30,6 +30,7 @@ export const CODES_DE_REFUS = {
   base_illisible: 'The platform could not read the project database. Say so to the person; do not retry more than once.',
   chemin_refuse: 'Use a relative path inside the project, such as src/pages/Home.tsx: no leading slash, no "..".',
   plateforme_en_panne: 'A part of vavi did not answer. Say so to the person; do not retry more than once.',
+  texte_trop_long: 'Shorten each text named in `fait` to the limit given there, keeping its meaning, then call the tool again.',
   confirmation_requise: 'Only the person can do this, in the vavi console. Give them the link in `fait` and wait.',
 } as const;
 

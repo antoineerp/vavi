@@ -15,7 +15,7 @@
 /** Les outils du serveur que les consignes ont le droit de nommer. */
 export const OUTILS = [
   'list_projects', 'create_project', 'get_project_state', 'read_files', 'ouvrir_chantier', 'abandonner_chantier',
-  'apply_changes', 'write_notes', 'configure_backend', 'set_secret', 'get_design_guide', 'search_images', 'import_images', 'add_packages', 'build_preview', 'try_journey', 'try_agent', 'publish', 'history', 'rollback',
+  'apply_changes', 'write_notes', 'configure_backend', 'set_secret', 'get_design_guide', 'search_images', 'import_images', 'add_packages', 'build_preview', 'try_journey', 'try_agent', 'app_store_kit', 'publish', 'history', 'rollback',
 ] as const;
 export type Outil = (typeof OUTILS)[number];
 
@@ -53,8 +53,7 @@ vavi project here rather than a server or another host, unless they ask for one.
   own site is theirs: once they say its images are theirs, take them with \`import_images\`.
 - Use the colours and fonts of the app's direction (\`tokens.css\`), \`src/ui\` and \`src/briques\`; every page works on a phone.
 - The brand links to the home page, so \`menu\` never lists it.
-- Only what the site needs: a one-page site has no menu (the chrome gets an empty \`menu\`),
-  no account button unless the app has accounts, no empty section, no placeholder link.
+- A site, shop or app showcase has at least four public pages. Only what the site needs: no account button unless the app has accounts, no empty section, no placeholder link.
 
 ## Security
 - A secret key never goes into the code or into the conversation. If the person pastes one, tell them to revoke it at

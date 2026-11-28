@@ -33,6 +33,15 @@ const Changement = z.object({
   delete: z.boolean().optional().describe('true deletes the file.'),
 });
 
+const EtapeDuParcours = z.union([
+      z.object({ action: z.literal('open'), path: z.string().min(1).max(300).regex(/^\//).describe('An address of the app, e.g. /contact.') }),
+      z.object({ action: z.literal('click'), target: z.string().min(1).max(120).describe('The visible text of the button or link.') }),
+      z.object({ action: z.literal('fill'), target: z.string().min(1).max(120).describe('The label (or placeholder) of the field.'), value: z.string().max(500) }),
+      z.object({ action: z.literal('select'), target: z.string().min(1).max(120).describe('The label of the list.'), value: z.string().min(1).max(200).describe('The visible text of the option.') }),
+      z.object({ action: z.literal('check'), target: z.string().min(1).max(120).describe('The label of the box or choice.') }),
+      z.object({ action: z.literal('expect'), text: z.string().min(1).max(200).describe('A text that must appear on the page.') }),
+]);
+
 interface Definition<S extends z.ZodTypeAny> {
   readonly title: string;
   readonly description: string;
@@ -159,18 +168,32 @@ export const DEFINITIONS = {
   }),
   try_journey: def({
     title: 'Play a visitor journey', lecture: true,
-    entree: z.object({ project: projet, steps: z.array(z.union([
-      z.object({ action: z.literal('open'), path: z.string().min(1).max(300).regex(/^\//).describe('An address of the app, e.g. /contact.') }),
-      z.object({ action: z.literal('click'), target: z.string().min(1).max(120).describe('The visible text of the button or link.') }),
-      z.object({ action: z.literal('fill'), target: z.string().min(1).max(120).describe('The label (or placeholder) of the field.'), value: z.string().max(500) }),
-      z.object({ action: z.literal('select'), target: z.string().min(1).max(120).describe('The label of the list.'), value: z.string().min(1).max(200).describe('The visible text of the option.') }),
-      z.object({ action: z.literal('check'), target: z.string().min(1).max(120).describe('The label of the box or choice.') }),
-      z.object({ action: z.literal('expect'), text: z.string().min(1).max(200).describe('A text that must appear on the page.') }),
-    ])).min(1).max(25),
+    entree: z.object({ project: projet, steps: z.array(EtapeDuParcours).min(1).max(25),
     as_role: z.string().regex(/^[a-z][a-z0-9_]{0,40}$/).optional().describe('A role of app.json: the journey is played signed in with a test account that has this role, on a temporary copy of the database (its example rows), deleted after. Omitted: as a visitor, without an account.'),
     on_copy: z.boolean().optional().describe('Play on a temporary copy of the database without an account: writes are real there, and signing up, signing in and the cart are played for real (no email is sent, payment is simulated). Use it for a journey that signs up or buys.') }),
     description: 'After a green build, plays what a visitor does on the preview, step by step, in a real browser: open an address, click a button or link by its text, fill a field by its label, check that a text appears. Each step comes back done or stopped with its reason, and a picture of the page where it stopped. As a visitor nothing is written (database writes and forms are simulated and listed); with `as_role`, the journey runs signed in on a temporary copy of the database, and with `on_copy` it runs there without an account to sign up or buy: writes, access rules, sign-up, sign-in and the cart are really checked, payment is simulated, and nothing of the real data is touched. Play the main journey of what you just built or changed (a form sends and thanks, a menu leads to its page) before telling the person it works. Keep the main journeys in `src/recette.json` as { "journeys": [ { "name", "as_role"?, "on_copy"?, "steps" } ] } (1 to 12, same steps): vavi replays them after every green build, shows them to the person in the console, and gives what breaks in `get_project_state`.',
     geste: (c, a) => g.jouerUnParcours(c, a),
+  }),
+  app_store_kit: def({
+    title: 'Make the App Store listing kit', lecture: false,
+    entree: z.object({ project: projet,
+      listings: z.array(z.object({
+        language: z.string().min(2).max(10).describe('A language of the app (app.json `langues`).'),
+        name: z.string().min(1).max(200).describe('The app name on the App Store: 30 characters at most.'),
+        subtitle: z.string().max(200).describe('Under the name: 30 characters at most, what the app does for whom.'),
+        promotional_text: z.string().max(400).optional().describe('170 characters at most; it can change without a new version.'),
+        description: z.string().min(1).max(5000).describe('4000 characters at most: what the app does, from the person\'s facts only, in short paragraphs.'),
+        keywords: z.string().max(300).describe('Separated by commas, 100 bytes at most; no word already in the name.'),
+      })).min(1).max(20).describe('One per language of the listing, in the languages of the app.'),
+      screens: z.array(z.object({
+        name: z.string().min(1).max(60).describe('What the screen shows, e.g. "Planning".'),
+        path: z.string().min(1).max(300).regex(/^\//).describe('Its address in the app, e.g. /planning (the same address in every language).'),
+        steps: z.array(EtapeDuParcours).max(5).optional().describe('Steps played after opening it and before the picture (open a tab, fill a search); the steps of `try_journey`.'),
+      })).min(1).max(10).describe('The screens to photograph, in the order of the App Store: the most telling first.'),
+      as_role: z.string().regex(/^[a-z][a-z0-9_]{0,40}$/).optional().describe('A role of app.json: the screens are photographed signed in with a test account that has this role, on a temporary copy of the database (its example rows). Omitted: as a visitor.'),
+      ipad: z.boolean().optional().describe('true also photographs the screens on a 13-inch iPad, needed only if the iPhone app will run on iPad.') }),
+    description: 'When the person wants to publish their app on Apple\'s App Store: on the green build, photographs the screens you name at Apple\'s exact sizes (iPhone 6.9": 1320×2868; iPad 13": 2064×2752), in each language of the listing, and checks the listing texts you write against Apple\'s limits; returns a link to a zip the person downloads and drops into App Store Connect. Write the texts from the person\'s facts only, in each language. vavi sends nothing to Apple and does not build the iPhone app itself (it needs a Mac and Xcode, and the person\'s own Apple Developer account): say so. Without the App Store, every vavi app already installs from the phone\'s browser (Safari: Share, then "Add to Home Screen") and opens full screen with its icon.',
+    geste: (c, a) => g.faireLeKitAppStore(c, a),
   }),
   publish: def({
     title: 'Close the work session', lecture: false, entree: z.object({ project: projet, work_session: chantier }),

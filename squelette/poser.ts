@@ -6,7 +6,7 @@
 import { rolesQuiGerent, type Manifeste } from '@/lib/backend/app/manifeste';
 import { lesTablesEnAppJson } from '@/lib/backend/app/les-acces';
 import { CHEMINS_DERIVES, fichiersFiges, leGabaritCourant, POSES_PAR_UN_OUTIL, type Gabarit } from './registre';
-import { iconeDeLOnglet, poserLesJetons } from '@/lib/design/la-peau';
+import { iconeDeLOnglet, jetonsDeLaPeau, poserLesJetons } from '@/lib/design/la-peau';
 import { typesDesTables } from './les-types-des-tables';
 
 const lireDu = (g: Gabarit, chemin: string): string => {
@@ -28,7 +28,9 @@ export function derive(chemin: string, m: Manifeste, g: Gabarit = leGabaritCoura
     case 'src/styles/tokens.css': return poserLesJetons(lireDu(g, chemin), m.direction);
     case 'index.html': return lireDu(g, chemin).replace('__LANGUE__', m.langues.principale)
       .replace('__NOM__', echapperHtml(m.nom)).replace('__DESCRIPTION__', echapperHtml(m.description))
-      .replace('__ICONE__', iconeDeLOnglet(m.nom, m.direction));
+      .replace('__ICONE__', iconeDeLOnglet(m.nom, m.direction))
+      // L'app sur l'écran d'accueil (`lib/seo/l-installation.ts`) : la barre du téléphone prend le fond de l'app.
+      .replace('__COULEUR__', echapperHtml(jetonsDeLaPeau(m.direction).FOND ?? '#ffffff'));
     case 'package.json': return lireDu(g, chemin).replace('__NOM_PAQUET__', nomDePaquet(m.nom));
     default: throw new Error(`${chemin} n'est pas un fichier dérivé`);
   }

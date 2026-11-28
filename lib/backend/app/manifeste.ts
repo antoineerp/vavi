@@ -263,7 +263,8 @@ export const Intention = z.object({
   pourquoiDesCouleurs: Phrase.optional().describe('why THESE colours for THIS subject, in one sentence'),
 }).describe('the art direction written for this request: each line says what holds for THIS site and not another');
 
-export const Direction = z.object({
+const LaDirection = z.object({
+  nom: z.string().min(1).max(60).optional().describe('a short evocative name for this direction, in the language of the app (shown in the console next to the other directions)'),
   couleurs: z.object({ fond: Couleur, texte: Couleur, accent: Couleur, surface: Couleur, bordure: Couleur,
     second: Couleur.optional().describe('a second hue, accomplice of the accent: the end of a gradient headline, a second mark'),
     ancre: Couleur.optional().describe('the deep colour of dark bands (footer, inverted band), carrying light text; taken from the subject') }),
@@ -278,12 +279,23 @@ export const Direction = z.object({
   travail: z.enum(['affirme', 'sobre']).default('affirme').describe('l’allure des écrans derrière un compte : `affirme`, une colonne de menu sombre et de grands titres ; `sobre`, une colonne de menu claire, l’écran ouvert à la teinte de l’accent, des titres de taille courante — celle d’une app jointe ou reprise qui a une colonne claire'),
   couleursDemandees: z.boolean().default(false).describe('vrai seulement quand la demande nomme elle-même ses couleurs'),
   logo: z.string().regex(/^https:\/\/[^\s"<>]{1,1000}$/).optional().describe('set only by the owner in the console (their uploaded logo): never write it; show the brand with `<Marque />`'),
-}).superRefine((d, ctx) => {
+});
+const sansViolet = (d: { readonly couleursDemandees: boolean; readonly couleurs: Readonly<Record<string, string | undefined>> }, ctx: z.RefinementCtx): void => {
   if (d.couleursDemandees) return;
   for (const [nom, hex] of Object.entries(d.couleurs)) {
     if (hex && estViolette(hex)) ctx.addIssue({ code: 'custom', path: ['couleurs', nom], message: `${hex} est violet, mauve ou indigo : ces teintes ne se posent que si la demande les nomme` });
   }
-}).describe('la direction artistique, choisie pour le sujet de la demande : le contraste de lecture est construit à partir d’elle');
+};
+export const Direction = LaDirection.superRefine(sansViolet).describe('la direction artistique, choisie pour le sujet de la demande : le contraste de lecture est construit à partir d’elle');
+/**
+ * LES AUTRES DIRECTIONS (Antoine, 28/11 : « des designs uniques », choix « Réglages puis 3 directions ») : deux autres
+ * directions complètes que Claude propose pour le même sujet ; la console les montre à côté de la sienne et en pose une en
+ * un geste, sans modèle (`avecLaDirectionChoisie`, `lib/contenus/le-contenu.ts`). Les mêmes règles que la direction (le violet compris) ; le logo
+ * et l'allure des écrans de travail restent ceux de la direction posée. Ce qu'elle remplace : rien, une direction unique.
+ */
+export const AutreDirection = LaDirection.omit({ logo: true, travail: true })
+  .extend({ nom: z.string().min(1).max(60).describe('a short evocative name for this direction, in the language of the app') })
+  .superRefine(sansViolet);
 
 /** Qui publie l'app : le pied et les mentions légales le lisent. Ce que la demande ne dit pas reste absent, et le dit. */
 export const Editeur = z.object({
@@ -303,6 +315,7 @@ export const Manifeste = z.object({
   demandes: z.array(Demande).default([]),
   parcours: Parcours.optional(),
   direction: Direction,
+  autresDirections: z.array(AutreDirection).max(2).optional().describe('two other complete art directions for the same subject, clearly different from `direction` and from each other (another palette, another pair of fonts, another register or visual signature); the owner compares the three in the console and sets one in a click'),
   organisations: Organisations.default('une'),
   roles: z.array(Role).default([]),
   tables: z.array(Table).default([]),
