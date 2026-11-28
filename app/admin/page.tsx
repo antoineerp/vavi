@@ -153,8 +153,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
 
       <h2>Journal</h2>
       <div className="carte">
-        <p className="attenue">Builds en échec ({JOURS} j) : {t.buildsEnEchec.length || 'aucun'}</p>
-        {t.buildsEnEchec.length > 0 && <ul className="liste">{t.buildsEnEchec.map((b, i) => <li key={i}><span>{t.projets.find((p) => p.id === b.projet)?.nom ?? b.projet}</span><span className="attenue">{date(b.le)} · {b.ecarts} erreur(s)</span></li>)}</ul>}
+        <p className="attenue">Builds en échec ({JOURS} j) : {t.buildsEnEchec.length || 'aucun'} (chaque essai compte : Claude corrige puis rebâtit)</p>
+        {t.buildsEnEchec.length > 0 && <ul className="liste">{t.buildsEnEchec.map((b, i) => <li key={i}><span>{t.projets.find((p) => p.id === b.projet)?.nom ?? `Projet supprimé depuis (${b.projet.slice(0, 8)})`}</span><span className="attenue">{new Date(b.le).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Paris' })} · {b.ecarts} erreur(s)</span></li>)}</ul>}
         <p className="attenue">Tes derniers gestes : {t.gestes.length ? '' : 'aucun'}</p>
         {t.gestes.length > 0 && <ul className="liste">{t.gestes.map((g, i) => <li key={i}><span>{g.geste.replace(/_/g, ' ')}{g.cible ? ` · ${courriel.get(g.cible) ?? g.cible}` : ''}</span><span className="attenue">{new Date(g.le).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })}</span></li>)}</ul>}
       </div>
